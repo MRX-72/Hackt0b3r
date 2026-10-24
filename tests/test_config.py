@@ -138,7 +138,7 @@ def test_root_ignores_a_config_that_someone_else_could_have_planted(
     work = tmp_path / "work"
     work.mkdir()
     planted = work / "config.toml"
-    planted.write_text('database = "/etc/cron.d/oops"\\n')
+    planted.write_text('database = "/etc/cron.d/oops"\n')
     monkeypatch.chdir(work)
     monkeypatch.setattr(os, "geteuid", lambda: 0)
     monkeypatch.setenv("SUDO_UID", str(os.getuid()))
