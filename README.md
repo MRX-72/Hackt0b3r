@@ -81,6 +81,31 @@ sentinel replay demo.pcap                           # run it through the detecto
 sentinel ui --replay demo.pcap                      # same, in the web console (opens your browser)
 ```
 
+## Attack yourself (live demo)
+
+`tools/demo_attacks.py` runs a port scan, SSH brute force, beaconing and a DNS tunnel against
+**your own machine** (`127.0.0.1` only; any other target is refused), narrating each step on screen
+while Sentinel catches it in another window. Run from the checkout, in two terminals:
+
+```bash
+# terminal 1: the monitor. The demo config uses a 10 s window and a 15 s cooldown so every attack
+# alerts quickly and can be repeated, and keeps the demo out of your real history (examples/demo.db)
+uv run sentinel --config examples/demo-10s.toml ui --iface lo0      # web console, or:
+uv run sentinel --config examples/demo-10s.toml watch --iface lo0 -d    # full-screen terminal view
+
+# terminal 2: wait until terminal 1 says it is capturing, then attack
+uv run python tools/demo_attacks.py              # press Enter between attacks, to talk
+uv run python tools/demo_attacks.py --auto       # hands-off, 12 s between attacks
+uv run python tools/demo_attacks.py --only scan,dns   # just some of them (scan brute beacon dns web)
+```
+
+Each attack should raise a red `CRITICAL` line within about 10 to 25 seconds (scan: "probing many
+network ports", brute force: "repeated login attempts", beacon: "one server at fixed intervals",
+DNS: "unusual DNS requests"), and the device's incident grows as the same device does more. The `web`
+step is normal browsing as a control and must raise nothing. If capture on `lo0` is refused, run the
+monitor with `sudo "$(which sentinel)"` instead. Timings, expected results and manual one-attack
+commands: [demo.md](demo.md).
+
 ## Use it
 
 ```bash

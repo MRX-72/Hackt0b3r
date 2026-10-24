@@ -19,7 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import localhost_attacks as atk
 
-MONITOR_HINT = "uv run sentinel --config demo-10s.toml watch --iface lo0 -t"
+MONITOR_HINT = "uv run sentinel --config examples/demo-10s.toml watch --iface lo0 -t"
 BAR_WIDTH = 28
 
 
