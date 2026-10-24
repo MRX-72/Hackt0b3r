@@ -59,6 +59,7 @@ CSP = (
 STATIC_TYPES = {
     "app.js": "text/javascript",
     "tabs.js": "text/javascript",
+    "theme.js": "text/javascript",
     "app.css": "text/css",
     "index.html": "text/html",
 }
@@ -206,6 +207,7 @@ class UiServer:
                     "/": lambda: self._static("index.html"),
                     "/static/app.js": lambda: self._static("app.js"),
                     "/static/tabs.js": lambda: self._static("tabs.js"),
+                    "/static/theme.js": lambda: self._static("theme.js"),
                     "/static/app.css": lambda: self._static("app.css"),
                     "/api/stream": self._stream,
                     "/api/status": lambda: self._json(outer._hub.hello()),

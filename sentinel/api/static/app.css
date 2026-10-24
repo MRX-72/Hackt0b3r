@@ -1,9 +1,35 @@
 :root {
-  --bg: #050607; --bar: #030405; --panel: #08090b; --raise: #0d0f12; --line: #14181c; --line2: #1d232a;
-  --text: #cbd2d9; --bright: #e6eaee; --dim: #7b8794; --faint: #4d5762;
   --crit: #c4403f; --high: #c9702d; --med: #b8993b; --low: #4f86b3; --ok: #5a9e84;
   --tcp: #5b8db8; --udp: #6a9a8e; --icmp: #b8993b; --other: #7b8794;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  color-scheme: dark;
+}
+/* DARK (default): near black. */
+:root, :root[data-theme="dark"] {
+  --bg: #050607; --bar: #030405; --panel: #08090b; --raise: #0d0f12; --line: #14181c; --line2: #1d232a;
+  --text: #cbd2d9; --bright: #e6eaee; --dim: #7b8794; --faint: #4d5762;
+  --row: #0b0d0f; --arrive: #10161b;
+  --c-spoke: #14181c; --c-port: #08090b; --c-accent: #5b8db8; --c-accent-rgb: 91,141,184; --c-accent-hi: #8aa9c4;
+  --c-idle: #3b4652; --c-live: #7f95aa; --c-port-lit: #9fb4c7; --c-port-dim: #5d6772; --c-bad-fill: #2a1819;
+  --c-node: #0d1013; --c-self-edge: #4b5864; --c-label: #9aa7b4; --c-label-dim: #7b8794; --c-grid: #1c232a; --c-axis: #4d5762;
+}
+/* GREY: the original, softer dark grey. */
+:root[data-theme="grey"] {
+  --bg: #0d1013; --bar: #0a0c0f; --panel: #12161a; --raise: #181d22; --line: #232a31; --line2: #2f3943;
+  --row: #171c21; --arrive: #1f2a33;
+  --c-spoke: #232a31; --c-port: #12161a; --c-node: #1b2127; --c-grid: #232a31;
+}
+/* LIGHT: paper white with the same flat, square look. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #eef1f4; --bar: #e2e6ea; --panel: #ffffff; --raise: #f3f5f7; --line: #d5dbe1; --line2: #c2cad2;
+  --text: #27313a; --bright: #0d1218; --dim: #5d6a76; --faint: #8a96a2;
+  --crit: #c0392b; --high: #c4621a; --med: #d2a21a; --low: #3f78a8; --ok: #2f7d63;
+  --tcp: #3f74a3; --udp: #3f8a78; --icmp: #9a7d12; --other: #5d6a76;
+  --row: #eceff2; --arrive: #dce9f5;
+  --c-spoke: #d5dbe1; --c-port: #ffffff; --c-accent: #3f74a3; --c-accent-rgb: 63,116,163; --c-accent-hi: #1f5a8f;
+  --c-idle: #aab4be; --c-live: #5b6b7b; --c-port-lit: #1f3b57; --c-port-dim: #8a96a2; --c-bad-fill: #fbe9e8;
+  --c-node: #ffffff; --c-self-edge: #7b8794; --c-label: #3b4652; --c-label-dim: #5d6a76; --c-grid: #d5dbe1; --c-axis: #8a96a2;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
@@ -68,7 +94,7 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block
 /* tables */
 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 th { position: sticky; top: 0; z-index: 1; background: var(--panel); text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .14em; color: var(--dim); padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-td { padding: 4px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid #0b0d0f; }
+td { padding: 4px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid var(--row); }
 th.r, td.r { text-align: right; }
 tbody tr:hover { background: var(--raise); }
 #pkts { font-size: 13.5px; }
@@ -124,7 +150,7 @@ select:focus, input:focus { border-color: var(--dim); }
 #p-filter + .sub { min-width: 70px; text-align: right; }
 .panel h2 .ghost { margin-left: 0; }
 
-@keyframes arrive { from { background: #10161b; } to { background: transparent; } }
+@keyframes arrive { from { background: var(--arrive); } to { background: transparent; } }
 #pkts tbody tr.fresh { animation: arrive 0.9s ease-out; }
 
 /* ---- notifications, devices, health ---- */
@@ -158,5 +184,9 @@ select:focus, input:focus { border-color: var(--dim); }
 .hcard { background: var(--panel); padding-bottom: 4px; min-width: 0; } .hcard.wide { grid-column: 1 / -1; padding-bottom: 8px; }
 .hcard-title { padding: 10px 14px; border-bottom: 1px solid var(--line); color: var(--dim); font-size: 11px; font-weight: 700; letter-spacing: .16em; }
 .hcard .d-grid { border-bottom: 0; grid-template-columns: 110px minmax(0, 1fr); }
-.check { display: grid; grid-template-columns: 54px 170px minmax(0, 1fr); gap: 10px; padding: 6px 14px; border-bottom: 1px solid #0b0d0f; font-size: 12.5px; }
+.check { display: grid; grid-template-columns: 54px 170px minmax(0, 1fr); gap: 10px; padding: 6px 14px; border-bottom: 1px solid var(--row); font-size: 12.5px; }
 .check .ck { font-weight: 700; letter-spacing: .1em; } .check .cname { color: var(--bright); } .check .dim { overflow-wrap: anywhere; }
+
+/* ---- theme switch ---- */
+#theme { align-self: center; margin-right: 14px; }
+#theme button { padding: 4px 9px; font-size: 10px; }

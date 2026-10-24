@@ -12,6 +12,16 @@
   const hhmmss = (t) => { const d = new Date(t * 1000); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
   const stamp = (t) => { const d = new Date(t * 1000); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hhmmss(t)}`; };
   const num = (n) => Number(n).toLocaleString("en-US");
+  // Canvas colours come from the active theme's CSS variables (see app.css), read at draw time.
+  const pal = () => {
+    const st = getComputedStyle(document.documentElement), v = (n) => st.getPropertyValue(n).trim();
+    return {
+      spoke: v("--c-spoke"), port: v("--c-port"), accent: v("--c-accent"), accentRgb: v("--c-accent-rgb"),
+      accentHi: v("--c-accent-hi"), idle: v("--c-idle"), live: v("--c-live"), portLit: v("--c-port-lit"),
+      portDim: v("--c-port-dim"), badFill: v("--c-bad-fill"), node: v("--c-node"), selfEdge: v("--c-self-edge"),
+      label: v("--c-label"), labelDim: v("--c-label-dim"), grid: v("--c-grid"), axis: v("--c-axis"), crit: v("--crit"),
+    };
+  };
   const KNOWN = new Set(["tcp", "udp", "icmp"]);
   const MAX_ROWS = 300;
   const FLAG_MS = 60000;  // rows from a host stay red this long after its alert
@@ -106,13 +116,14 @@
     flagged(macs) { return [...macs].some((m) => isFlagged(m)); }
     draw() {
       const g = this.ctx, w = this.w, h = this.h, cx = w / 2, cy = h / 2 + 4;
+      const P = pal();
       const radius = Math.max(40, Math.min(w / 2 - 120, h / 2 - 46));
       g.clearRect(0, 0, w, h);
       g.font = "12px ui-monospace, Menlo, monospace"; g.textBaseline = "middle";
       const pos = (slot) => { const a = -Math.PI / 2 + (slot / SLOTS) * Math.PI * 2; return [cx + Math.cos(a) * radius, cy + Math.sin(a) * radius, a]; };
       for (const n of this.nodes.values()) {  // spokes first, so nodes sit on top
         const [x, y] = pos(n.slot), heat = Math.min(1, n.heat / 40);
-        g.strokeStyle = heat > 0.02 ? `rgba(91,141,184,${0.28 + 0.6 * heat})` : "#14181c";
+        g.strokeStyle = heat > 0.02 ? `rgba(${P.accentRgb},${0.28 + 0.6 * heat})` : P.spoke;
         g.lineWidth = 1 + 2 * heat; g.beginPath(); g.moveTo(cx, cy); g.lineTo(x, y); g.stroke();
       }
       g.lineWidth = 1;
@@ -121,24 +132,24 @@
       portList.forEach(([port, p], i) => {  // service ports of this machine, evenly spaced on a ring
         const a = -Math.PI / 2 + (i / PORT_RING) * Math.PI * 2, x = cx + Math.cos(a) * 54, y = cy + Math.sin(a) * 54;
         const on = Math.min(1, p.heat / 20);
-        g.strokeStyle = "#14181c"; g.beginPath(); g.moveTo(cx, cy); g.lineTo(x, y); g.stroke();
-        g.fillStyle = "#08090b"; g.fillRect(x - 5, y - 5, 10, 10);
-        g.strokeStyle = on > 0.05 ? "#5b8db8" : "#3b4652"; g.strokeRect(x - 4.5, y - 4.5, 9, 9);
-        if (on > 0.05) { g.fillStyle = "#5b8db8"; g.globalAlpha = 0.4 + 0.6 * on; g.fillRect(x - 2.5, y - 2.5, 5, 5); g.globalAlpha = 1; }
-        g.fillStyle = on > 0.05 ? "#9fb4c7" : "#5d6772"; g.textAlign = Math.cos(a) > 0.3 ? "left" : Math.cos(a) < -0.3 ? "right" : "center";
+        g.strokeStyle = P.spoke; g.beginPath(); g.moveTo(cx, cy); g.lineTo(x, y); g.stroke();
+        g.fillStyle = P.port; g.fillRect(x - 5, y - 5, 10, 10);
+        g.strokeStyle = on > 0.05 ? P.accent : P.idle; g.strokeRect(x - 4.5, y - 4.5, 9, 9);
+        if (on > 0.05) { g.fillStyle = P.accent; g.globalAlpha = 0.4 + 0.6 * on; g.fillRect(x - 2.5, y - 2.5, 5, 5); g.globalAlpha = 1; }
+        g.fillStyle = on > 0.05 ? P.portLit : P.portDim; g.textAlign = Math.cos(a) > 0.3 ? "left" : Math.cos(a) < -0.3 ? "right" : "center";
         const lx = x + Math.cos(a) * 11, ly = y + Math.sin(a) * 11 + (Math.abs(Math.cos(a)) <= 0.3 ? Math.sin(a) * 4 : 0);
         g.fillText(":" + port, lx, ly);
       });
-      g.fillStyle = bad ? "#2a1819" : "#0d1013"; g.strokeStyle = bad ? "#c4403f" : "#4b5864";
+      g.fillStyle = bad ? P.badFill : P.node; g.strokeStyle = bad ? P.crit : P.selfEdge;
       g.fillRect(cx - 10, cy - 10, 20, 20); g.strokeRect(cx - 9.5, cy - 9.5, 19, 19);
-      g.fillStyle = bad ? "#c4403f" : "#9aa7b4"; g.fillRect(cx - 3, cy - 3, 6, 6);
-      g.textAlign = "center"; g.fillStyle = bad ? "#c4403f" : "#7b8794";
+      g.fillStyle = bad ? P.crit : P.label; g.fillRect(cx - 3, cy - 3, 6, 6);
+      g.textAlign = "center"; g.fillStyle = bad ? P.crit : P.labelDim;
       g.fillText("THIS HOST", cx, cy + (portList.length ? 20 : 26));
       for (const n of this.nodes.values()) {
         const [x, y, a] = pos(n.slot), bad2 = this.flagged(n.macs), live = Date.now() - n.last < 1500;
-        g.fillStyle = bad2 ? "#2a1819" : "#0d1013"; g.strokeStyle = bad2 ? "#c4403f" : live ? "#7f95aa" : "#3b4652";
+        g.fillStyle = bad2 ? P.badFill : P.node; g.strokeStyle = bad2 ? P.crit : live ? P.live : P.idle;
         g.fillRect(x - 7, y - 7, 14, 14); g.strokeRect(x - 6.5, y - 6.5, 13, 13);
-        g.fillStyle = bad2 ? "#c4403f" : "#9aa7b4";
+        g.fillStyle = bad2 ? P.crit : P.label;
         const right = Math.cos(a) > 0.35, left = Math.cos(a) < -0.35;
         g.textAlign = right ? "left" : left ? "right" : "center";
         g.fillText(n.key.length > 15 ? n.key.slice(0, 14) + "…" : n.key, x + (right ? 13 : left ? -13 : 0), y + (right || left ? 0 : Math.sin(a) > 0 ? 18 : -18));
@@ -163,23 +174,25 @@
     add(n) { this.buckets[this.buckets.length - 1] += n; }
     draw() {
       const g = this.ctx, w = this.w, h = this.h, top = 18, bottom = h - 6, max = Math.max(10, ...this.buckets);
+      const P = pal();
       g.clearRect(0, 0, w, h);
-      g.strokeStyle = "#1c232a"; g.beginPath();
+      g.strokeStyle = P.grid; g.beginPath();
       for (let i = 0; i <= 3; i++) { const y = Math.round(top + ((bottom - top) * i) / 3) + 0.5; g.moveTo(0, y); g.lineTo(w, y); }
       g.stroke();
       const bw = (w - 52) / this.buckets.length;
       this.buckets.forEach((v, i) => {
         const bh = ((bottom - top) * v) / max;
-        g.fillStyle = i === this.buckets.length - 1 ? "#8aa9c4" : "#5b8db8";
+        g.fillStyle = i === this.buckets.length - 1 ? P.accentHi : P.accent;
         g.fillRect(44 + i * bw, bottom - bh, Math.max(1, bw - 1), bh);
       });
-      g.fillStyle = "#4d5762"; g.font = "10px ui-monospace, Menlo, monospace"; g.textAlign = "right";
+      g.fillStyle = P.axis; g.font = "10px ui-monospace, Menlo, monospace"; g.textAlign = "right";
       g.fillText(num(max), 38, top + 4); g.fillText("0", 38, bottom);
     }
   }
 
   // ---------------------------------------------------------------------------- live view
   const rate = new RateView($("#rate")), topo = new Topology($("#topo"));
+  document.addEventListener("sentinel:theme", () => { topo.dirty = true; rate.draw(); });
   const body = $("#pkts tbody");
 
   const kind = (ev) => ev.k === "f" ? ev.p : ev.k;

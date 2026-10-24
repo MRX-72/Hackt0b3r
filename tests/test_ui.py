@@ -1,5 +1,6 @@
 import http.client
 import json
+import re
 import socket
 import threading
 import time
@@ -334,7 +335,7 @@ def test_malformed_delete_requests_are_rejected_without_deleting(
 # ---------------------------------------------------------------------------- static assets
 @pytest.mark.security
 def test_the_page_never_builds_html_from_strings() -> None:
-    js = (STATIC / "app.js").read_text() + (STATIC / "tabs.js").read_text()
+    js = "".join((STATIC / n).read_text() for n in ("app.js", "tabs.js", "theme.js"))
     for sink in (
         "innerHTML",
         "outerHTML",
@@ -349,6 +350,7 @@ def test_the_page_never_builds_html_from_strings() -> None:
     assert (
         '<script src="/static/app.js">' in html
         and '<script src="/static/tabs.js">' in html
+        and '<script src="/static/theme.js">' in html
         and "onclick" not in html
         and "style=" not in html
     )
@@ -485,3 +487,24 @@ def test_a_root_process_never_launches_a_web_browser(
         assert len(opened) == expected
     assert any("not opening a browser" in line for line in said)
     service.close()
+
+
+def test_three_themes_exist_and_the_switch_is_wired() -> None:
+    css = (STATIC / "app.css").read_text()
+    html = (STATIC / "index.html").read_text()
+    for name in ("dark", "grey", "light"):
+        assert f':root[data-theme="{name}"]' in css or name == "dark", name
+        assert f'data-v="{name}"' in html
+    assert "color-scheme: light" in css
+    # every canvas colour has a variable in all three themes' base set, and no hex is drawn raw
+    js = (STATIC / "app.js").read_text()
+    assert "getComputedStyle" in js and not re.search(r'"#[0-9a-fA-F]{3,8}"', js)
+    theme = (STATIC / "theme.js").read_text()
+    assert "sentinel-theme" in theme and "try {" in theme  # storage may be blocked: must not throw
+
+
+def test_the_theme_script_is_served_to_a_logged_in_page(server: tuple[UiServer, Hub]) -> None:
+    ui, _ = server
+    res = get(ui, "/static/theme.js")
+    assert res.status == 200 and b"sentinel-theme" in res.read()
+    assert get(ui, "/static/theme.js", cookie=False).status == 403
