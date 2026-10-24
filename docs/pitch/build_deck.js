@@ -99,7 +99,7 @@ async function build() {
     mono(s, "NETWORK ANOMALY DETECTOR", { x: 0.7, y: 1.2, w: 6, h: 0.3, fontSize: 12, bold: true, color: T.crit, charSpacing: 5 });
     text(s, "Raven", { x: 0.7, y: 1.6, w: 6, h: 1.2, fontSize: 66, bold: true, color: T.bright, valign: "middle" });
     text(s, "Network security for places with no security team.", { x: 0.7, y: 2.9, w: 5.6, h: 1.1, fontSize: 24, color: T.text });
-    const stats = [["5", "detectors, rules and\nstatistical"], ["418", "automated tests"], ["4 / 4", "live attacks caught\non loopback"]];
+    const stats = [["5", "detectors, rules and\nstatistical"], ["462", "automated tests"], ["4 / 4", "live attacks caught\non loopback"]];
     stats.forEach(([n, l], i) => {
       const x = 0.7 + i * 1.95;
       hline(s, x, 4.75, 1.7, T.line2);
@@ -575,7 +575,7 @@ async function build() {
     }
     rect(s, 8.2, 1.8, 4.55, 4.85, T.panel, T.line, "stat-panel");
     label(s, "SECURITY TEST GROUP", 8.5, 2.0, 4);
-    mono(s, "51", { x: 8.5, y: 2.3, w: 2.0, h: 1.2, fontSize: 72, bold: true, color: T.ok, valign: "middle" });
+    mono(s, "85", { x: 8.5, y: 2.3, w: 2.0, h: 1.2, fontSize: 72, bold: true, color: T.ok, valign: "middle" });
     text(s, "tests that must\nnever be empty", { x: 10.4, y: 2.55, w: 2.2, h: 0.7, fontSize: 14, color: T.text, valign: "middle" });
     hline(s, 8.5, 3.7, 3.95, T.line);
     text(s, "They cover hostile DNS names, hostile history filters, SQL text in searches, spreadsheet-formula export, cross-site delete, rename and test-send requests, and planted symlinks.", { x: 8.5, y: 3.85, w: 3.95, h: 1.4, fontSize: 12.5, color: T.text, valign: "top" });
