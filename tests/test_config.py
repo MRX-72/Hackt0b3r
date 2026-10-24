@@ -190,3 +190,21 @@ def test_well_formed_credentials_are_accepted(tmp_path: Path) -> None:
         s.telegram_chat_id is not None and s.telegram_chat_id.get_secret_value() == "-1001234567890"
     )
     assert load_secrets(f, {"TELEGRAM_CHAT_ID": "@mychannel"}).telegram_chat_id is not None
+
+
+@pytest.mark.security
+def test_a_trailing_newline_or_a_hostless_url_cannot_slip_past_validation(tmp_path: Path) -> None:
+    f = tmp_path / "s.env"
+    f.write_text("")
+    f.chmod(0o600)
+    for key, bad in (("SLACK_WEBHOOK_URL", "https://"), ("DISCORD_WEBHOOK_URL", "https:///x")):
+        with pytest.raises(SecretsError):
+            load_secrets(f, {key: bad})
+    # surrounding whitespace in an environment value is stripped, not carried into a URL
+    s = load_secrets(f, {"TELEGRAM_BOT_TOKEN": "123:abc-DEF\n", "TELEGRAM_CHAT_ID": " 42 "})
+    assert (
+        s.telegram_bot_token is not None
+        and s.telegram_bot_token.get_secret_value() == "123:abc-DEF"
+    )
+    with pytest.raises(SecretsError):  # an embedded newline is not whitespace to strip
+        load_secrets(f, {"TELEGRAM_BOT_TOKEN": "12\n3:abc"})

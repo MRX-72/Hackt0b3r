@@ -4,6 +4,7 @@ import os
 import re
 from collections.abc import Mapping
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError, field_validator
 
@@ -38,19 +39,20 @@ class Secrets(BaseModel):
     @classmethod
     def _https_only(cls, v: SecretStr | None) -> SecretStr | None:
         """A webhook is a bearer secret: it must never travel over plain http."""
-        return _check(v, v is not None and v.get_secret_value().startswith("https://"),
-                      "a webhook URL must start with https://")  # fmt: skip
+        url = urlsplit(v.get_secret_value()) if v is not None else None
+        return _check(v, url is not None and url.scheme == "https" and bool(url.hostname),
+                      "a webhook URL must be https:// with a host")  # fmt: skip
 
     @field_validator("telegram_bot_token")
     @classmethod
     def _token_shape(cls, v: SecretStr | None) -> SecretStr | None:
-        return _check(v, v is not None and bool(_TELEGRAM_TOKEN.match(v.get_secret_value())),
+        return _check(v, v is not None and bool(_TELEGRAM_TOKEN.fullmatch(v.get_secret_value())),
                       "a Telegram bot token looks like 123456:ABC-def")  # fmt: skip
 
     @field_validator("telegram_chat_id")
     @classmethod
     def _chat_shape(cls, v: SecretStr | None) -> SecretStr | None:
-        return _check(v, v is not None and bool(_TELEGRAM_CHAT.match(v.get_secret_value())),
+        return _check(v, v is not None and bool(_TELEGRAM_CHAT.fullmatch(v.get_secret_value())),
                       "a Telegram chat id is a number or @channelname")  # fmt: skip
 
 
@@ -79,7 +81,7 @@ def _read_file(path: Path) -> dict[str, str]:
 
 def load_secrets(path: Path, environ: Mapping[str, str] | None = None) -> Secrets:
     env = os.environ if environ is None else environ
-    merged = _read_file(path) | {k: env[k] for k in KEYS if env.get(k)}
+    merged = _read_file(path) | {k: env[k].strip() for k in KEYS if env.get(k)}
     try:
         return Secrets.model_validate({k.lower(): v for k, v in merged.items() if v})
     except (

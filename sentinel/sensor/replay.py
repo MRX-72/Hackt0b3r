@@ -81,7 +81,7 @@ def tcpdump_argv(interface: str, snaplen: int, bpf: str = "") -> list[str]:
     The interface and filter come from the command line or config.toml and end up as tcpdump
     arguments, so anything that tcpdump could read as an option (a leading "-") is refused.
     """
-    if not _INTERFACE_NAME.match(interface):
+    if not _INTERFACE_NAME.fullmatch(interface):
         raise CaptureError(f"not a valid interface name: {interface!r}")
     if bpf.lstrip().startswith("-"):
         raise CaptureError("a capture filter cannot start with '-'")

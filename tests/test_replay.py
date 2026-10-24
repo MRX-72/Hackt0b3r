@@ -189,3 +189,9 @@ def test_a_capture_filter_cannot_smuggle_in_an_option() -> None:
     for iface in ("en0", "bridge100", "lo0", "utun3", "en0.100", "any"):
         argv = tcpdump_argv(iface, 384, "tcp port 22")
         assert argv[argv.index("-i") + 1] == iface and argv[-1] == "tcp port 22"
+
+
+@pytest.mark.security
+def test_a_trailing_newline_does_not_pass_the_interface_check() -> None:
+    with pytest.raises(CaptureError, match="interface"):
+        tcpdump_argv("en0\n", 384)
