@@ -4,7 +4,6 @@ import argparse
 import json
 import os
 import re
-import sqlite3
 import sys
 import time
 from collections.abc import Callable
@@ -14,7 +13,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from sentinel.api.service import SentinelService, ServiceError, init_workspace
+from sentinel.api.service import DATABASE_ERRORS, SentinelService, ServiceError, init_workspace
 from sentinel.api.ui import run_ui
 from sentinel.cli.dashboard import Dashboard
 from sentinel.cli.render import (
@@ -31,7 +30,6 @@ from sentinel.config.secrets import Secrets, SecretsError, load_secrets
 from sentinel.config.settings import Settings, find_config, load_settings, sentinel_home
 from sentinel.contracts.models import Event, HistoryQuery, IncidentReport
 from sentinel.contracts.text import terminal_safe
-from sentinel.storage.db import StorageError
 
 ServiceFactory = Callable[[Settings, Secrets], SentinelService]
 CHANNEL_CHOICES = ("slack", "discord", "telegram")
@@ -472,7 +470,7 @@ def main(argv: list[str] | None = None, build_service: ServiceFactory = default_
     service = build_service(settings, secrets)
     try:
         return _dispatch(args, service, settings, secrets)
-    except (ServiceError, StorageError, sqlite3.Error) as exc:
+    except (ServiceError, *DATABASE_ERRORS) as exc:
         what = (
             str(exc)
             if isinstance(exc, ServiceError)

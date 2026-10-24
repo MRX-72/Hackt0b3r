@@ -8,6 +8,7 @@ import os
 import platform
 import queue
 import socket
+import sqlite3
 import threading
 import time
 from collections.abc import Callable, Iterator
@@ -44,11 +45,13 @@ from sentinel.net.http import Transport, urllib_transport
 from sentinel.notify.router import Notifier
 from sentinel.pipeline.run import Pipeline
 from sentinel.sensor.replay import CaptureError, capture_live, read_pcap, tcpdump_argv
-from sentinel.storage.db import Storage
+from sentinel.storage.db import Storage, StorageError
 
 _MAX_PACED_GAP_SECONDS = 1.0  # a paced replay never waits longer than this between frames
 _IDLE_TICK_SECONDS = 1.0  # live mode runs the detectors at least this often
 _PRUNE_EVERY_SECONDS = 3600.0  # live capture applies the retention settings this often
+# What a client should catch to report an unusable database (bad path, corrupt file) cleanly.
+DATABASE_ERRORS = (StorageError, sqlite3.Error)
 OnEvent = Callable[[Event], None]
 OnReport = Callable[[IncidentReport], None]
 
