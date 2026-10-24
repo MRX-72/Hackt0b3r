@@ -286,7 +286,12 @@
     es.addEventListener("batch", (e) => onBatch(JSON.parse(e.data)));
     es.addEventListener("alert", (e) => addAlert(JSON.parse(e.data)));
     es.addEventListener("status", (e) => setStatus(JSON.parse(e.data)));
-    es.onerror = () => link(false, "RECONNECTING");
+    es.onerror = () => {
+      // The browser retries by itself after a dropped connection, but gives up for good when the
+      // server refuses the stream (too many open streams): then start a new one ourselves.
+      if (es.readyState === EventSource.CLOSED) { link(false, "REFUSED, RETRYING"); setTimeout(connect, 5000); }
+      else link(false, "RECONNECTING");
+    };
   }
 
   // ---------------------------------------------------------------------------- history view
