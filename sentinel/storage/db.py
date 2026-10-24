@@ -62,14 +62,25 @@ def migrate(conn: sqlite3.Connection, migrations: list[tuple[int, str]]) -> None
 
 
 def _give_away(path: Path, uid: int, gid: int) -> None:
-    """chown a regular file or directory without ever following a symlink (the folder is the
-    user's, so a planted link must not make root chown some other file)."""
+    """chown one of our own files (or the folder we created) without being steered elsewhere.
+
+    The folder belongs to the user, so they could plant a symlink or hard link there. The folder
+    is opened without following links, the entry is opened relative to it, and only a
+    single-link regular file (or directory) owned by root or by that user is touched.
+    """
+    flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
     try:
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        parent = os.open(path.parent, flags | os.O_DIRECTORY)
+        try:
+            fd = os.open(path.name, flags, dir_fd=parent)
+        finally:
+            os.close(parent)
     except OSError:  # missing, or a symlink: leave it alone
         return
     try:
-        if stat.S_ISREG(mode := os.fstat(fd).st_mode) or stat.S_ISDIR(mode):
+        info = os.fstat(fd)
+        plain = stat.S_ISREG(info.st_mode) and info.st_nlink == 1
+        if (plain or stat.S_ISDIR(info.st_mode)) and info.st_uid in (0, uid):
             os.fchown(fd, uid, gid)
     finally:
         os.close(fd)

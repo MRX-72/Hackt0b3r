@@ -6,7 +6,14 @@ from pathlib import Path
 import pytest
 
 from sentinel.contracts.models import Alert, Flow, Incident
-from sentinel.storage.db import FLOWS_FOR_HOST_SQL, Storage, StorageError, load_migrations, migrate
+from sentinel.storage.db import (
+    FLOWS_FOR_HOST_SQL,
+    Storage,
+    StorageError,
+    _give_away,
+    load_migrations,
+    migrate,
+)
 from tests.test_ui import record as anomaly
 
 A = "aa:bb:cc:dd:ee:01"
@@ -243,3 +250,26 @@ def test_a_planted_symlink_is_never_followed_by_the_handback(
     assert owned and victim.stat().st_ino not in owned
     (folder / "s.db-wal").unlink()
     store.close()
+
+
+def test_a_planted_hard_link_or_foreign_owned_file_is_not_handed_over(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = tmp_path / "home"
+    folder.mkdir()
+    victim = tmp_path / "victim"
+    victim.write_text("x")
+    os.link(victim, folder / "s.db-shm")  # two links: not ours
+    owned: list[int] = []
+    monkeypatch.setattr(os, "fchown", lambda fd, u, g: owned.append(os.fstat(fd).st_ino))
+    _give_away(folder / "s.db-shm", 501, 20)
+    assert owned == []
+    plain = folder / "plain"
+    plain.write_text("x")
+    _give_away(plain, os.getuid(), 20)  # a single-link file owned by the target user: handed over
+    assert owned == [plain.stat().st_ino]
+    other = folder / "other"
+    other.write_text("x")
+    owned.clear()
+    _give_away(other, os.getuid() + 1, 20)  # owned by someone else entirely: left alone
+    assert owned == []
