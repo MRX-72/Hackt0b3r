@@ -299,7 +299,9 @@ inc-aabbccddee30-110  [CRITICAL 1.00]  status=explained
       attempts=10, completed=10, dst_port=22, window_seconds=10
 ```
 
-Every number in an explanation can be found in this evidence.
+Every number in an explanation can be found in this evidence. When an incident grows, the text
+describes the **newest** step and adds a sentence naming the earlier ones ("Earlier this device also
+scanned ports, then tried to guess logins.").
 
 ### `ack`, `dismiss`, `resolve` — keep the list honest
 

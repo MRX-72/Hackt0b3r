@@ -97,11 +97,31 @@ def _generic(host: str, step: SanitizedStep) -> Text:
     )
 
 
+_EARLIER = {
+    "portscan": "scanned ports",
+    "bruteforce": "tried to guess logins",
+    "beaconing": "contacted a server at fixed intervals",
+    "dns_tunnel": "sent suspicious DNS lookups",
+}
+
+
+def _earlier_stages(incident: SanitizedIncident, latest: SanitizedStep) -> str:
+    """One sentence naming what the device did before the newest step (empty if nothing)."""
+    seen = dict.fromkeys(
+        _EARLIER.get(s.detector, "did something unusual")
+        for s in incident.steps
+        if s.detector != latest.detector
+    )
+    return f" Earlier this device also {', then '.join(seen)}." if seen else ""
+
+
 def explain_template(incident: SanitizedIncident) -> Explanation:
-    step = max(incident.steps, key=lambda s: s.severity * s.confidence)
+    """Describe the newest step (steps are in time order) and name the earlier ones."""
+    step = incident.steps[-1]
     headline, what, cause, action = _BUILDERS.get(step.detector, _generic)(
         str(incident.host_ip), step
     )
+    what += _earlier_stages(incident, step)
     related = len({s.technique for s in incident.steps})
     note = (
         f"Confidence {round(incident.confidence * 100)}%. "

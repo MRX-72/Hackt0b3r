@@ -258,3 +258,23 @@ def test_faithfulness_allows_the_target_ip_but_no_other() -> None:
     assert verify(ok, inc) is None
     bad = LlmOutput.model_validate_json(llm_json(what_happened="It probed 192.168.2.21."))
     assert verify(bad, inc) is not None
+
+
+def test_a_growing_incident_is_described_by_its_newest_step_with_earlier_ones_named() -> None:
+    first = make("portscan", "T1046", {"unique_dst_ports": 200.0, "window_seconds": 10.0})
+    brute = make(
+        "bruteforce", "T1110", {"dst_port": 22.0, "attempts": 30.0, "window_seconds": 10.0}
+    )
+    dns = make("dns_tunnel", "T1071.004", {"dns_queries": 60.0, "dns_mean_length": 67.0})
+    steps = [first.steps[0], brute.steps[0].model_copy(update={"ts": 6.0}),
+             dns.steps[0].model_copy(update={"ts": 7.0})]  # fmt: skip
+    chained = first.model_copy(update={"steps": steps})
+    [e1, e2, e3] = [
+        explain_template(first.model_copy(update={"steps": steps[:n]})) for n in (1, 2, 3)
+    ]
+    assert len({e1.headline, e2.headline, e3.headline}) == 3  # every update reads differently
+    assert e3.headline == "Unusual DNS requests that may hide data"
+    assert "Earlier this device also scanned ports, then tried to guess logins." in (
+        explain_template(chained).what_happened
+    )
+    assert "Earlier" not in e1.what_happened

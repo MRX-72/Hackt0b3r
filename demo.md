@@ -37,8 +37,9 @@ uv run python tools/demo_attacks.py --only scan,dns     # just some of them
 
 Order: port scan, SSH brute force, beaconing, DNS tunnel, then the control. In the reference run
 the monitor printed four lines, one per attack, as the same device's incident grew:
-`T1046` then `T1046 > T1110` then `... > T1071.001` then `... > T1071.004`; the control added
-nothing. Options: `--settle N` (seconds between attacks), `--countdown N` (before the first),
+`T1046` then `T1046 > T1110` then `... > T1071.001` then `... > T1071.004`, and each line has its
+own headline (port probing, repeated logins, fixed-interval contact, unusual DNS); the control
+added nothing. Options: `--settle N` (seconds between attacks), `--countdown N` (before the first),
 `--scale 0.1` (tiny rehearsal run; too small to trigger detection). Loopback only.
 
 ---
