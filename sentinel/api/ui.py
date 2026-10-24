@@ -1,7 +1,8 @@
 """Local web console: live packets, alerts and the permanent anomaly history.
 
 An HTTP adapter over the service facade. It listens on 127.0.0.1 only, requires a per-run token
-(set as a SameSite=Strict cookie), rejects foreign Host headers, serves vendored static files with
+(set as a SameSite=Strict cookie), rejects foreign Host and Origin headers, serves vendored static
+files with
 a strict Content-Security-Policy, and never builds HTML from network-derived strings (the page uses
 textContent).
 """
@@ -142,6 +143,7 @@ class UiServer:
         self._streams = 0
         self._last_test: dict[str, float] = {}
         self._streams_lock = threading.Lock()
+        self._test_lock = threading.Lock()
         self._stop = threading.Event()
         allowed: set[str] = set()  # filled once the real port is known (port 0 = any free port)
         outer = self
@@ -180,11 +182,14 @@ class UiServer:
             def _deny(self) -> None:
                 self._send(HTTPStatus.FORBIDDEN, "text/plain; charset=utf-8", b"forbidden\n")
 
-            def _origin_ok(self) -> bool:
-                """A browser names the page that made a request; refuse any but this console.
-                (Non-browser clients send no Origin header.)"""
+            def _from_this_console(self) -> bool:
+                """Host must be ours (DNS-rebinding guard) and, if a browser names the page that
+                made the request, that page must be this console (cross-site guard). Clients that
+                are not browsers send no Origin header."""
                 origin = self.headers.get("Origin")
-                return origin is None or origin in {f"http://{h}" for h in allowed}
+                return self.headers.get("Host", "") in allowed and (
+                    origin is None or origin in {f"http://{h}" for h in allowed}
+                )
 
             def _cookie_ok(self) -> bool:
                 jar: SimpleCookie = SimpleCookie(self.headers.get("Cookie", ""))
@@ -210,8 +215,8 @@ class UiServer:
                         self._json({"error": "internal error"}, HTTPStatus.INTERNAL_SERVER_ERROR)
 
             def _get(self) -> None:  # noqa: PLR0911 - one early return per refusal or route
-                if self.headers.get("Host", "") not in allowed or not self._origin_ok():
-                    return self._deny()  # DNS-rebinding and cross-site guard
+                if not self._from_this_console():
+                    return self._deny()
                 url = urlsplit(self.path)
                 params = parse_qs(url.query)
                 if url.path == "/" and "t" in params:  # first visit: trade the token for a cookie
@@ -245,11 +250,7 @@ class UiServer:
                 self._send(HTTPStatus.NOT_FOUND, "text/plain; charset=utf-8", b"not found\n")
 
             def _post(self) -> None:
-                if (
-                    self.headers.get("Host", "") not in allowed
-                    or not self._origin_ok()
-                    or not self._cookie_ok()
-                ):
+                if not self._from_this_console() or not self._cookie_ok():
                     return self._deny()
                 # A custom header cannot be sent cross-site without a CORS preflight, which we
                 # never answer: this plus the SameSite=Strict cookie stops other pages acting.
@@ -300,9 +301,9 @@ class UiServer:
                     return self._json(
                         {"error": "channel has no credentials"}, HTTPStatus.BAD_REQUEST
                     )
-                with outer._streams_lock:
-                    wait = outer._last_test.get(request.channel, -TEST_COOLDOWN_SECONDS)
-                    if time.monotonic() - wait < TEST_COOLDOWN_SECONDS:
+                with outer._test_lock:
+                    last = outer._last_test.get(request.channel)
+                    if last is not None and time.monotonic() - last < TEST_COOLDOWN_SECONDS:
                         return self._json(
                             {"error": "wait a few seconds"}, HTTPStatus.TOO_MANY_REQUESTS
                         )
