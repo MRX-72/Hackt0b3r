@@ -217,7 +217,8 @@ sudo "$(which sentinel)" ui --iface bridge100          # or the web console
 
 ## Web console
 
-`sentinel ui` prints a link like `http://127.0.0.1:8787/?t=...` and opens it. The link's token is
+`sentinel ui` prints a link like `http://127.0.0.1:8787/?t=...` and opens it (when started with
+`sudo` it only prints the link, and you open it yourself: a browser is never launched as root). The link's token is
 needed once; the page only listens on `127.0.0.1`.
 
 - **LIVE tab:** packet monitor (newest first, with a filter box), packets per second, a network

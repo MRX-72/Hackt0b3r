@@ -368,7 +368,8 @@ uv run sentinel ui --replay demo.pcap        # play a capture (--speed 20 = 20x 
 uv run sentinel ui                           # no capture: just browse the history
 ```
 
-It prints a URL like `http://127.0.0.1:8787/?t=<token>` and opens it in your browser (`--no-open`
+It prints a URL like `http://127.0.0.1:8787/?t=<token>` and opens it in your browser (not under `sudo`: a root process never launches a browser, so
+open the printed link yourself; `--no-open`
 to skip, `--port N` to change). The page only works with that token (it is traded for a cookie on
 first load), only on 127.0.0.1, and nothing is loaded from the internet.
 
