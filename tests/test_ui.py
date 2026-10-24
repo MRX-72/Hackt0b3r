@@ -466,3 +466,22 @@ def test_a_flood_of_events_cannot_grow_the_hub_without_bound() -> None:
     _, data = parse_sse(client.get_nowait())
     assert data["n"] == MAX_PENDING
     assert hub.hello()["dropped"] == 300 and hub.hello()["events"] == MAX_PENDING + 300
+
+
+@pytest.mark.security
+def test_a_root_process_never_launches_a_web_browser(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    opened: list[str] = []
+    monkeypatch.setattr("sentinel.api.ui.webbrowser.open", opened.append)
+    stop = threading.Event()
+    stop.set()  # serve nothing: just start up and shut down
+    said: list[str] = []
+    service = SentinelService(Settings(), Secrets(), database=tmp_path / "s.db")
+    for euid, expected in ((0, 0), (501, 1)):
+        monkeypatch.setattr("sentinel.api.ui.os.geteuid", lambda euid=euid: euid)
+        opened.clear()
+        run_ui(service, port=0, open_browser=True, say=said.append, stop=stop)
+        assert len(opened) == expected
+    assert any("not opening a browser" in line for line in said)
+    service.close()

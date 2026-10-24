@@ -10,6 +10,7 @@ import csv
 import hmac
 import io
 import json
+import os
 import queue
 import re
 import secrets
@@ -522,7 +523,9 @@ def run_ui(  # noqa: PLR0913 - one keyword per command-line option
     url = f"http://127.0.0.1:{server.port}/?t={token}"
     say(f"Sentinel console: {url}")
     say(f"history database: {service.database.resolve()}   capture: {capture}   Ctrl-C to stop")
-    if open_browser:
+    if open_browser and os.geteuid() == 0:
+        say("not opening a browser from a root process: open the link above yourself")
+    elif open_browser:
         webbrowser.open(url)
     try:
         while not stop.is_set():
