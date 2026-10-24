@@ -488,3 +488,26 @@ def test_deliveries_command_lists_notification_attempts_with_filters(
     assert "no notifications yet" in run_ok(env, capsys, "deliveries", "--channel", "telegram")
     row = json.loads(run_ok(env, capsys, "deliveries", "--json").splitlines()[0])
     assert (row["channel"], row["status"], row["label"]) == ("slack", "sent", "CRITICAL")
+
+
+@pytest.mark.security
+def test_init_never_exposes_the_secrets_file_even_for_a_moment_or_through_a_link(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real_open, seen = os.open, []
+
+    def spy(path: str | Path, flags: int, mode: int = 0o777, **kw: object) -> int:
+        seen.append((Path(path).name, mode))
+        return real_open(path, flags, mode, **kw)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(os, "open", spy)
+    target = tmp_path / "ws"
+    assert main(["init", "--dir", str(target)]) == 0
+    assert ("secrets.env", 0o600) in seen  # created private, not chmod-ed afterwards
+    assert (target / "secrets.env").stat().st_mode & 0o777 == 0o600
+    other = tmp_path / "ws2"
+    other.mkdir()
+    victim = tmp_path / "victim"
+    (other / "secrets.env").symlink_to(victim)
+    assert main(["init", "--dir", str(other)]) == 0  # an existing entry is left alone
+    assert not victim.exists()

@@ -409,15 +409,15 @@ def init_workspace(directory: Path) -> list[tuple[Path, bool]]:
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     for name, mode in (("config.toml", 0o644), ("secrets.env", 0o600)):
         target = directory / name
-        created = not target.exists()
-        if (
-            created
-        ):  # the template is not called secrets.env: that name is git-ignored and unpackaged
-            target.write_text(
-                (
-                    templates / f"{name}.template" if name == "secrets.env" else templates / name
-                ).read_text()
-            )
-            target.chmod(mode)
-        results.append((target, created))
+        template = templates / f"{name}.template" if name == "secrets.env" else templates / name
+        # Created with its final mode in one step: writing first and chmod-ing after would leave
+        # the new secrets file readable by others for a moment. Never follows a planted link.
+        try:
+            fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode)
+        except FileExistsError:
+            results.append((target, False))
+            continue
+        with os.fdopen(fd, "w") as out:
+            out.write(template.read_text())
+        results.append((target, True))
     return results
