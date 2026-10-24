@@ -20,7 +20,7 @@ Decision: use `termaid` (installed) for validation; mmdc is unusable here (no Ch
 Reason: user instruction; spec requires saying which diagrams could not be validated with the official tool.
 
 ## D-005 Work in a git repo
-Decision: `git init` in /Users/mrx/Hacktober. Personal project, so no PR workflow. `.venv/` ignored.
+Decision: `git init` in the project folder. Personal project, so no PR workflow. `.venv/` ignored.
 
 ## D-006 Dependency: pydantic
 Context: contracts need validation (numeric-only evidence, MAC/IP shapes, score ranges) and the spec mandates pydantic for config.
