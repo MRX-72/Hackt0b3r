@@ -411,7 +411,7 @@ first load), only on 127.0.0.1, and nothing is loaded from the internet.
   and LLM setup (credentials are only shown as set / not set); the database file, size and row
   counts; versions; and the `sentinel doctor` checks (secrets file, credentials, interface, LLM
   server), refreshed at most every ten seconds.
-- **Theme:** the **DARK / GREY / LIGHT** switch in the top bar (dark is the default). It is remembered
+- **Theme:** the **DARK / LIGHT** switch in the top bar (dark is the default). It is remembered
   in your browser only; nothing about it is sent to or stored by Sentinel.
 - Keys: `1` live, `2` history, `3` notifications, `4` devices, `5` health, `/` search or filter,
   `p` pause the packet table.

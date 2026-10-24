@@ -13,12 +13,6 @@
   --c-idle: #3b4652; --c-live: #7f95aa; --c-port-lit: #9fb4c7; --c-port-dim: #5d6772; --c-bad-fill: #2a1819;
   --c-node: #0d1013; --c-self-edge: #4b5864; --c-label: #9aa7b4; --c-label-dim: #7b8794; --c-grid: #1c232a; --c-axis: #4d5762;
 }
-/* GREY: the original, softer dark grey. */
-:root[data-theme="grey"] {
-  --bg: #0d1013; --bar: #0a0c0f; --panel: #12161a; --raise: #181d22; --line: #232a31; --line2: #2f3943;
-  --row: #171c21; --arrive: #1f2a33;
-  --c-spoke: #232a31; --c-port: #12161a; --c-node: #1b2127; --c-grid: #232a31;
-}
 /* LIGHT: paper white with the same flat, square look. */
 :root[data-theme="light"] {
   color-scheme: light;

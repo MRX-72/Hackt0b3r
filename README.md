@@ -230,7 +230,7 @@ needed once; the page only listens on `127.0.0.1`.
 - **NOTIFICATIONS tab:** the three channels with their state (ready, no credentials, not in config), sent / failed / skipped counts for the last 24 hours, a **SEND TEST** button per channel (two clicks; it sends one marked test message to your real workspace), a banner saying whether this run is **armed** (started with `-n`), and every delivery with the alert it was about and why it failed, if it did. Click a row, then **OPEN IN HISTORY**.
 - **DEVICES tab:** every device the capture has seen (kept across restarts): addresses, last seen, packets, bytes sent and received, and alert count with the worst severity. Click one to see its recent alerts and give it a name (saved in the database; names never come from network data). Broadcast and multicast addresses are not listed.
 - **HEALTH tab:** is capture running and when did the last packet arrive, which detectors and thresholds are active, notification and LLM setup (credentials shown only as set / not set), database size and counts, and the same checks as `sentinel doctor`, refreshed every few seconds.
-- **Theme:** the **DARK / GREY / LIGHT** switch in the top bar changes the colours (dark is the default, grey is the earlier softer palette). The choice is remembered in that browser.
+- **Theme:** the **DARK / LIGHT** switch in the top bar changes the colours (dark is the default). The choice is remembered in that browser.
 - **Keys:** `1` live, `2` history, `3` notifications, `4` devices, `5` health, `/` search or filter, `p` pause the packet table.
 
 ## Attack yourself (live demo)

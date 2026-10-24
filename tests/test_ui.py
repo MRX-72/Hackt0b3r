@@ -490,10 +490,10 @@ def test_a_root_process_never_launches_a_web_browser(
     service.close()
 
 
-def test_three_themes_exist_and_the_switch_is_wired() -> None:
+def test_two_themes_exist_and_the_switch_is_wired() -> None:
     css = (STATIC / "app.css").read_text()
     html = (STATIC / "index.html").read_text()
-    for name in ("dark", "grey", "light"):
+    for name in ("dark", "light"):
         assert f':root[data-theme="{name}"]' in css or name == "dark", name
         assert f'data-v="{name}"' in html
     assert "color-scheme: light" in css
@@ -502,6 +502,7 @@ def test_three_themes_exist_and_the_switch_is_wired() -> None:
     assert "getComputedStyle" in js and not re.search(r'"#[0-9a-fA-F]{3,8}"', js)
     theme = (STATIC / "theme.js").read_text()
     assert "sentinel-theme" in theme and "try {" in theme  # storage may be blocked: must not throw
+    assert "grey" not in css + html + theme  # an old saved "grey" choice falls back to dark
 
 
 def test_the_theme_script_is_served_to_a_logged_in_page(server: tuple[UiServer, Hub]) -> None:
