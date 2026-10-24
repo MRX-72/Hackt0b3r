@@ -38,6 +38,23 @@ traffic only; their false-alarm rate on a real network is unverified) and can be
 `[detection.ml]`. Not built yet: an autoencoder, per-device peer baselines, automatic blocking and
 a background service. See `docs/BACKLOG.md`.
 
+## What is inside
+
+| Part | What it is | Status |
+|---|---|---|
+| Packet capture | live via `tcpdump`, or replay any `.pcap` | live verified on loopback only; gateway `bridge100` not yet |
+| Rule detectors | port scan, brute force, beaconing (timing regularity), DNS tunnelling | tested on synthetic and live loopback attacks |
+| DNS n-gram model | character-trigram "random name" score, a 5th DNS signal | built, measured on synthetic data ([ablation](docs/ABLATION.md)) |
+| Isolation Forest | learns your network's normal, flags unusual volume | built, measured on synthetic data; real false-alarm rate unverified |
+| Incidents | alerts joined per device, ATT&CK chain, 0 to 1 score | built |
+| Explanations | plain-English templates; optional local LLM (Ollama, llama.cpp) with fact-checking and template fallback | templates verified; real LLM not yet |
+| Notifications | Slack, Discord, Telegram with rate limits, retries, dedupe | tested against fakes; real delivery unverified |
+| Web console | live packet monitor, topology, alerts; permanent history with search, CSV and delete | built, checked in headless Chromium |
+| Terminal | `watch -d` live dashboard, `history`, `incidents`, `ack`, `status`, `doctor` | built |
+| Storage | SQLite in `~/.sentinel`, never pruned history, audit log | built |
+| Demo tools | practice `.pcap` and loopback attack scripts (loopback only) | built, see [demo.md](demo.md) |
+| Not built | autoencoder, per-device peer baselines, automatic blocking, background service | roadmap |
+
 ## Install
 
 You need **macOS** (tested platform; live capture uses the built-in `tcpdump`) and
