@@ -50,6 +50,16 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 _OPENER = urllib.request.build_opener(_NoRedirect)
+MAX_RESPONSE_BYTES = (
+    4 * 1024 * 1024
+)  # webhook and LLM replies are tiny; a server cannot make us buffer more
+
+
+def _read(stream: Any) -> bytes:
+    data: bytes = stream.read(MAX_RESPONSE_BYTES + 1)
+    if len(data) > MAX_RESPONSE_BYTES:
+        raise TransportError("response too large")
+    return data
 
 
 def urllib_transport(request: Request) -> Response:
@@ -60,9 +70,9 @@ def urllib_transport(request: Request) -> Response:
     )
     try:
         with _OPENER.open(req, timeout=request.timeout) as resp:
-            return Response(resp.status, resp.read())
+            return Response(resp.status, _read(resp))
     except urllib.error.HTTPError as exc:
-        return Response(exc.code, exc.read())
+        return Response(exc.code, _read(exc))
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         raise TransportError(
             type(exc.reason if isinstance(exc, urllib.error.URLError) else exc).__name__

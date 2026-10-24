@@ -4,7 +4,13 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
-from sentinel.net.http import Request, TransportError, json_request, urllib_transport
+from sentinel.net.http import (
+    MAX_RESPONSE_BYTES,
+    Request,
+    TransportError,
+    json_request,
+    urllib_transport,
+)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -86,3 +92,12 @@ def test_a_redirect_is_never_followed_so_headers_cannot_leak_to_another_host() -
             server.shutdown()
             server.server_close()
     assert response.status == 302 and seen == {}  # the second host was never contacted
+
+
+@pytest.mark.security
+def test_an_oversized_reply_is_refused_instead_of_buffered(server: str) -> None:
+    big = {"blob": "x" * (MAX_RESPONSE_BYTES + 10)}
+    with pytest.raises(TransportError, match="too large"):
+        urllib_transport(json_request("POST", server, big))
+    small = {"blob": "x" * 1000}
+    assert urllib_transport(json_request("POST", server, small)).status == 200
