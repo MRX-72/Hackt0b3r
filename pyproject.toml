@@ -3,6 +3,8 @@ name = "sentinel"
 version = "0.1.0"
 description = "Network anomaly detector for small networks: scans, brute force, beaconing and DNS tunnelling, with plain-English alerts"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 keywords = ["network", "security", "anomaly-detection", "pcap", "ids"]
 classifiers = [
     "Programming Language :: Python :: 3.13",
