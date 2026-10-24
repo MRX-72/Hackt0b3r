@@ -60,8 +60,9 @@ const vline = (s, x, y, h, color = T.line2, width = 1) =>
   s.addShape(pres.ShapeType.line, { x, y, w: 0, h, line: { color, width }, objectName: "rule" });
 const arrow = (s, x1, y, x2, color = T.faint) =>
   s.addShape(pres.ShapeType.line, { x: x1, y, w: x2 - x1, h: 0, line: { color, width: 2, endArrowType: "triangle" }, objectName: "arrow" });
-const kicker = (s, n, label) =>
-  text(s, `${n}  /  ${label}`, { x: 0.6, y: 0.3, w: 8, h: 0.28, fontFace: MONO, fontSize: 11, bold: true, color: T.crit, charSpacing: 3 });
+let kickerCount = 0;
+const kicker = (s, label) =>
+  text(s, `${String(++kickerCount).padStart(2, "0")}  /  ${label}`, { x: 0.6, y: 0.3, w: 8, h: 0.28, fontFace: MONO, fontSize: 11, bold: true, color: T.crit, charSpacing: 3 });
 const chip = (s, x, y, w, t, color, o = {}) => {
   rect(s, x, y, w, o.h || 0.3, null, color, "chip");
   text(s, t, { x, y, w, h: o.h || 0.3, fontFace: MONO, fontSize: o.size || 10, bold: true, color, align: "center", valign: "middle", charSpacing: 1 });
@@ -98,7 +99,7 @@ async function build() {
     mono(s, "NETWORK ANOMALY DETECTOR", { x: 0.7, y: 1.2, w: 6, h: 0.3, fontSize: 12, bold: true, color: T.crit, charSpacing: 5 });
     text(s, "Sentinel", { x: 0.7, y: 1.6, w: 6, h: 1.2, fontSize: 66, bold: true, color: T.bright, valign: "middle" });
     text(s, "Network security for places with no security team.", { x: 0.7, y: 2.9, w: 5.6, h: 1.1, fontSize: 24, color: T.text });
-    const stats = [["5", "detectors, rules and\nstatistical"], ["392", "automated tests"], ["4 / 4", "live attacks caught\non loopback"]];
+    const stats = [["5", "detectors, rules and\nstatistical"], ["418", "automated tests"], ["4 / 4", "live attacks caught\non loopback"]];
     stats.forEach(([n, l], i) => {
       const x = 0.7 + i * 1.95;
       hline(s, x, 4.75, 1.7, T.line2);
@@ -119,7 +120,7 @@ async function build() {
       "The gap: schools, labs and small offices have the same exposure as a company but no analyst. Commercial tools assume a security operations team. " +
         "The attacks themselves are quiet: a scan or a password-guessing run looks like background noise unless something is counting."
     );
-    kicker(s, "01", "THE PROBLEM");
+    kicker(s, "THE PROBLEM");
     const cards = [
       [fa.FaUserSlash, "No security staff", "The admin is also the help desk. Nobody reads logs, and alerts nobody understands get ignored."],
       [fa.FaServer, "Tools built for a SOC", "Enterprise products assume analysts, a SIEM and a budget. Small teams cannot run or afford them."],
@@ -147,7 +148,7 @@ async function build() {
         "Explain writes the words, from templates or an optional local LLM. Deliver puts it on the console, in the permanent history and, if enabled, on Slack, Discord or Telegram. " +
         "The key safety point is the bar underneath: network text is sanitised before any LLM, alert or screen sees it."
     );
-    kicker(s, "02", "HOW IT WORKS");
+    kicker(s, "HOW IT WORKS");
     const steps = [
       [fa.FaNetworkWired, "Capture", "tcpdump live,\nor any .pcap"],
       [fa.FaChartBar, "Count", "per device over\n10 s, 5 min, 1 h"],
@@ -185,7 +186,7 @@ async function build() {
       "Each card shows what the detector looks for and the real evidence recorded in the live loopback test (numbers from demo.md and docs/ABLATION.md). " +
         "The first four are rules with thresholds you can read and tune. The fifth, unusual behaviour, is statistical and says only 'unusual', never a named attack."
     );
-    kicker(s, "03", "WHAT IT DETECTS");
+    kicker(s, "WHAT IT DETECTS");
     const d = [
       ["Port scan", "T1046", T.crit, "One device probing many ports or hosts, fast or slow.", "400 ports in about 1 s, 99.75% failed"],
       ["Brute force", "T1110", T.crit, "Many connections to SSH, RDP, SMB or FTP that mostly complete.", "21 logins to port 2222, all completed"],
@@ -218,7 +219,7 @@ async function build() {
         "1: the packet monitor, newest first, filterable; packets from a flagged device turn red for a minute. 2: topology around this host, with service ports as small boxes, so a scan shows up as ports lighting up. " +
         "3: the alert stack, every CRITICAL stays visible. 4: packets per second. It listens on 127.0.0.1 only, with a one-time token."
     );
-    kicker(s, "04", "THE LIVE CONSOLE");
+    kicker(s, "THE LIVE CONSOLE");
     const iw = 8.3, ih = iw * (1620 / 2880);
     rect(s, 0.6 - 0.05, 1.75 - 0.05, iw + 0.1, ih + 0.1, T.panel, T.line2, "frame");
     s.addImage({ path: path.join(__dirname, "assets", "live.png"), x: 0.6, y: 1.75, w: iw, h: ih, altText: "Live tab of the Sentinel console" });
@@ -252,10 +253,10 @@ async function build() {
       "Every detection is written to a SQLite database in the user's folder, so it survives restarts. The History tab filters by severity, time and source, searches headline, address, technique or incident id, " +
         "opens the full explanation and the numbers behind it, exports CSV, and deletes chosen entries (two clicks to confirm, each deletion recorded in an audit log). The same data is available in the terminal with 'sentinel history'."
     );
-    kicker(s, "05", "THE HISTORY");
-    const iw = 8.3, ih = iw * (1560 / 2880);
+    kicker(s, "THE HISTORY");
+    const iw = 8.75, ih = iw * (1620 / 2880);
     rect(s, 0.55, 1.7, iw + 0.1, ih + 0.1, T.panel, T.line2, "frame");
-    s.addImage({ path: path.join(__dirname, "assets", "history_c.png"), x: 0.6, y: 1.75, w: iw, h: ih, altText: "History tab with four CRITICAL detections and the detail pane open on a beaconing alert" });
+    s.addImage({ path: path.join(__dirname, "assets", "history.png"), x: 0.6, y: 1.75, w: iw, h: ih, altText: "History tab with four CRITICAL detections and the detail pane open on a beaconing alert" });
     const pts = [
       ["Survives restarts", "SQLite in ~/.sentinel. The same history from any folder."],
       ["Find anything", "Filter by severity, time, source. Search headline, IP, technique or incident."],
@@ -265,11 +266,72 @@ async function build() {
     ];
     pts.forEach(([h, b], i) => {
       const y = 1.7 + i * 0.98;
-      vline(s, 9.35, y, 0.8, T.crit, 2);
-      text(s, h, { x: 9.6, y, w: 3.2, h: 0.35, fontSize: 15, bold: true, color: T.bright });
-      text(s, b, { x: 9.6, y: y + 0.35, w: 3.2, h: 0.5, fontSize: 11.5, color: T.dim, valign: "top" });
+      vline(s, 9.65, y, 0.8, T.crit, 2);
+      text(s, h, { x: 9.9, y, w: 2.9, h: 0.35, fontSize: 15, bold: true, color: T.bright });
+      text(s, b, { x: 9.9, y: y + 0.35, w: 2.9, h: 0.5, fontSize: 11.5, color: T.dim, valign: "top" });
     });
   }
+
+  // ------------------------------------------------------------------ console tabs with screenshots
+  const shotSlide = async (title, notes, label, file, alt, points) => {
+    const s = content(title, notes);
+    kicker(s, label);
+    const iw = 8.75, ih = iw * (1620 / 2880);
+    rect(s, 0.55, 1.7, iw + 0.1, ih + 0.1, T.panel, T.line2, "frame");
+    s.addImage({ path: path.join(__dirname, "assets", file), x: 0.6, y: 1.75, w: iw, h: ih, altText: alt });
+    points.forEach(([h, b], i) => {
+      const y = 1.7 + i * 0.98;
+      vline(s, 9.65, y, 0.8, T.crit, 2);
+      text(s, h, { x: 9.9, y, w: 2.9, h: 0.35, fontSize: 15, bold: true, color: T.bright });
+      text(s, b, { x: 9.9, y: y + 0.35, w: 2.9, h: 0.55, fontSize: 11.5, color: T.dim, valign: "top" });
+    });
+    return s;
+  };
+  await shotSlide(
+    "Know what was sent, and what failed",
+    "The Notifications tab shows the three channels with their state: ready, no credentials, or not listed in the config, and sent, failed and skipped counts for the last 24 hours. " +
+      "The banner says whether this run is armed: alerts only go out when the run was started with the notify flag and notifications are enabled. Below is the delivery log: every attempt with the headline and severity it carried and, for a failure, a short reason such as HTTP 500, never a URL or a token. " +
+      "The test button sends one clearly marked sample message to the real channel after a second click, so you can prove delivery before an attack happens. In this screenshot the notification transport was a fake that failed one Slack message on purpose to show a failure row, so nothing was sent anywhere.",
+    "NOTIFICATIONS", "notifications.png",
+    "Notifications tab: three channel cards with counts, the armed banner and a delivery log with one failed row",
+    [
+      ["Channel status", "Ready, no credentials or not in config, with 24 h counts."],
+      ["Armed or not", "A banner says whether this run will actually send alerts."],
+      ["A log of every send", "Headline, severity and, for failures, the reason."],
+      ["Prove delivery", "SEND TEST sends one marked message, after a second click."],
+      ["Nothing sensitive", "Reasons never contain URLs or tokens."],
+    ]
+  );
+  await shotSlide(
+    "Every device, with its alert record",
+    "The Devices tab is the inventory of what the capture has seen, by MAC address: addresses, last seen, packets, bytes sent and received, and how many alerts each device has with the worst severity. " +
+      "It is stored in the database, so it survives restarts. Select a device to see its recent alerts and give it a name; names are typed by the admin and never taken from network data. " +
+      "Broadcast and multicast addresses are not devices and are skipped. One limit: a device is a MAC, so machines behind a router show up as the router.",
+    "DEVICES", "devices.png",
+    "Devices tab: eight devices, one named Lab laptop with four CRITICAL alerts and its detail pane",
+    [
+      ["What the capture has seen", "By MAC: addresses, last seen, packets, bytes in and out."],
+      ["Survives restarts", "Stored in the database, not just in memory."],
+      ["Alerts per device", "Worst severity and recent alerts; click to open in History."],
+      ["Name it", "Your label, saved and audited, never from network data."],
+      ["No noise", "Broadcast and multicast addresses are left out."],
+    ]
+  );
+  await shotSlide(
+    "Is it healthy? One page answers",
+    "The Health tab answers whether the capture is alive and how the run is set up. Capture shows the source, state, uptime and how long ago the last packet arrived, in amber if a live capture has been silent. " +
+      "Detectors lists the rules, windows, cooldown and the two statistical models with their thresholds. Notifications and the LLM show setup, with credentials only as set or not set. " +
+      "Database shows size and counts. Underneath are the same checks as the doctor command, including whether the LLM server has the model, refreshed every few seconds.",
+    "HEALTH", "health.png",
+    "Health tab: capture, detectors, notifications, LLM, database and version cards with the doctor checks listed below",
+    [
+      ["Is capture alive", "Source, state, uptime and the age of the last packet."],
+      ["What is switched on", "Rules, windows, thresholds and both statistical models."],
+      ["Setup at a glance", "Alerts armed? Which LLM model? Credentials: set or not."],
+      ["The database", "Size and counts of history, devices and deliveries."],
+      ["Checks built in", "The same checks as sentinel doctor, refreshed live."],
+    ]
+  );
 
   // ------------------------------------------------------------------ 7 windows
   {
@@ -280,7 +342,7 @@ async function build() {
         "a scan must go faster than 120 probes a minute to trip the short clock, but the 5-minute clock catches 3 a minute and the 1-hour clock catches 1 a minute. " +
         "In the live loopback test a fast scan was CRITICAL through the 10-second window and a scan of one probe per second was HIGH through the 5-minute window."
     );
-    kicker(s, "06", "MULTI-TIMESCALE WINDOWS");
+    kicker(s, "MULTI-TIMESCALE WINDOWS");
     mono(s, "SLOWEST PORT SCAN EACH CLOCK STILL CATCHES  (default thresholds, probes per minute)", { x: 0.6, y: 1.8, w: 12, h: 0.3, fontSize: 11, bold: true, color: T.dim, charSpacing: 2 });
     const rows = [
       ["10 s window", "20 ports in 10 s", 120, T.crit, "fast scan: CRITICAL in the live test"],
@@ -313,7 +375,7 @@ async function build() {
         "Right: a 20-second bulk upload after 40 minutes of normal browsing. No rule covers volume. The Isolation Forest learned the network's normal, and bytes out was 263 times anything it had seen. " +
         "Be upfront about limits: synthetic traffic, a small built-in word list, a 35-minute warm-up, and the real-network false-alarm rate is not yet known."
     );
-    kicker(s, "07", "STATISTICAL DETECTORS");
+    kicker(s, "STATISTICAL DETECTORS");
     // left: n-gram
     panelTitle(s, "DNS N-GRAM  /  HOW RANDOM DOES A NAME LOOK?", 0.6, 1.75, 5.95);
     rect(s, 0.6, 2.15, 5.95, 3.55, T.panel, T.line, "panel");
@@ -365,7 +427,7 @@ async function build() {
         "The control, ordinary web browsing, raised nothing. Stability: port scan, brute force, DNS and the control were right in about 15 live runs each; the beacon missed 2 of 21 early attempts because the attack started before tcpdump was capturing, and after the driver waited for tcpdump it was 4 of 4. " +
         "Real beacons check in every 30 to 300 seconds, so they need minutes, not seconds."
     );
-    kicker(s, "08", "MEASURED, NOT CLAIMED");
+    kicker(s, "MEASURED, NOT CLAIMED");
     mono(s, "SECONDS FROM ATTACK START TO ALERT  (live, loopback, 10 s window)", { x: 0.6, y: 1.8, w: 9, h: 0.3, fontSize: 11, bold: true, color: T.dim, charSpacing: 2 });
     const data = [["DNS tunnel", 1.7, "T1071.004"], ["Brute force", 8.5, "T1110"], ["Port scan", 8.9, "T1046"], ["Beaconing", 12.1, "T1071.001"]];
     const x0 = 2.7, maxW = 5.6, scale = maxW / 16;
@@ -396,7 +458,7 @@ async function build() {
         "A destination that many hosts contact is not a beacon. After an alert the same detector stays quiet for that device for five minutes. The Isolation Forest only alerts when a count or volume is more than double anything in its baseline; without that guard it raised false alarms on our benign test networks, which is why the guard exists. " +
         "The result so far: 12 seeded benign networks of eight devices for 40 minutes raised nothing. Again: synthetic data, real-network rate unknown."
     );
-    kicker(s, "09", "FALSE-ALARM CONTROL");
+    kicker(s, "FALSE-ALARM CONTROL");
     const guards = [
       [fa.FaCheckDouble, "Two signals, not one", "DNS tunnelling needs two independent signals to agree."],
       [fa.FaUsers, "Shared services are not C2", "A destination or domain that 3+ devices use is treated as a shared service."],
@@ -428,7 +490,7 @@ async function build() {
         "The text comes from fixed templates, so it is always available and always matches the evidence. If you run a local model, Ollama or llama.cpp, it rewrites the wording from the same sanitised fields. " +
         "Its output is checked against the evidence: invented numbers, addresses or techniques cause the template to be used instead. The model can only pick an action from a fixed list."
     );
-    kicker(s, "10", "EXPLANATIONS");
+    kicker(s, "EXPLANATIONS");
     panelTitle(s, "WHAT THE DETECTOR RECORDED", 0.6, 1.8, 5.2);
     rect(s, 0.6, 2.2, 5.2, 3.0, T.panel, T.line, "panel");
     mono(s, ["detector      beaconing", "technique     T1071.001", "dst_port      8080", "count         16", "mean_interval  1.0003 s", "interval_cv   0.0023", "mean_bytes    ~1 KB"].join("\n"),
@@ -444,7 +506,7 @@ async function build() {
       { text: "Likely cause  ", options: { bold: true, color: T.dim } }, { text: "Regular small connections can be malware checking in, or a legitimate sync tool.", options: { breakLine: true } },
       { text: "Suggested action  ", options: { bold: true, color: T.dim } }, { text: "Check what this device is running and whether it should be doing this.", options: {} },
     ], { x: 6.95, y: 3.3, w: 5.6, h: 1.8, fontSize: 12.5, valign: "top", paraSpaceAfter: 6 });
-    const g = [[fa.FaFileAlt, "Templates first", "Always available, always matches the evidence."], [fa.FaRobot, "Optional local LLM", "Ollama or llama.cpp, on your machine."], [fa.FaShieldAlt, "Fact-checked", "Invented facts are rejected; the template is used instead."]];
+    const g = [[fa.FaFileAlt, "Templates first", "Always available, always matches the evidence."], [fa.FaRobot, "Optional local LLM", "Ollama or llama.cpp, on your machine. Tried with Gemma (e2b) through Ollama."], [fa.FaShieldAlt, "Fact-checked", "Invented facts are rejected; the template is used instead."]];
     for (let i = 0; i < 3; i++) {
       const x = 0.6 + i * 4.1;
       await iconBox(s, x, 5.55, 0.6, g[i][0], T.tcp);
@@ -461,7 +523,7 @@ async function build() {
         "Policies stop alert fatigue: a severity floor, de-duplication, a per-channel rate limit, retries with back-off and a circuit breaker that pauses a failing channel. " +
         "Messages carry only a sanitised summary: device, technique, score and advice, never packet data. Be honest about status: delivery is tested against fakes; sending to real Slack, Discord and Telegram is on the verification list."
     );
-    kicker(s, "11", "NOTIFICATIONS");
+    kicker(s, "NOTIFICATIONS");
     const ch = [[fa.FaSlack, "Slack", "incoming webhook"], [fa.FaDiscord, "Discord", "webhook"], [fa.FaTelegram, "Telegram", "bot token + chat id"]];
     for (let i = 0; i < 3; i++) {
       const x = 0.6 + i * 2.1;
@@ -497,7 +559,7 @@ async function build() {
         "Three: Sentinel only observes and alerts; it never blocks or changes the network. Four: secrets are in a mode 600 file and never printed. Five: the demo attack scripts refuse any target except loopback. " +
         "Also mention the delete and history paths are validated and audited, and that automated security review found and we fixed a symlink issue in the sudo file-ownership code."
     );
-    kicker(s, "12", "SECURITY BY DESIGN");
+    kicker(s, "SECURITY BY DESIGN");
     const rows = [
       [fa.FaBug, "Network text is hostile", "DNS names and hostnames pass one sanitiser before any LLM, alert or screen. The console shows them as plain text only."],
       [fa.FaLock, "A locked-down console", "127.0.0.1 only, per-run token, strict content-security policy, no inline scripts, and a test that fails if HTML is built from strings."],
@@ -513,10 +575,10 @@ async function build() {
     }
     rect(s, 8.2, 1.8, 4.55, 4.85, T.panel, T.line, "stat-panel");
     label(s, "SECURITY TEST GROUP", 8.5, 2.0, 4);
-    mono(s, "43", { x: 8.5, y: 2.3, w: 2.0, h: 1.2, fontSize: 72, bold: true, color: T.ok, valign: "middle" });
+    mono(s, "51", { x: 8.5, y: 2.3, w: 2.0, h: 1.2, fontSize: 72, bold: true, color: T.ok, valign: "middle" });
     text(s, "tests that must\nnever be empty", { x: 10.4, y: 2.55, w: 2.2, h: 0.7, fontSize: 14, color: T.text, valign: "middle" });
     hline(s, 8.5, 3.7, 3.95, T.line);
-    text(s, "They cover hostile DNS names, hostile history filters, SQL text in searches, spreadsheet-formula export, cross-site delete requests and planted symlinks.", { x: 8.5, y: 3.85, w: 3.95, h: 1.4, fontSize: 12.5, color: T.text, valign: "top" });
+    text(s, "They cover hostile DNS names, hostile history filters, SQL text in searches, spreadsheet-formula export, cross-site delete, rename and test-send requests, and planted symlinks.", { x: 8.5, y: 3.85, w: 3.95, h: 1.4, fontSize: 12.5, color: T.text, valign: "top" });
     rect(s, 8.5, 5.35, 3.95, 1.1, T.raise, T.line2, "found");
     text(s, [{ text: "Found and fixed: ", options: { bold: true, color: T.med } }, { text: "an automated review flagged a symlink risk in the sudo file-ownership code; it is fixed and tested.", options: {} }],
       { x: 8.65, y: 5.35, w: 3.7, h: 1.1, fontSize: 12, valign: "middle" });
@@ -529,7 +591,7 @@ async function build() {
       "Sentinel sees what crosses the interface it captures, so it belongs on the gateway: a Mac sharing its connection, where clients appear on bridge100. On a normal laptop on Wi-Fi it only sees that laptop's own traffic. " +
         "Be clear about the audience: small teams, schools and labs with no analyst, and people learning detection. It is not an enterprise product, not an intrusion prevention system, and does not read encrypted content."
     );
-    kicker(s, "13", "WHO AND WHERE");
+    kicker(s, "WHO AND WHERE");
     // diagram
     const dy = 2.0;
     rect(s, 0.6, dy + 0.6, 1.9, 1.1, T.panel, T.line2, "node");
@@ -578,7 +640,7 @@ async function build() {
         "'Attack yourself' runs the four attacks against your own loopback while the console watches, so you can show the detection live. The demo config uses a 10-second window and keeps demo data out of your real history. " +
         "Everything is in the README and USER_GUIDE."
     );
-    kicker(s, "14", "RUN IT");
+    kicker(s, "RUN IT");
     const blocks = [
       ["1  INSTALL", ["brew install uv", "git clone <repo-url> sentinel && cd sentinel", "uv tool install .", "sentinel init && sentinel doctor"]],
       ["2  QUICK START  (no network needed)", ["uv run python tools/make_demo_pcap.py demo.pcap", "sentinel replay demo.pcap", "sentinel ui --replay demo.pcap", "sentinel history"]],
