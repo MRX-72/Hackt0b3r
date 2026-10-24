@@ -540,3 +540,33 @@ def test_an_unusable_database_is_reported_not_dumped_as_a_traceback(
     (tmp_path / "s.db").write_bytes(b"this is not a database" * 50)  # garbage file
     assert cli(env, "history") == 1
     assert "database cannot be used" in capsys.readouterr().err
+
+
+def test_init_gives_each_file_its_documented_mode_whatever_the_umask(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    old = os.umask(0o077)
+    try:
+        assert main(["init", "--dir", str(tmp_path / "a")]) == 0
+        assert main(["init", "--dir", str(tmp_path / "b")]) == 0
+    finally:
+        os.umask(old)
+    assert (tmp_path / "a" / "config.toml").stat().st_mode & 0o777 == 0o644
+    assert (tmp_path / "a" / "secrets.env").stat().st_mode & 0o777 == 0o600
+
+
+def test_init_leaves_nothing_half_written_if_the_template_cannot_be_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class Unreadable:
+        def __truediv__(self, _: str) -> "Unreadable":
+            return self
+
+        def read_text(self) -> str:
+            raise OSError("template unreadable")
+
+    monkeypatch.setattr("sentinel.api.service.resources.files", lambda _: Unreadable())
+    target = tmp_path / "ws"
+    with pytest.raises(OSError, match="unreadable"):
+        main(["init", "--dir", str(target)])
+    assert not (target / "secrets.env").exists() and not (target / "config.toml").exists()

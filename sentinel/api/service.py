@@ -417,6 +417,9 @@ def init_workspace(directory: Path) -> list[tuple[Path, bool]]:
     for name, mode in (("config.toml", 0o644), ("secrets.env", 0o600)):
         target = directory / name
         template = templates / f"{name}.template" if name == "secrets.env" else templates / name
+        text = (
+            template.read_text()
+        )  # read first: a failure here must not leave an empty file behind
         # Created with its final mode in one step: writing first and chmod-ing after would leave
         # the new secrets file readable by others for a moment. Never follows a planted link.
         try:
@@ -424,7 +427,8 @@ def init_workspace(directory: Path) -> list[tuple[Path, bool]]:
         except FileExistsError:
             results.append((target, False))
             continue
+        os.fchmod(fd, mode)  # the documented mode, whatever the umask is
         with os.fdopen(fd, "w") as out:
-            out.write(template.read_text())
+            out.write(text)
         results.append((target, True))
     return results
