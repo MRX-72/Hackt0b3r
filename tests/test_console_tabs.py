@@ -8,15 +8,15 @@ from typing import Any
 
 import pytest
 
-from sentinel.api.hub import Hub
-from sentinel.api.service import SentinelService
-from sentinel.api.ui import COOKIE, UiServer, parse_deliveries_query
-from sentinel.config.secrets import Secrets
-from sentinel.config.settings import NotifySettings, Settings
-from sentinel.contracts.models import Delivery, DoctorCheck, Incident
-from sentinel.net.http import Request, Response
-from sentinel.pipeline.run import _is_group
-from sentinel.storage.db import DeviceSeen, Storage, load_migrations, migrate
+from raven.api.hub import Hub
+from raven.api.service import RavenService
+from raven.api.ui import COOKIE, UiServer, parse_deliveries_query
+from raven.config.secrets import Secrets
+from raven.config.settings import NotifySettings, Settings
+from raven.contracts.models import Delivery, DoctorCheck, Incident
+from raven.net.http import Request, Response
+from raven.pipeline.run import _is_group
+from raven.storage.db import DeviceSeen, Storage, load_migrations, migrate
 from tests import scenarios as sc
 from tests.test_ui import flow, record
 
@@ -120,14 +120,14 @@ def test_group_addresses_are_recognised() -> None:
         assert not _is_group(ip), ip
 
 
-def replay_service(tmp_path: Path, sent: list[Request]) -> SentinelService:
+def replay_service(tmp_path: Path, sent: list[Request]) -> RavenService:
     def transport(request: Request) -> Response:
         sent.append(request)
         return Response(200, b"ok")
 
     settings = Settings(notify=NotifySettings(enabled=True, channels=["slack"], retries=0))
     secrets = Secrets.model_validate({"slack_webhook_url": "https://hooks.slack.test/services/X"})
-    return SentinelService(settings, secrets, transport, database=tmp_path / "s.db")
+    return RavenService(settings, secrets, transport, database=tmp_path / "s.db")
 
 
 def test_a_replay_fills_the_inventory_and_the_notification_log(tmp_path: Path) -> None:
@@ -173,7 +173,7 @@ class Console:
         if cookie:
             headers["Cookie"] = f"{COOKIE}=tok"
         if marker and method == "POST":
-            headers["X-Sentinel"] = "1"
+            headers["X-Raven"] = "1"
         if origin is not None:
             headers["Origin"] = origin
         raw = body if isinstance(body, (str, bytes)) else json.dumps(body)
@@ -382,7 +382,7 @@ def test_console_info_has_no_secrets(tmp_path: Path) -> None:
     secrets = Secrets.model_validate(
         {"slack_webhook_url": "https://hooks.slack.test/services/TOPSECRET"}
     )
-    service = SentinelService(Settings(), secrets, database=tmp_path / "s.db")
+    service = RavenService(Settings(), secrets, database=tmp_path / "s.db")
     info = service.console_info(notify_armed=False)
     assert info["notify"]["credentials"] == {"slack": True, "discord": False, "telegram": False}
     assert "TOPSECRET" not in json.dumps(info) and info["notify"]["armed"] is False
@@ -416,5 +416,5 @@ def test_test_messages_are_throttled_per_channel(
     first = console.request("POST", "/api/notifications/test", {"channel": "slack"})
     again = console.request("POST", "/api/notifications/test", {"channel": "slack"})
     assert first[0] == 200 and again[0] == 429 and console.tests == ["slack"]
-    monkeypatch.setattr("sentinel.api.ui.TEST_COOLDOWN_SECONDS", 0.0)
+    monkeypatch.setattr("raven.api.ui.TEST_COOLDOWN_SECONDS", 0.0)
     assert console.request("POST", "/api/notifications/test", {"channel": "slack"})[0] == 200

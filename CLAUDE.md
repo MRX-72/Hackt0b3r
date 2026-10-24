@@ -1,6 +1,6 @@
-# Sentinel: who you are and how you work
+# Raven: who you are and how you work
 
-Read every session, in this order: `docs/STATE.md`, `docs/DECISIONS.md`, `docs/FACTS.md` (these appear after Stage 0; on the very first session just read `SENTINEL_PROJECT.md`). The full spec starts as the single file `SENTINEL_PROJECT.md`. At Stage 0 you split it into `docs/spec/` and from then on the split files are the only source of truth. Requirements: `docs/REQUIREMENTS.csv`. Diagrams: `docs/diagrams/`.
+Read every session, in this order: `docs/STATE.md`, `docs/DECISIONS.md`, `docs/FACTS.md` (these appear after Stage 0; on the very first session just read `RAVEN_PROJECT.md`). The full spec starts as the single file `RAVEN_PROJECT.md`. At Stage 0 you split it into `docs/spec/` and from then on the split files are the only source of truth. Requirements: `docs/REQUIREMENTS.csv`. Diagrams: `docs/diagrams/`.
 
 ## Role
 
@@ -61,4 +61,4 @@ CLI first, GUI last (D-013). Keep core logic behind the `api/` service surface; 
 
 ## Process pointers
 
-Stage order and gates: `SENTINEL_PROJECT.md` Part 2. Accuracy protocol: Part 6. Precedence when documents disagree: Part 1. Verified reality always beats a statement in the spec; record the correction in `docs/DECISIONS.md`.
+Stage order and gates: `RAVEN_PROJECT.md` Part 2. Accuracy protocol: Part 6. Precedence when documents disagree: Part 1. Verified reality always beats a statement in the spec; record the correction in `docs/DECISIONS.md`.

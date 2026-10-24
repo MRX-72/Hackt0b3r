@@ -5,11 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from sentinel.api.service import SentinelService, ServiceError
-from sentinel.config.secrets import Secrets
-from sentinel.config.settings import Settings
-from sentinel.contracts.models import AnomalyRecord, HistoryQuery
-from sentinel.storage.db import Storage, load_migrations, migrate
+from raven.api.service import RavenService, ServiceError
+from raven.config.secrets import Secrets
+from raven.config.settings import Settings
+from raven.contracts.models import AnomalyRecord, HistoryQuery
+from raven.storage.db import Storage, load_migrations, migrate
 from tests import scenarios as sc
 from tests.test_ui import record
 
@@ -54,8 +54,8 @@ def test_filters_combine_and_order_newest_first(tmp_path: Path) -> None:
 
 
 @pytest.fixture
-def service(tmp_path: Path) -> Iterator[SentinelService]:
-    svc = SentinelService(Settings(), Secrets(), database=tmp_path / "s.db")
+def service(tmp_path: Path) -> Iterator[RavenService]:
+    svc = RavenService(Settings(), Secrets(), database=tmp_path / "s.db")
     yield svc
     svc.close()
 
@@ -67,7 +67,7 @@ def attack_pcap(tmp_path: Path) -> Path:
 
 
 def test_every_report_is_logged_with_its_explanation_and_evidence(
-    service: SentinelService, tmp_path: Path
+    service: RavenService, tmp_path: Path
 ) -> None:
     service.replay(attack_pcap(tmp_path))
     total, rows = service.history(HistoryQuery())
@@ -82,7 +82,7 @@ def test_every_report_is_logged_with_its_explanation_and_evidence(
 
 
 def test_live_runs_are_marked_live_and_survive_a_restart(
-    service: SentinelService, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    service: RavenService, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     frames = sorted(sc.port_scan(100.0, range(1, 401)), key=lambda p: p[0])
 
@@ -91,10 +91,10 @@ def test_live_runs_are_marked_live_and_survive_a_restart(
     ) -> Iterator[tuple[float, bytes]]:
         return iter(frames)
 
-    monkeypatch.setattr("sentinel.api.service.capture_live", fake_capture)
+    monkeypatch.setattr("raven.api.service.capture_live", fake_capture)
     service.watch("lo0")
     service.close()
-    reopened = SentinelService(Settings(), Secrets(), database=tmp_path / "s.db")
+    reopened = RavenService(Settings(), Secrets(), database=tmp_path / "s.db")
     total, rows = reopened.history(HistoryQuery(source="live"))
     reopened.close()
     assert total == 1 and isinstance(rows[0], AnomalyRecord) and rows[0].label == "CRITICAL"
@@ -132,8 +132,8 @@ def test_upgrading_removes_existing_duplicates_and_keeps_the_oldest(tmp_path: Pa
 
 def test_only_one_live_capture_may_feed_a_database(tmp_path: Path) -> None:
     db = tmp_path / "s.db"
-    first = SentinelService(Settings(), Secrets(), database=db)
-    second = SentinelService(Settings(), Secrets(), database=db)
+    first = RavenService(Settings(), Secrets(), database=db)
+    second = RavenService(Settings(), Secrets(), database=db)
     first.acquire_capture()
     first.acquire_capture()  # re-entrant for the holder
     with pytest.raises(ServiceError, match="already capturing"):
@@ -145,7 +145,7 @@ def test_only_one_live_capture_may_feed_a_database(tmp_path: Path) -> None:
 
 def test_a_planted_symlink_cannot_hijack_the_capture_lock(tmp_path: Path) -> None:
     (tmp_path / "s.db.lock").symlink_to(tmp_path / "victim")
-    service = SentinelService(Settings(), Secrets(), database=tmp_path / "s.db")
+    service = RavenService(Settings(), Secrets(), database=tmp_path / "s.db")
     with pytest.raises(ServiceError, match="cannot create the capture lock"):
         service.acquire_capture()
     assert not (tmp_path / "victim").exists()

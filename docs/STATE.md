@@ -5,7 +5,7 @@ Last updated: 2026-10-25
 Stage 1, reordered by the user (D-014): detection engine, notifiers, LLM summaries and a CLI first. Gate 1 not formally run.
 
 ## Scope
-CLI plus a local web console (`sentinel ui`, D-023) as a second client of the service facade. Installable with `uv tool install .`; data in `~/.sentinel` (D-024).
+CLI plus a local web console (`raven ui`, D-023) as a second client of the service facade. Installable with `uv tool install .`; data in `~/.raven` (D-024).
 
 ## Done (see git log)
 - Stage 0, storage, parser, config + secrets, replay/live capture source (tcpdump pipe), window features, rule detectors (port scan, brute force, beaconing, DNS tunnel) with engine, correlation, sanitizer, templates, faithfulness checks, Ollama + OpenAI-compatible (llama.cpp) clients, Slack/Discord/Telegram notifiers with retry, rate limit, breaker and dedupe, pipeline, service facade, CLI (`replay`, `watch`, `incidents`, `notify test`, `llm test`, `doctor`, `--show-traffic/--no-traffic`, `--json`).
@@ -17,7 +17,7 @@ Alerts carry a validated `target_ip` (schema migration 002 tested on a v1 databa
 `init`, `status`, `ack/dismiss/resolve` (id prefixes, audit log), `incidents --since/--min-score/--all`, `replay` with several files, `--brief`, short flags, `watch --for`, `doctor --fix` (and doctor works with broken secrets perms), colour on TTY.
 
 ## Web console and persistence
-`sentinel ui` (live packet monitor, topology, alerts, permanent searchable history, CSV), append-only `anomaly_log`, `sentinel history`, per-user data folder, packaged wheel verified by installing it in a clean venv and running init/doctor/status/replay/history.
+`raven ui` (live packet monitor, topology, alerts, permanent searchable history, CSV), append-only `anomaly_log`, `raven history`, per-user data folder, packaged wheel verified by installing it in a clean venv and running init/doctor/status/replay/history.
 
 ## Console tabs
 LIVE, HISTORY, NOTIFICATIONS, DEVICES, HEALTH (D-027). Device inventory and the notification log are persisted; test-send button audited.
@@ -26,7 +26,7 @@ LIVE, HISTORY, NOTIFICATIONS, DEVICES, HEALTH (D-027). Device inventory and the 
 DNS character n-gram signal and Isolation Forest behaviour detector (D-026, docs/ABLATION.md), on by default, switchable.
 
 ## Not built yet
-Rogue DHCP/ARP/canary detectors, per-device peer baselines, autoencoder, event bus with drop accounting, enforcement validator/pf renderer, sentineld daemon, model registry, HTTP API server, device inventory, modes, rule engine, embeddings, `ask`, eval/purple-team, background service (launchd).
+Rogue DHCP/ARP/canary detectors, per-device peer baselines, autoencoder, event bus with drop accounting, enforcement validator/pf renderer, ravend daemon, model registry, HTTP API server, device inventory, modes, rule engine, embeddings, `ask`, eval/purple-team, background service (launchd).
 
 ## Process deviations (honest list)
 - Component briefs exist only for storage, parser and features; later components were specified in DECISIONS and tests instead.

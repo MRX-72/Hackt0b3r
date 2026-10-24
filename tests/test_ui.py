@@ -9,9 +9,9 @@ from typing import Any
 
 import pytest
 
-from sentinel.api.hub import MAX_BATCH, MAX_PENDING, Hub
-from sentinel.api.service import SentinelService
-from sentinel.api.ui import (
+from raven.api.hub import MAX_BATCH, MAX_PENDING, Hub
+from raven.api.service import RavenService
+from raven.api.ui import (
     COOKIE,
     CSP,
     UiServer,
@@ -20,9 +20,9 @@ from sentinel.api.ui import (
     run_ui,
     spreadsheet_safe,
 )
-from sentinel.config.secrets import Secrets
-from sentinel.config.settings import Settings
-from sentinel.contracts.models import (
+from raven.config.secrets import Secrets
+from raven.config.settings import Settings
+from raven.contracts.models import (
     AnomalyRecord,
     Explanation,
     Flow,
@@ -30,11 +30,11 @@ from sentinel.contracts.models import (
     Incident,
     IncidentReport,
 )
-from sentinel.storage.db import Storage
+from raven.storage.db import Storage
 from tests import scenarios as sc
 
 MAC = "aa:bb:cc:dd:ee:30"
-STATIC = Path(__file__).resolve().parent.parent / "sentinel/api/static"
+STATIC = Path(__file__).resolve().parent.parent / "raven/api/static"
 
 
 def record(label: str = "CRITICAL", ts: float = 1000.0, **over: object) -> AnomalyRecord:
@@ -288,7 +288,7 @@ def post(
     if cookie:
         headers["Cookie"] = f"{COOKIE}=tok"
     if marker:
-        headers["X-Sentinel"] = "1"
+        headers["X-Raven"] = "1"
     conn.request("POST", path, body=body, headers=headers)
     return conn.getresponse()
 
@@ -364,7 +364,7 @@ def test_history_survives_restarts_and_the_runner_logs_what_it_sees(tmp_path: Pa
     pcap = tmp_path / "scan.pcap"
     sc.write_pcap(pcap, sc.port_scan(100.0, range(1, 401), per_second=400))
     db = tmp_path / "s.db"
-    service = SentinelService(Settings(), Secrets(), database=db)
+    service = RavenService(Settings(), Secrets(), database=db)
     said: list[str] = []
     stop = threading.Event()
     thread = threading.Thread(
@@ -406,7 +406,7 @@ def get_raw(port: int, path: str, token: str) -> http.client.HTTPResponse:
 def test_a_client_that_stalls_mid_request_is_dropped(
     server: tuple[UiServer, Hub], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setattr("sentinel.api.ui.REQUEST_TIMEOUT_SECONDS", 0.5)
+    monkeypatch.setattr("raven.api.ui.REQUEST_TIMEOUT_SECONDS", 0.5)
     db = tmp_path / "t.db"
     Storage(db).close()
     ui = UiServer(db, Hub("off", str(db)), "tok", "127.0.0.1", 0)
@@ -427,7 +427,7 @@ def test_the_number_of_open_event_streams_is_capped_and_slots_are_freed(
     server: tuple[UiServer, Hub], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     ui, _ = server
-    monkeypatch.setattr("sentinel.api.ui.MAX_STREAMS", 2)
+    monkeypatch.setattr("raven.api.ui.MAX_STREAMS", 2)
     request = (
         f"GET /api/stream HTTP/1.1\r\nHost: 127.0.0.1:{ui.port}\r\nCookie: {COOKIE}=tok\r\n\r\n"
     )
@@ -476,13 +476,13 @@ def test_a_root_process_never_launches_a_web_browser(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     opened: list[str] = []
-    monkeypatch.setattr("sentinel.api.ui.webbrowser.open", opened.append)
+    monkeypatch.setattr("raven.api.ui.webbrowser.open", opened.append)
     stop = threading.Event()
     stop.set()  # serve nothing: just start up and shut down
     said: list[str] = []
-    service = SentinelService(Settings(), Secrets(), database=tmp_path / "s.db")
+    service = RavenService(Settings(), Secrets(), database=tmp_path / "s.db")
     for euid, expected in ((0, 0), (501, 1)):
-        monkeypatch.setattr("sentinel.api.ui.os.geteuid", lambda euid=euid: euid)
+        monkeypatch.setattr("raven.api.ui.os.geteuid", lambda euid=euid: euid)
         opened.clear()
         run_ui(service, port=0, open_browser=True, say=said.append, stop=stop)
         assert len(opened) == expected
@@ -501,14 +501,14 @@ def test_two_themes_exist_and_the_switch_is_wired() -> None:
     js = (STATIC / "app.js").read_text()
     assert "getComputedStyle" in js and not re.search(r'"#[0-9a-fA-F]{3,8}"', js)
     theme = (STATIC / "theme.js").read_text()
-    assert "sentinel-theme" in theme and "try {" in theme  # storage may be blocked: must not throw
+    assert "raven-theme" in theme and "try {" in theme  # storage may be blocked: must not throw
     assert "grey" not in css + html + theme  # an old saved "grey" choice falls back to dark
 
 
 def test_the_theme_script_is_served_to_a_logged_in_page(server: tuple[UiServer, Hub]) -> None:
     ui, _ = server
     res = get(ui, "/static/theme.js")
-    assert res.status == 200 and b"sentinel-theme" in res.read()
+    assert res.status == 200 and b"raven-theme" in res.read()
     assert get(ui, "/static/theme.js", cookie=False).status == 403
 
 

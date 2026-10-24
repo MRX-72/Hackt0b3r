@@ -6,12 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from sentinel.api.service import SentinelService, ServiceError
-from sentinel.api.ui import run_ui
-from sentinel.config.secrets import Secrets
-from sentinel.config.settings import Settings
-from sentinel.contracts.models import Event, Flow, IncidentReport
-from sentinel.net.http import Request, Response
+from raven.api.service import RavenService, ServiceError
+from raven.api.ui import run_ui
+from raven.config.secrets import Secrets
+from raven.config.settings import Settings
+from raven.contracts.models import Event, Flow, IncidentReport
+from raven.net.http import Request, Response
 from tests import scenarios as sc
 
 SECRETS = Secrets.model_validate({"slack_webhook_url": "https://hooks.slack.test/services/SECRET"})
@@ -55,7 +55,7 @@ def attack_pcap(tmp_path: Path) -> Path:
     return path
 
 
-_OPEN: list[SentinelService] = []
+_OPEN: list[RavenService] = []
 
 
 @pytest.fixture(autouse=True)
@@ -65,7 +65,7 @@ def _close_services() -> Iterator[None]:
         _OPEN.pop().close()
 
 
-def service(tmp_path: Path, world: FakeWorld, *, llm: bool = False) -> SentinelService:
+def service(tmp_path: Path, world: FakeWorld, *, llm: bool = False) -> RavenService:
     settings = Settings.model_validate(
         {
             "notify": {"enabled": True, "channels": ["slack"]},
@@ -73,14 +73,14 @@ def service(tmp_path: Path, world: FakeWorld, *, llm: bool = False) -> SentinelS
             "llm": {"enabled": llm, "model": "test-model"},
         }
     )
-    svc = SentinelService(settings, SECRETS, world, database=tmp_path / "s.db")
+    svc = RavenService(settings, SECRETS, world, database=tmp_path / "s.db")
     _OPEN.append(svc)
     return svc
 
 
 def run(
     tmp_path: Path, world: FakeWorld, *, llm: bool = False, notify: bool = True
-) -> tuple[SentinelService, list[IncidentReport], list[Event]]:
+) -> tuple[RavenService, list[IncidentReport], list[Event]]:
     svc = service(tmp_path, world, llm=llm)
     reports: list[IncidentReport] = []
     events: list[Event] = []
@@ -165,7 +165,7 @@ def test_bad_llm_output_falls_back_to_templates_and_is_counted(
 
 
 def test_flows_are_not_stored_by_default_and_retention_prunes_old_data(tmp_path: Path) -> None:
-    svc = SentinelService(Settings(), SECRETS, FakeWorld(), database=tmp_path / "s.db")
+    svc = RavenService(Settings(), SECRETS, FakeWorld(), database=tmp_path / "s.db")
     _OPEN.append(svc)
     pipeline = svc._pipeline(None, None, notify=False)
     for ts, frame in sc.port_scan(1000.0, range(1, 201)):
@@ -193,7 +193,7 @@ def test_live_watch_reports_an_attack_on_a_quiet_link_without_waiting_for_more_p
         yield from frames
         reported.wait(8)  # no more packets until the report shows up (or we give up)
 
-    monkeypatch.setattr("sentinel.api.service.capture_live", silent_after_scan)
+    monkeypatch.setattr("raven.api.service.capture_live", silent_after_scan)
     svc = service(tmp_path, FakeWorld())
     reports: list[IncidentReport] = []
     started = time.monotonic()
@@ -227,7 +227,7 @@ def test_every_alert_gets_its_own_report_even_inside_one_incident(tmp_path: Path
 @pytest.mark.security
 def test_a_refused_interface_fails_before_the_lock_or_the_database_exist(tmp_path: Path) -> None:
     db = tmp_path / "never.db"
-    service = SentinelService(Settings(), SECRETS, database=db)
+    service = RavenService(Settings(), SECRETS, database=db)
     with pytest.raises(ServiceError, match="interface"):
         service.watch("-w")
     with pytest.raises(ServiceError, match="interface"):

@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from sentinel.cli.dashboard import MIN_COLS, MIN_ROWS, Dashboard, visible_length
-from sentinel.contracts.models import Explanation, Flow, Incident, IncidentReport
+from raven.cli.dashboard import MIN_COLS, MIN_ROWS, Dashboard, visible_length
+from raven.contracts.models import Explanation, Flow, Incident, IncidentReport
 from tests import scenarios as sc
 
 MAC = "aa:bb:cc:dd:ee:30"
@@ -185,7 +185,7 @@ def test_the_view_opens_the_alternate_screen_and_restores_the_terminal(tmp_path:
     )
     master, slave = pty.openpty()
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 90, 0, 0))
-    command = [sys.executable, "-m", "sentinel.cli.main", "--config", str(config)]
+    command = [sys.executable, "-m", "raven.cli.main", "--config", str(config)]
     proc = subprocess.Popen(  # noqa: S603
         [*command, "replay", str(pcap), "-d"],
         stdin=slave, stdout=slave, stderr=slave, close_fds=True,

@@ -1,8 +1,8 @@
 import pytest
 
-from sentinel.contracts.models import Alert
-from sentinel.contracts.severity import alert_score, severity_label
-from sentinel.correlate.incidents import Correlator
+from raven.contracts.models import Alert
+from raven.contracts.severity import alert_score, severity_label
+from raven.correlate.incidents import Correlator
 from tests import scenarios as sc
 from tests.test_detect import detect
 

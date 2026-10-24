@@ -4,7 +4,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
-from sentinel.net.http import (
+from raven.net.http import (
     MAX_RESPONSE_BYTES,
     Request,
     TransportError,

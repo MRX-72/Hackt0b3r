@@ -3,15 +3,15 @@ import re
 
 import pytest
 
-from sentinel.config.settings import LlmSettings
-from sentinel.contracts.models import Alert, Incident, SanitizedIncident
-from sentinel.contracts.text import safe_identifier, terminal_safe
-from sentinel.explain.explainer import Explainer
-from sentinel.explain.faithfulness import LlmOutput, verify
-from sentinel.explain.llm import LlmError, OllamaClient, OpenAICompatClient, build_client
-from sentinel.explain.sanitize import sanitize_incident
-from sentinel.explain.templates import ACTIONS, explain_template
-from sentinel.net.http import Request, Response, TransportError
+from raven.config.settings import LlmSettings
+from raven.contracts.models import Alert, Incident, SanitizedIncident
+from raven.contracts.text import safe_identifier, terminal_safe
+from raven.explain.explainer import Explainer
+from raven.explain.faithfulness import LlmOutput, verify
+from raven.explain.llm import LlmError, OllamaClient, OpenAICompatClient, build_client
+from raven.explain.sanitize import sanitize_incident
+from raven.explain.templates import ACTIONS, explain_template
+from raven.net.http import Request, Response, TransportError
 
 MAC = "aa:bb:cc:dd:ee:30"
 

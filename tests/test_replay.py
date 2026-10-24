@@ -7,11 +7,11 @@ from pathlib import Path
 import dpkt
 import pytest
 
-from sentinel.config.settings import DetectionSettings
-from sentinel.contracts.models import Alert, Flow
-from sentinel.detect.engine import DetectionEngine
-from sentinel.sensor.parse import FrameParser
-from sentinel.sensor.replay import CaptureError, capture_live, read_frames, read_pcap, tcpdump_argv
+from raven.config.settings import DetectionSettings
+from raven.contracts.models import Alert, Flow
+from raven.detect.engine import DetectionEngine
+from raven.sensor.parse import FrameParser
+from raven.sensor.replay import CaptureError, capture_live, read_frames, read_pcap, tcpdump_argv
 from tests import scenarios as sc
 
 

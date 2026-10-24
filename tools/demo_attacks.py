@@ -19,7 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import localhost_attacks as atk
 
-MONITOR_HINT = "uv run sentinel --config examples/demo-10s.toml watch --iface lo0 -t"
+MONITOR_HINT = "uv run raven --config examples/demo-10s.toml watch --iface lo0 -t"
 BAR_WIDTH = 28
 
 
@@ -95,7 +95,7 @@ def run_step(index: int, total: int, step: Step, args: argparse.Namespace) -> No
         return
     bar.finish()
     print(f"      done: {summary}")
-    print(paint(f"      Sentinel should report: {step.expect}", "33"))
+    print(paint(f"      Raven should report: {step.expect}", "33"))
 
 
 def main(argv: list[str]) -> int:
@@ -120,7 +120,7 @@ def main(argv: list[str]) -> int:
     steps = [s for s in STEPS if not wanted or s.key in wanted]
     atk.QUIET = True
 
-    print(paint(" Sentinel demo attacks", "1"), f" target {args.target} (loopback only)")
+    print(paint(" Raven demo attacks", "1"), f" target {args.target} (loopback only)")
     print(f" Start the monitor in another console:  {paint(MONITOR_HINT, '1')}")
     if args.auto:
         countdown(args.countdown, "starting in")
@@ -133,7 +133,7 @@ def main(argv: list[str]) -> int:
             if not args.auto:
                 input("      Press Enter for the next attack... ")
     print()
-    print(paint(" All attacks finished.", "1"), "Review them with:  uv run sentinel incidents")
+    print(paint(" All attacks finished.", "1"), "Review them with:  uv run raven incidents")
     return 0
 
 

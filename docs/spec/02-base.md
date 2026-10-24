@@ -71,12 +71,12 @@ Record a pcap of a full attack run and build a **replay mode** (section 5) so th
 ## 4. Repository layout
 
 ```
-sentinel/
+raven/
   README.md
   NOTES.md
   config.yaml
   requirements.txt
-  sentinel/
+  raven/
     __init__.py
     config.py
     db.py                  # SQLite schema + helpers

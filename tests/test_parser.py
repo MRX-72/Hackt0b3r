@@ -4,9 +4,9 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from sentinel.contracts.models import ArpEvent, DhcpEvent, Flow, MdnsEvent
-from sentinel.sensor.parse import FrameParser
-from sentinel.storage.db import Storage
+from raven.contracts.models import ArpEvent, DhcpEvent, Flow, MdnsEvent
+from raven.sensor.parse import FrameParser
+from raven.storage.db import Storage
 from tests import frames as f
 
 MAC1 = "aa:bb:cc:dd:ee:01"

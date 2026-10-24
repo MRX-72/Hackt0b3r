@@ -1,7 +1,7 @@
 # Demo: four attacks against your own machine, caught by the 10-second window
 
-This reproduces a live test of Sentinel on **your own loopback interface** (`127.0.0.1`). It runs the
-four attacks Sentinel knows (port scan, brute force, beaconing, DNS tunnelling) plus a control
+This reproduces a live test of Raven on **your own loopback interface** (`127.0.0.1`). It runs the
+four attacks Raven knows (port scan, brute force, beaconing, DNS tunnelling) plus a control
 (ordinary web traffic that must raise nothing). Only the **10-second window** is enabled, and
 **notifications are off** (no `--notify`, `[notify] enabled = false`), so nothing leaves the machine.
 
@@ -22,13 +22,13 @@ four attacks Sentinel knows (port scan, brute force, beaconing, DNS tunnelling) 
 ## Presenter script (two consoles)
 
 For a live presentation use `tools/demo_attacks.py`. It narrates each attack on screen
-(`Performing PORT SCAN on 127.0.0.1`, a progress bar, what Sentinel should report) while your
+(`Performing PORT SCAN on 127.0.0.1`, a progress bar, what Raven should report) while your
 other console shows the monitor catching it.
 
 ```bash
 # console 1: the monitor. -d = full-screen view with CRITICAL alerts pinned on top of the
 # sliding traffic window (q quits, c clears the pins); -b instead prints one line per incident
-uv run sentinel --config examples/demo-10s.toml watch --iface lo0 -d
+uv run raven --config examples/demo-10s.toml watch --iface lo0 -d
 
 # console 2: the attacks
 uv run python tools/demo_attacks.py            # press Enter between attacks, to talk
@@ -63,7 +63,7 @@ Machine: macOS, capturing `lo0` as a normal user (member of `access_bpf`, no `su
 | DNS tunnel | dns_tunnel | dns_tunnel | 10 s | 1.7 s | 0.80 | PASS |
 | control: web browsing | nothing | nothing | - | - | - | PASS |
 
-Evidence Sentinel recorded for each detection:
+Evidence Raven recorded for each detection:
 
 | attack | evidence (all numbers from the 10-second window) |
 |---|---|
@@ -74,14 +74,14 @@ Evidence Sentinel recorded for each detection:
 
 **Stability.** Port scan, brute force, DNS tunnel and the control were right in every live run
 (about 15 each). The beacon was missed in 2 of about 21 live attempts, both times when the attack
-began right after `sentinel watch` was launched (a fixed `sleep`), probably before `tcpdump` had
+began right after `raven watch` was launched (a fixed `sleep`), probably before `tcpdump` had
 started capturing, so the first check-ins were never seen. Since the driver waits until `tcpdump`
 is actually running, 4 of 4 beacon attempts were caught, and a further 3 full cycles (15 attack
 runs, each recorded in parallel) gave the same result live and when replaying the recording.
 Short bursts were also tested offline at 12 different phases of the 10-second grid
 (`tests/test_detection_matrix.py`): all caught.
 
-**What "alert time" means.** Sentinel evaluates detectors on a 10-second grid of capture time, so
+**What "alert time" means.** Raven evaluates detectors on a 10-second grid of capture time, so
 an attack that has just crossed a threshold is reported at the next grid point: usually within 10
 seconds of the threshold being crossed, plus the attack's own duration (the scan itself takes about
 1 s; the beacon needs 10 check-ins one second apart, so it cannot be reported before about 10 s).
@@ -101,13 +101,13 @@ make bootstrap                    # Python 3.13 environment (uv)
 id | tr ' ' '\n' | grep access_bpf   # prints a line if you can capture without sudo
 ```
 
-- If `access_bpf` is missing, either run the watch commands with `sudo .venv/bin/sentinel ...`
+- If `access_bpf` is missing, either run the watch commands with `sudo .venv/bin/raven ...`
   (then give the database back to yourself afterwards: `sudo chown $USER demo.db*`), or install
   Wireshark's ChmodBPF helper.
 - Ports used: TCP 2222 (fake SSH), TCP 8080 (fake C2), TCP 8765 (control web server), TCP
   20000-20399 (scanned range), UDP 53 (destination of the DNS queries; nothing needs to listen).
   Free them if something else uses them.
-- Notifications stay off. You can confirm with `sentinel --config examples/demo-10s.toml status`, which prints
+- Notifications stay off. You can confirm with `raven --config examples/demo-10s.toml status`, which prints
   `notify     off`.
 
 ---
@@ -118,7 +118,7 @@ id | tr ' ' '\n' | grep access_bpf   # prints a line if you can capture without 
 uv run python tools/localhost_check.py
 ```
 
-It starts `sentinel watch --iface lo0` with the 10-second-only config for each attack, runs the
+It starts `raven watch --iface lo0` with the 10-second-only config for each attack, runs the
 attack, waits for the capture to end, reads the stored incident back, and prints the table above
 (about 2.5 minutes). Exit code `0` means all five rows passed.
 
@@ -149,7 +149,7 @@ For **every** attack the pattern is the same. Start the capture first and give i
 ```bash
 # terminal 1
 rm -f demo.db*                                  # optional: start from an empty database
-uv run sentinel --config examples/demo-10s.toml watch --iface lo0 --for 30s -b
+uv run raven --config examples/demo-10s.toml watch --iface lo0 --for 30s -b
 ```
 
 then, once terminal 1 is running, launch the attack:
@@ -160,10 +160,10 @@ uv run python tools/localhost_attacks.py <scan|brute|beacon|dns|web>
 ```
 
 Terminal 1 prints the incident when it is detected and a summary line when the 30 seconds are
-over. Give the capture time to start before launching the attack: run `uv run sentinel --version`
+over. Give the capture time to start before launching the attack: run `uv run raven --version`
 once beforehand (so `uv` finishes any rebuild) and wait until `pgrep tcpdump` prints a number
 (about 3-5 seconds). An attack that starts before capturing begins can lose its first packets,
-which is enough to miss the beacon. Inspect it afterwards with `uv run sentinel --config examples/demo-10s.toml incidents` and
+which is enough to miss the beacon. Inspect it afterwards with `uv run raven --config examples/demo-10s.toml incidents` and
 `... incident <id>`.
 
 ### 1. Port scan
@@ -215,7 +215,7 @@ uv run python tools/localhost_attacks.py dns
 ```
 
 Sends 60 TXT lookups (8 per second) for random 52-character names under `t.badzone.test` to
-`127.0.0.1:53`. No DNS server is needed: Sentinel analyses the query packets themselves. Expected:
+`127.0.0.1:53`. No DNS server is needed: Raven analyses the query packets themselves. Expected:
 
 ```
 [CRITICAL 1.00] inc-02007f000001-...  Unusual DNS requests that may hide data  (T1071.004)
@@ -233,12 +233,12 @@ print only the summary line (`alerts=0 incidents=0`).
 ### Look at one result
 
 ```bash
-uv run sentinel --config examples/demo-10s.toml incidents
-uv run sentinel --config examples/demo-10s.toml incident inc-02007f000001      # a unique prefix is enough
-uv run sentinel --config examples/demo-10s.toml status                         # confirms: notify off
+uv run raven --config examples/demo-10s.toml incidents
+uv run raven --config examples/demo-10s.toml incident inc-02007f000001      # a unique prefix is enough
+uv run raven --config examples/demo-10s.toml status                         # confirms: notify off
 ```
 
-Because every packet is between the machine and itself, Sentinel sees one "device" (`127.0.0.1`,
+Because every packet is between the machine and itself, Raven sees one "device" (`127.0.0.1`,
 stand-in MAC `02:00:7f:00:00:01`); if you run several attacks into the same `demo.db` they merge
 into one incident with a chain such as `T1046 > T1110`. Delete `demo.db*` between attacks to see
 them separately.
@@ -276,7 +276,7 @@ DNS-free traffic.
 
 | Symptom | Fix |
 |---|---|
-| `tcpdump: ... /dev/bpf: Permission denied` | You are not in `access_bpf`. Use `sudo .venv/bin/sentinel ...` for the watch command. |
+| `tcpdump: ... /dev/bpf: Permission denied` | You are not in `access_bpf`. Use `sudo .venv/bin/raven ...` for the watch command. |
 | `OSError: [Errno 48] Address already in use` from an attack | Another program uses 2222 / 8080 / 8765. Pass `--port N` to the attack. For brute force on another port, add it to `auth_ports`. |
 | Nothing detected, summary shows `frames=` near 0 | The capture started after the attack. Start terminal 1 first and wait about 3 seconds. |
 | Brute force not detected on a port other than 2222 | The port is not in `auth_ports` in `examples/demo-10s.toml`. |

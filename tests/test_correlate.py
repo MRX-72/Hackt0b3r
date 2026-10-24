@@ -1,5 +1,5 @@
-from sentinel.contracts.models import Alert
-from sentinel.correlate.incidents import Correlator
+from raven.contracts.models import Alert
+from raven.correlate.incidents import Correlator
 
 MAC = "aa:bb:cc:dd:ee:30"
 

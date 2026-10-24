@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from sentinel.contracts.models import Alert, Flow, Incident
-from sentinel.storage.db import (
+from raven.contracts.models import Alert, Flow, HistoryQuery, Incident
+from raven.storage.db import (
     FLOWS_FOR_HOST_SQL,
     Storage,
     StorageError,
@@ -246,7 +246,7 @@ def test_a_planted_symlink_is_never_followed_by_the_handback(
     monkeypatch.setenv("SUDO_GID", "20")
     store = Storage(folder / "s.db")
     (folder / "s.db-wal").unlink(missing_ok=True)
-    (folder / "s.db-wal").symlink_to(victim)  # planted while Sentinel runs as root
+    (folder / "s.db-wal").symlink_to(victim)  # planted while Raven runs as root
     store._hand_back()
     assert owned and victim.stat().st_ino not in owned
     (folder / "s.db-wal").unlink()
@@ -345,3 +345,23 @@ def test_a_file_that_is_not_a_database_does_not_leak_the_connection(
         Storage(path)
     gc.collect()
     assert not [w for w in recwarn if issubclass(w.category, ResourceWarning)]
+
+
+def test_the_renamed_statistical_technique_id_is_migrated_in_old_databases(tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_path / "old.db", isolation_level=None)
+    conn.row_factory = sqlite3.Row
+    migrate(conn, load_migrations()[:7])  # as created before the rename
+    conn.execute(
+        "INSERT INTO anomaly_log (ts, logged_at, source, detector, technique, severity, confidence,"
+        " label, score, host_mac, host_ip, headline, what_happened, likely_cause, action,"
+        " chain_json, incident_id, evidence_json) VALUES (1, 1, 'live', 'behavior', 'SENT001',"
+        " 0.4, 0.5, 'LOW', 0.3, 'aa:bb:cc:dd:ee:30', '10.0.0.1', 'h', 'w', 'c', 'a',"
+        " '[\"T1046\", \"SENT001\"]', 'i', '{}')"
+    )  # fmt: skip
+    conn.close()
+    store = Storage(tmp_path / "old.db")
+    [row] = store.anomalies(HistoryQuery())[1]
+    assert (row.technique, row.chain) == ("RVN001", ["T1046", "RVN001"])
+    with pytest.raises(sqlite3.IntegrityError):  # the append-only guard is back
+        store.conn.execute("UPDATE anomaly_log SET headline = 'x'")
+    store.close()

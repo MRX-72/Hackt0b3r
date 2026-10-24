@@ -2,16 +2,16 @@ import random
 
 import pytest
 
-from sentinel.config.settings import DetectionSettings, MlSettings
-from sentinel.contracts.models import Alert, Incident
-from sentinel.correlate.incidents import Correlator
-from sentinel.detect.behavior import BehaviorAnomaly
-from sentinel.detect.engine import DetectionEngine
-from sentinel.explain.sanitize import sanitize_incident
-from sentinel.explain.templates import explain_template
-from sentinel.ml.iforest import IsolationForest
-from sentinel.ml.ngram import DEFAULT
-from sentinel.sensor.parse import FrameParser
+from raven.config.settings import DetectionSettings, MlSettings
+from raven.contracts.models import Alert, Incident
+from raven.correlate.incidents import Correlator
+from raven.detect.behavior import BehaviorAnomaly
+from raven.detect.engine import DetectionEngine
+from raven.explain.sanitize import sanitize_incident
+from raven.explain.templates import explain_template
+from raven.ml.iforest import IsolationForest
+from raven.ml.ngram import DEFAULT
+from raven.sensor.parse import FrameParser
 from tests import scenarios as sc
 
 MAC = "aa:bb:cc:dd:ee:40"
@@ -88,7 +88,7 @@ def test_ablation_forest_catches_a_bulk_upload_that_no_rule_covers() -> None:
     assert rules_only == []
     sender = next(a for a in full if a.host_mac == MAC)  # the receiving device alerts too
     assert {a.detector for a in full} == {"behavior"} and len(full) == 2
-    assert (sender.technique, sender.evidence["value_bytes_out"] > 100_000) == ("SENT001", True)
+    assert (sender.technique, sender.evidence["value_bytes_out"] > 100_000) == ("RVN001", True)
     assert sender.evidence["excess_bytes_out"] > 100
     assert all(a.severity <= 0.6 for a in full)  # "unusual" alone never reads as a named attack
 
@@ -130,23 +130,23 @@ def alert(detector: str, technique: str, ts: float, sev: float = 0.9) -> Alert:
 
 def test_an_unusual_only_alert_never_adds_attack_progression_bonus() -> None:
     corr = Correlator(600)
-    corr.add(alert("behavior", "SENT001", 1.0, 0.5))
+    corr.add(alert("behavior", "RVN001", 1.0, 0.5))
     plain = corr.add(alert("portscan", "T1046", 2.0)).score
     solo = Correlator(600).add(alert("portscan", "T1046", 2.0)).score
-    assert plain == solo and corr.alerts_of(MAC)[0].technique == "SENT001"
+    assert plain == solo and corr.alerts_of(MAC)[0].technique == "RVN001"
 
 
 def test_the_sanitizer_accepts_the_statistical_id_and_nothing_made_up() -> None:
     inc = Incident(id="i1", host_mac=MAC, start_ts=1, end_ts=2, alerts=["a"], chain=[], score=0.5)
-    ok = sanitize_incident(inc, [alert("behavior", "SENT001", 1.0)])
-    assert [s.technique for s in ok.steps] == ["SENT001"]
-    for bad in ("SENT999", "SENT1", "sent001"):
+    ok = sanitize_incident(inc, [alert("behavior", "RVN001", 1.0)])
+    assert [s.technique for s in ok.steps] == ["RVN001"]
+    for bad in ("RVN999", "RVN1", "rvn001"):
         assert sanitize_incident(inc, [alert("behavior", bad, 1.0)]).steps == []
 
 
 def test_the_explanation_names_the_most_unusual_thing_without_claiming_an_attack() -> None:
     inc = Incident(id="i1", host_mac=MAC, start_ts=1, end_ts=2, alerts=["a"], chain=[], score=0.5)
-    text = explain_template(sanitize_incident(inc, [alert("behavior", "SENT001", 1.0)]))
+    text = explain_template(sanitize_incident(inc, [alert("behavior", "RVN001", 1.0)]))
     assert "unlike this network's usual pattern" in text.headline.lower()
     assert "unusually large amount of data sent out (250000)" in text.what_happened
     assert "not from a known attack pattern" in text.what_happened

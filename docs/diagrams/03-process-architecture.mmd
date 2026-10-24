@@ -1,15 +1,15 @@
 %% 03 Process architecture and privilege boundary
 flowchart LR
   subgraph root[root]
-    sentineld[sentineld<br/>capture, pcap ring buffer, pf anchor helper]
+    ravend[ravend<br/>capture, pcap ring buffer, pf anchor helper]
   end
   subgraph user[unprivileged user]
-    api[sentinel-api<br/>detection, storage, LLM, notify, web]
-    cli[sentinel CLI]
+    api[raven-api<br/>detection, storage, LLM, notify, web]
+    cli[raven CLI]
     gui[GUI in browser]
   end
-  sentineld -- "flow + event frames over Unix socket 0600" --> api
-  api -- "narrow commands: apply/remove approved rule, export pcap range" --> sentineld
+  ravend -- "flow + event frames over Unix socket 0600" --> api
+  api -- "narrow commands: apply/remove approved rule, export pcap range" --> ravend
   cli -- "HTTP 127.0.0.1 + bearer token" --> api
   gui -- "HTTP + WebSocket 127.0.0.1 + bearer token" --> api
   api -- "sanitized summaries only" --> ext[(notifiers)]

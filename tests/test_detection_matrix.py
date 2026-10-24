@@ -5,10 +5,10 @@ from collections.abc import Callable
 
 import pytest
 
-from sentinel.config.settings import DetectionSettings
-from sentinel.contracts.models import Alert
-from sentinel.detect.engine import DetectionEngine
-from sentinel.sensor.parse import FrameParser
+from raven.config.settings import DetectionSettings
+from raven.contracts.models import Alert
+from raven.detect.engine import DetectionEngine
+from raven.sensor.parse import FrameParser
 from tests import scenarios as sc
 from tests.test_detect import detect
 

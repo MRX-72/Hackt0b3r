@@ -44,7 +44,7 @@ A cascade keeps CPU free on the gateway Mac, which is also doing packet capture.
 | Prompt-injection guard | **Prompt Guard 2 (86M)** from Meta, with a smaller 22M variant if available, **verify availability and license terms (Llama community license)** | Defense in depth. Run on any free-text that reaches an LLM: the admin's chat questions, rule descriptions, imported documents. Network-derived strings are already excluded from LLM input by the sanitizer, and this is a second layer. |
 | Embeddings | **EmbeddingGemma (308M parameters, under 200MB RAM with quantization, 768 dimensions truncatable to 512/256/128 via Matryoshka, 2K token context; verified from Google's announcement)**. Fallback candidates to benchmark: bge-small, all-MiniLM-L6, Qwen3-Embedding-0.6B, nomic-embed (**verify each**) | Only embed text the system or admin authored (sanitized incident summaries, runbooks, rule text, ATT&CK descriptions). See section 5. **Verify the EmbeddingGemma license** before using it; the announcement page didn't state it. |
 | Reranker (P1) | Small cross-encoder (MiniLM-class reranker, **verify**) | Reorders retrieved runbook passages before they go to the explanation model. |
-| Tool-calling for `sentinel ask` | **Needle 2** (Cactus; 45M parameters, 14MB; verified) | Turns "show me unknown devices from the last hour" into a CLI/API call. See section 6. |
+| Tool-calling for `raven ask` | **Needle 2** (Cactus; 45M parameters, 14MB; verified) | Turns "show me unknown devices from the last hour" into a CLI/API call. See section 6. |
 
 ### Tier C: language models (explanation and chat only)
 
@@ -136,7 +136,7 @@ Embeddings are used for similarity and retrieval, never for detection decisions.
 1. **Incident dedupe and grouping:** embed the sanitized incident summary; cluster near-duplicates so the admin sees "12 similar incidents" as one item.
 2. **"Seen before" memory:** find the most similar past incidents and how the admin resolved them (dismissed as false positive, acted on). Show "Similar to incident #31, which was dismissed as the printer firmware updater". This reduces repeat noise.
 3. **RAG over runbooks:** a local folder of short playbooks (what to do about a port scan, rogue DHCP, compromised lab PC) plus ATT&CK technique descriptions. Retrieve the top passages (rerank in P1) and give them to the explanation model so suggested actions are grounded in the documents rather than invented.
-4. **Natural-language search:** `sentinel ask` and the GUI search box match questions against alerts, rules and runbooks.
+4. **Natural-language search:** `raven ask` and the GUI search box match questions against alerts, rules and runbooks.
 5. **Rule suggestion:** embed an admin's plain-language description ("alert me if a lab PC talks to anything outside college hours") and match it to rule templates (the rule text is still produced by code from a template, never by an LLM).
 
 Safety: embed only text authored by the system or admin. Do not embed raw network strings. Retrieved passages are treated as data, and the LLM prompt tells the model they are reference material only. Embeddings and the vector index stay local (SQLite with a vector extension, or a flat NumPy index, which is plenty at this scale).
@@ -145,7 +145,7 @@ Safety: embed only text authored by the system or admin. Do not embed raw networ
 
 ## 6. Natural-language interface with Needle 2
 
-`sentinel ask "which devices are new since this morning?"` and a chat box in the GUI.
+`raven ask "which devices are new since this morning?"` and a chat box in the GUI.
 
 Flow:
 1. Prompt Guard screens the question.
@@ -208,12 +208,12 @@ Extend `eval/run_eval.py`:
 
 CLI:
 ```
-sentinel models list                 # roles, loaded?, RAM, latency, health, license
-sentinel models enable|disable <id>
-sentinel models bench <role>         # run the benchmark for a role
-sentinel models verify               # re-check checksums
-sentinel ask "<question>"            # Needle + guard + chat
-sentinel similar <incident-id>       # embedding neighbors and how they were resolved
+raven models list                 # roles, loaded?, RAM, latency, health, license
+raven models enable|disable <id>
+raven models bench <role>         # run the benchmark for a role
+raven models verify               # re-check checksums
+raven ask "<question>"            # Needle + guard + chat
+raven similar <incident-id>       # embedding neighbors and how they were resolved
 ```
 
 GUI:
@@ -227,7 +227,7 @@ GUI:
 ## 11. Repository additions
 
 ```
-sentinel/
+raven/
   models/
     registry.py          # load, unload, RAM cap, health, checksums
     registry.yaml
@@ -275,7 +275,7 @@ sentinel/
 - Model registry with checksums, lazy load, RAM cap, template fallbacks
 - `explain` LLM (Gemma 4 E2B) with schema and numeric-faithfulness checks
 - Embedding model for incident dedupe and "similar past incidents"
-- Needle 2 `sentinel ask` with the read-only allowlist and validation
+- Needle 2 `raven ask` with the read-only allowlist and validation
 - Ablation table for at least rules vs rules + ML
 - Injection test for hostname and free-text paths
 
@@ -298,13 +298,13 @@ If time is tight, keep fewer models and make each one measurably useful. A two-m
 
 ## 13. Acceptance criteria (additions)
 
-1. `sentinel models list` shows every enabled model with status, RAM and latency, and `verify` passes checksums.
+1. `raven models list` shows every enabled model with status, RAM and latency, and `verify` passes checksums.
 2. Disabling any model (including all LLMs and embeddings) leaves detection working and the UI functional with fallbacks.
 3. The ablation table is generated from real runs and shows at least rules-only vs rules + each enabled model.
 4. The DNS specialist detects tunnel/DGA traffic from held-out generator families, with false-positive rate reported on benign domains.
 5. LLM text that fails the numeric faithfulness check is replaced by the template, and the rejection rate is reported.
 6. Poisoned hostname, DNS name and free-text question tests produce no change in LLM output, notifications or UI behavior.
-7. `sentinel ask` maps at least 90% of a labeled question set to the correct allowlisted function (report the real number), refuses unrelated or unsafe requests, and cannot trigger enforcement without the approval flow.
+7. `raven ask` maps at least 90% of a labeled question set to the correct allowlisted function (report the real number), refuses unrelated or unsafe requests, and cannot trigger enforcement without the approval flow.
 8. Incident dedupe and "similar past incidents" work on replayed data and show how earlier incidents were resolved.
 9. Total resident model RAM stays under the configured cap, and capture shows no increase in dropped packets while the LLM is running (measure both).
 10. `MODELS.md` lists source, license and checksum for every model.
@@ -313,7 +313,7 @@ If time is tight, keep fewer models and make each one measurably useful. A two-m
 
 ## 14. Pitch addition
 
-"Sentinel isn't one big model. It's a team of small ones, each doing one job: statistics and periodicity for the obvious, a tiny DNS network for tunnels, an embedding model that remembers how you handled similar incidents, a 45-million-parameter model that turns your questions into safe commands, and a small language model that only explains what the detectors already found. Every model has to prove itself in our ablation table or it's switched off."
+"Raven isn't one big model. It's a team of small ones, each doing one job: statistics and periodicity for the obvious, a tiny DNS network for tunnels, an embedding model that remembers how you handled similar incidents, a 45-million-parameter model that turns your questions into safe commands, and a small language model that only explains what the detectors already found. Every model has to prove itself in our ablation table or it's switched off."
 
 ---
 

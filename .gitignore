@@ -9,7 +9,7 @@ __pycache__/
 .DS_Store
 .venv-needle/
 secrets.env
-sentinel.db*
+raven.db*
 demo.db*
 docs/pitch/node_modules/
 .claude/

@@ -1,4 +1,4 @@
-"""Write a synthetic attack capture for trying Sentinel without a network.
+"""Write a synthetic attack capture for trying Raven without a network.
 
     uv run python tools/make_demo_pcap.py demo.pcap
 

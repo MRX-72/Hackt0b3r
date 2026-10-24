@@ -2,8 +2,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from sentinel.contracts.models import Flow
-from sentinel.sensor.parse import FrameParser
+from raven.contracts.models import Flow
+from raven.sensor.parse import FrameParser
 from tests import frames as f
 from tools.localhost_attacks import dns_query
 
@@ -20,7 +20,7 @@ def test_attack_script_refuses_non_loopback_targets() -> None:
         assert result.returncode == 2 and "refusing" in result.stderr, attack
 
 
-def test_the_dns_attack_builds_queries_sentinel_parses_as_tunnel_candidates() -> None:
+def test_the_dns_attack_builds_queries_raven_parses_as_tunnel_candidates() -> None:
     name = "a" * 52 + ".t.badzone.test"
     frame = f.eth(f.ipv4(17, f.udp(40000, 53, dns_query(name, 16))))
     [flow] = FrameParser().parse(frame, 1.0)
@@ -36,7 +36,7 @@ def test_presenter_script_narrates_each_step_and_refuses_other_targets() -> None
     )  # fmt: skip
     assert ok.returncode == 0
     assert "Performing NORMAL WEB BROWSING (control) on 127.0.0.1" in ok.stdout
-    assert "Sentinel should report: NOTHING" in ok.stdout
+    assert "Raven should report: NOTHING" in ok.stdout
     bad = subprocess.run(  # noqa: S603
         [sys.executable, str(script), "--target", "8.8.8.8", "--auto"],
         capture_output=True, text=True, timeout=30, check=False,

@@ -3,20 +3,20 @@ from collections import deque
 
 import pytest
 
-from sentinel.config.secrets import Secrets
-from sentinel.config.settings import NotifySettings
-from sentinel.contracts.models import Alert, Delivery, Explanation, Incident, SanitizedIncident
-from sentinel.explain.sanitize import sanitize_incident
-from sentinel.explain.templates import explain_template
-from sentinel.net.http import Request, Response, TransportError
-from sentinel.notify.channels import (
+from raven.config.secrets import Secrets
+from raven.config.settings import NotifySettings
+from raven.contracts.models import Alert, Delivery, Explanation, Incident, SanitizedIncident
+from raven.explain.sanitize import sanitize_incident
+from raven.explain.templates import explain_template
+from raven.net.http import Request, Response, TransportError
+from raven.notify.channels import (
     Notification,
     discord_request,
     slack_escape,
     slack_request,
     telegram_request,
 )
-from sentinel.notify.router import Notifier
+from raven.notify.router import Notifier
 
 MAC = "aa:bb:cc:dd:ee:30"
 SECRETS = Secrets.model_validate(
@@ -81,7 +81,7 @@ def notifier(net: Net, **over: object) -> tuple[Notifier, list[float], list[tupl
 
 def note(inc: SanitizedIncident | None = None) -> Notification:
     inc = inc or incident()
-    return Notification(inc, explain_template(inc), "https://sentinel.local/inc-1")
+    return Notification(inc, explain_template(inc), "https://raven.local/inc-1")
 
 
 def test_slack_payload_matches_incoming_webhook_format() -> None:

@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from sentinel.config.secrets import Secrets, SecretsError, load_secrets
-from sentinel.config.settings import find_config, load_settings, sentinel_home
+from raven.config.secrets import Secrets, SecretsError, load_secrets
+from raven.config.settings import find_config, load_settings, raven_home
 
 
 def test_defaults_without_a_file() -> None:
@@ -80,14 +80,14 @@ def test_data_lives_in_one_per_user_folder_not_the_working_directory(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     s = load_settings(None)
-    assert s.database == private_home / "sentinel.db"
+    assert s.database == private_home / "raven.db"
     assert s.secrets_file == private_home / "secrets.env"
-    monkeypatch.delenv("SENTINEL_HOME")
-    assert sentinel_home() == Path.home() / ".sentinel"
+    monkeypatch.delenv("RAVEN_HOME")
+    assert raven_home() == Path.home() / ".raven"
 
 
 def test_sudo_uses_the_invoking_users_folder(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("SENTINEL_HOME")
+    monkeypatch.delenv("RAVEN_HOME")
     monkeypatch.setattr(os, "geteuid", lambda: 0)
     monkeypatch.setenv("SUDO_USER", "someone")
     monkeypatch.setattr(
@@ -95,10 +95,10 @@ def test_sudo_uses_the_invoking_users_folder(monkeypatch: pytest.MonkeyPatch) ->
         "getpwnam",
         lambda _: pwd.struct_passwd(("someone", "x", 501, 20, "", "/Users/someone", "")),
     )
-    assert sentinel_home() == Path("/Users/someone/.sentinel")
+    assert raven_home() == Path("/Users/someone/.raven")
     monkeypatch.setenv("SUDO_USER", "nobody-such")
     monkeypatch.setattr(pwd, "getpwnam", lambda _: (_ for _ in ()).throw(KeyError()))
-    assert sentinel_home() == Path.home() / ".sentinel"
+    assert raven_home() == Path.home() / ".raven"
 
 
 def test_config_discovery_order(
@@ -114,7 +114,7 @@ def test_config_discovery_order(
     assert find_config() == Path("config.toml")
     other = tmp_path / "other.toml"
     other.write_text("")
-    monkeypatch.setenv("SENTINEL_CONFIG", str(other))
+    monkeypatch.setenv("RAVEN_CONFIG", str(other))
     assert find_config() == other
     assert find_config(Path("x.toml")) == Path("x.toml")
 

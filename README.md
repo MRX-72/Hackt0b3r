@@ -1,6 +1,6 @@
-# Sentinel
+# Raven
 
-Sentinel watches the network traffic of a small office, lab or college network and tells you, in
+Raven watches the network traffic of a small office, lab or college network and tells you, in
 plain English, when something looks wrong: **port scans, brute-force logins, beaconing (malware
 checking in), DNS tunnelling and unusual traffic volume**. Every detection is kept in a permanent
 history you can browse in a local web console or the terminal, and can be pushed to **Slack,
@@ -34,7 +34,7 @@ payload inspection. The only traffic that leaves the machine is the alerts you s
   "something is scanning our network" without running a SIEM.
 - Admins and students learning detection: every rule is readable, and `replay` runs any `.pcap`
   through it offline.
-- **Not for:** enterprise scale, blocking attacks automatically (Sentinel only alerts), or reading
+- **Not for:** enterprise scale, blocking attacks automatically (Raven only alerts), or reading
   encrypted content. A switched, encrypted Wi-Fi network only shows you your own traffic, so live
   capture is only meaningful on a gateway (see [Live capture](#live-capture)).
 
@@ -66,7 +66,7 @@ anything.
 | Notifications | Slack, Discord, Telegram with rate limits, retries, dedupe | tested against fakes; real delivery unverified |
 | Web console | live packet monitor, topology, alerts; permanent history with search, CSV and delete | built, checked in headless Chromium |
 | Terminal | `watch -d` live dashboard, `history`, `incidents`, `ack`, `status`, `doctor` | built |
-| Storage | SQLite in `~/.sentinel`, history never pruned automatically, audit log | built |
+| Storage | SQLite in `~/.raven`, history never pruned automatically, audit log | built |
 | Not built | autoencoder, per-device peer baselines, automatic blocking, background service | roadmap |
 
 ---
@@ -83,14 +83,14 @@ the alert text written by a local LLM ([setup](#plain-english-summaries-with-a-l
 brew install uv                       # or: curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # 2. get the code
-git clone https://github.com/MRX-72/Hackt0b3r.git sentinel && cd sentinel
+git clone https://github.com/MRX-72/Hackt0b3r.git raven && cd raven
 
-# 3. install the `sentinel` command
+# 3. install the `raven` command
 uv tool install .
 
 # 4. set up your folder and check it
-sentinel init                         # creates ~/.sentinel/config.toml and a private secrets.env
-sentinel doctor                       # checks everything and tells you what to fix
+raven init                         # creates ~/.raven/config.toml and a private secrets.env
+raven doctor                       # checks everything and tells you what to fix
 ```
 
 If step 4 says `command not found`, run `uv tool update-shell` and open a new terminal.
@@ -98,11 +98,11 @@ If step 4 says `command not found`, run `uv tool update-shell` and open a new te
 | I want to... | Command |
 |---|---|
 | upgrade | `git pull && uv tool install --force .` |
-| uninstall the command | `uv tool uninstall sentinel` |
-| try it without installing | `uv sync`, then use `uv run sentinel ...` inside the checkout |
+| uninstall the command | `uv tool uninstall raven` |
+| try it without installing | `uv sync`, then use `uv run raven ...` inside the checkout |
 | install with pipx instead | `pipx install .` |
 
-Uninstalling the command keeps your data in `~/.sentinel/`; delete that folder to remove it too.
+Uninstalling the command keeps your data in `~/.raven/`; delete that folder to remove it too.
 
 ## Quick start (5 minutes, no network needed)
 
@@ -110,9 +110,9 @@ Run these from the checkout. The practice capture is a synthetic network contain
 
 ```bash
 uv run python tools/make_demo_pcap.py demo.pcap   # make the practice capture
-sentinel replay demo.pcap                          # detectors run, alerts print in the terminal
-sentinel ui --replay demo.pcap                     # same, in the web console (opens your browser)
-sentinel history                                   # everything detected, from the terminal
+raven replay demo.pcap                          # detectors run, alerts print in the terminal
+raven ui --replay demo.pcap                     # same, in the web console (opens your browser)
+raven history                                   # everything detected, from the terminal
 ```
 
 You should see four CRITICAL detections (port scan, brute force, beaconing, DNS tunnel). Replays are
@@ -122,7 +122,7 @@ stored too, tagged `replay` and dated 1970 (the practice capture's clock); filte
 
 ## Command reference
 
-`sentinel <command> [options]`. Add `--help` to any command. Run `sentinel` alone for examples.
+`raven <command> [options]`. Add `--help` to any command. Run `raven` alone for examples.
 
 | Command | What it does |
 |---|---|
@@ -145,7 +145,7 @@ stored too, tagged `replay` and dated 1970 (the practice capture's clock); filte
 
 | Option | Meaning |
 |---|---|
-| `--config FILE` | settings file (default: `$SENTINEL_CONFIG`, then `./config.toml`, then `~/.sentinel/config.toml`, else built-in defaults) |
+| `--config FILE` | settings file (default: `$RAVEN_CONFIG`, then `./config.toml`, then `~/.raven/config.toml`, else built-in defaults) |
 | `--json` | machine-readable output, one JSON object per line |
 | `--color auto\|always\|never` | colour (default `auto`: only on a terminal; respects `NO_COLOR`) |
 | `--version`, `-h/--help` | version, help |
@@ -190,34 +190,34 @@ With none of `--iface/--live/--replay` it just serves the history.
 | `--min-score 0-1` | incidents: only scores at or above this |
 | `-a`, `--all` | incidents: include dismissed and resolved |
 
-Examples: `sentinel history --label critical --since 7d`, `sentinel incidents --min-score 0.7`,
-`sentinel ack inc-aabb`, `sentinel history --json | jq .headline`.
+Examples: `raven history --label critical --since 7d`, `raven incidents --min-score 0.7`,
+`raven ack inc-aabb`, `raven history --json | jq .headline`.
 
 ---
 
 ## Live capture
 
-Sentinel sees what crosses the interface it captures. For a whole network, put it on the Mac that
+Raven sees what crosses the interface it captures. For a whole network, put it on the Mac that
 is the **gateway**, for example a MacBook sharing its connection through *Internet Sharing*, where
 clients appear on `bridge100` (the default; confirm with `ifconfig`). On a normal laptop on Wi-Fi it
 only sees that laptop's own traffic.
 
 ```bash
-sentinel watch --iface lo0 -d                          # your own machine, safe to try anywhere
-sudo "$(which sentinel)" watch --iface bridge100 -d    # a gateway; needs capture permission
-sudo "$(which sentinel)" ui --iface bridge100          # or the web console
+raven watch --iface lo0 -d                          # your own machine, safe to try anywhere
+sudo "$(which raven)" watch --iface bridge100 -d    # a gateway; needs capture permission
+sudo "$(which raven)" ui --iface bridge100          # or the web console
 ```
 
 - Capture needs permission to read network devices. On macOS you may not need `sudo` if your user
   is in the `access_bpf` group (check with `id`); otherwise use `sudo` with the **full path** as
-  shown, and Sentinel still uses **your** `~/.sentinel` folder, not root's.
+  shown, and Raven still uses **your** `~/.raven` folder, not root's.
 - Only one live capture may feed a database. A second one refuses to start; stop the first with
-  `pkill -f sentinel`.
+  `pkill -f raven`.
 - Stop with Ctrl-C (or `q` in the dashboard).
 
 ## Web console
 
-`sentinel ui` prints a link like `http://127.0.0.1:8787/?t=...` and opens it (when started with
+`raven ui` prints a link like `http://127.0.0.1:8787/?t=...` and opens it (when started with
 `sudo` it only prints the link, and you open it yourself: a browser is never launched as root). The link's token is
 needed once; the page only listens on `127.0.0.1`.
 
@@ -229,7 +229,7 @@ needed once; the page only listens on `127.0.0.1`.
   (tick rows, or open one; a second click confirms; each deletion is recorded in the audit log).
 - **NOTIFICATIONS tab:** the three channels with their state (ready, no credentials, not in config), sent / failed / skipped counts for the last 24 hours, a **SEND TEST** button per channel (two clicks; it sends one marked test message to your real workspace), a banner saying whether this run is **armed** (started with `-n`), and every delivery with the alert it was about and why it failed, if it did. Click a row, then **OPEN IN HISTORY**.
 - **DEVICES tab:** every device the capture has seen (kept across restarts): addresses, last seen, packets, bytes sent and received, and alert count with the worst severity. Click one to see its recent alerts and give it a name (saved in the database; names never come from network data). Broadcast and multicast addresses are not listed.
-- **HEALTH tab:** is capture running and when did the last packet arrive, which detectors and thresholds are active, notification and LLM setup (credentials shown only as set / not set), database size and counts, and the same checks as `sentinel doctor`, refreshed every few seconds.
+- **HEALTH tab:** is capture running and when did the last packet arrive, which detectors and thresholds are active, notification and LLM setup (credentials shown only as set / not set), database size and counts, and the same checks as `raven doctor`, refreshed every few seconds.
 - **Theme:** the **DARK / LIGHT** switch in the top bar changes the colours (dark is the default). The choice is remembered in that browser.
 - **Keys:** `1` live, `2` history, `3` notifications, `4` devices, `5` health, `/` search or filter, `p` pause the packet table.
 
@@ -237,13 +237,13 @@ needed once; the page only listens on `127.0.0.1`.
 
 `tools/demo_attacks.py` runs a port scan, SSH brute force, beaconing and a DNS tunnel against
 **your own machine** (`127.0.0.1` only; any other target is refused), narrating each step on screen
-while Sentinel catches it in another window. Run from the checkout, in two terminals:
+while Raven catches it in another window. Run from the checkout, in two terminals:
 
 ```bash
 # terminal 1: the monitor. The demo config uses a 10 s window and a 15 s cooldown so every attack
 # alerts quickly and can be repeated, and keeps the demo out of your real history (examples/demo.db)
-uv run sentinel --config examples/demo-10s.toml ui --iface lo0          # web console, or:
-uv run sentinel --config examples/demo-10s.toml watch --iface lo0 -d    # full-screen terminal view
+uv run raven --config examples/demo-10s.toml ui --iface lo0          # web console, or:
+uv run raven --config examples/demo-10s.toml watch --iface lo0 -d    # full-screen terminal view
 
 # terminal 2: wait until terminal 1 says it is capturing, then attack
 uv run python tools/demo_attacks.py                   # press Enter between attacks, to talk
@@ -254,17 +254,17 @@ uv run python tools/demo_attacks.py --only scan,dns   # pick some (scan brute be
 Each attack should raise a red `CRITICAL` line within about 10 to 25 seconds (scan: "probing many
 network ports", brute force: "repeated login attempts", beacon: "one server at fixed intervals",
 DNS: "unusual DNS requests"). The `web` step is normal browsing as a control and must raise nothing.
-If capture on `lo0` is refused, run the monitor with `sudo "$(which sentinel)"`. Timings and
+If capture on `lo0` is refused, run the monitor with `sudo "$(which raven)"`. Timings and
 one-attack-at-a-time commands: [demo.md](demo.md).
 
 ## Alerts to Slack, Discord, Telegram
 
-1. Put your keys in `~/.sentinel/secrets.env` (`SLACK_WEBHOOK_URL`, `DISCORD_WEBHOOK_URL`,
+1. Put your keys in `~/.raven/secrets.env` (`SLACK_WEBHOOK_URL`, `DISCORD_WEBHOOK_URL`,
    `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID`). Only fill the channels you use. The file must be
-   `chmod 600` (`sentinel doctor --fix` does it).
+   `chmod 600` (`raven doctor --fix` does it).
 2. In `config.toml` set `[notify]` `enabled = true` and `channels = ["slack"]` (any of `slack`,
    `discord`, `telegram`).
-3. `sentinel notify test slack` sends one marked test message to your real workspace.
+3. `raven notify test slack` sends one marked test message to your real workspace.
 4. Add `-n` to `watch`, `replay` or `ui` to send alerts for real incidents.
 
 Messages contain only sanitised summaries (device, technique, score, advice), never packet data.
@@ -273,9 +273,9 @@ breaker. Details: [USER_GUIDE.md](USER_GUIDE.md).
 
 ## Plain-English summaries with a local LLM (optional)
 
-Sentinel does **not** ship a model and does not install one for you. Without an LLM it still works
+Raven does **not** ship a model and does not install one for you. Without an LLM it still works
 fully: the built-in templates explain every alert. If you want the wording written by a model, you
-install a model runner and a model yourself, then point Sentinel at it. Everything stays on your
+install a model runner and a model yourself, then point Raven at it. Everything stays on your
 machine.
 
 **Step 1. Install Ollama and pull any model** (Ollama is the easiest runner):
@@ -290,7 +290,7 @@ ollama list                    # shows the exact model name to use below
 Any model Ollama can run is fine (for example `llama3.2`, `qwen2.5`, `gemma`). Bigger models write
 nicer text but make each alert wait longer; a small model answers in a few seconds.
 
-**Step 2. Tell Sentinel about it** in `~/.sentinel/config.toml`:
+**Step 2. Tell Raven about it** in `~/.raven/config.toml`:
 
 ```toml
 [llm]
@@ -304,17 +304,17 @@ timeout_seconds = 120                # raise it for big models or the first requ
 **Step 3. Check it:**
 
 ```bash
-sentinel llm test
+raven llm test
 ```
 
-`source: llm` means the model answered. `source: template (fallback: ...)` means Sentinel used the
+`source: llm` means the model answered. `source: template (fallback: ...)` means Raven used the
 built-in text and tells you why (server not running, wrong model name, a timeout). Nothing breaks
-when the model is down: alerts keep flowing with templates. Run `sentinel doctor` to see whether the
+when the model is down: alerts keep flowing with templates. Run `raven doctor` to see whether the
 server and model are reachable.
 
 Using llama.cpp instead of Ollama: start `llama-server -m your-model.gguf`, then set
 `runtime = "openai"`, `base_url = "http://127.0.0.1:8080"` and any `model` name; if you started it
-with `--api-key KEY`, put `LLM_API_KEY=KEY` in `~/.sentinel/secrets.env`.
+with `--api-key KEY`, put `LLM_API_KEY=KEY` in `~/.raven/secrets.env`.
 
 How it is used: the model only rewrites the explanation from sanitised fields and never decides
 anything. Its output is fact-checked against the evidence and replaced by the template if it
@@ -324,16 +324,16 @@ automatically.
 
 ## Configuration and data
 
-Everything lives in **`~/.sentinel/`** (override with `SENTINEL_HOME`), the same wherever you run from:
+Everything lives in **`~/.raven/`** (override with `RAVEN_HOME`), the same wherever you run from:
 
 | File | What |
 |---|---|
-| `sentinel.db` | the permanent history, incidents, audit log |
+| `raven.db` | the permanent history, incidents, audit log |
 | `config.toml` | settings: interface, detection thresholds, statistical detectors, notifications, LLM |
 | `secrets.env` | webhook URLs and tokens, mode 600, never printed or logged |
 
-`sentinel config show` prints the effective settings. A relative path inside a config file means
-"next to that file". **Back up** by copying `sentinel.db` while Sentinel is stopped; **start fresh**
+`raven config show` prints the effective settings. A relative path inside a config file means
+"next to that file". **Back up** by copying `raven.db` while Raven is stopped; **start fresh**
 by deleting it.
 
 The statistical detectors are tuned under `[detection.ml]` (`ngram_dns`, `isolation_forest`,
@@ -343,12 +343,12 @@ The statistical detectors are tuned under `[detection.ml]` (`ngram_dns`, `isolat
 
 | Symptom | Fix |
 |---|---|
-| `command not found: sentinel` | `uv tool update-shell`, then open a new terminal (or use `uv run sentinel`) |
-| `configuration error: ... chmod 600` | `chmod 600 ~/.sentinel/secrets.env` or `sentinel doctor --fix` |
-| `another Sentinel is already capturing ...` | stop the other one: `pkill -f sentinel` |
-| capture permission denied / no packets | use `sudo "$(which sentinel)" ...`; check the interface with `ifconfig`; run `sentinel doctor` |
-| history empty after a restart | you ran from a different `SENTINEL_HOME`/config; `sentinel status` shows which database is used |
-| `source: template (fallback: cannot reach the LLM server ...)` | Ollama is not running: start it with `ollama serve` (or open the Ollama app) and run `sentinel llm test` again |
+| `command not found: raven` | `uv tool update-shell`, then open a new terminal (or use `uv run raven`) |
+| `configuration error: ... chmod 600` | `chmod 600 ~/.raven/secrets.env` or `raven doctor --fix` |
+| `another Raven is already capturing ...` | stop the other one: `pkill -f raven` |
+| capture permission denied / no packets | use `sudo "$(which raven)" ...`; check the interface with `ifconfig`; run `raven doctor` |
+| history empty after a restart | you ran from a different `RAVEN_HOME`/config; `raven status` shows which database is used |
+| `source: template (fallback: cannot reach the LLM server ...)` | Ollama is not running: start it with `ollama serve` (or open the Ollama app) and run `raven llm test` again |
 | `fallback: LLM server returned HTTP 404` or `model not listed` | the `model` in `[llm]` must match `ollama list` exactly, tag included (for example `gemma4:e2b`) |
 | `fallback: ... timed out` | raise `timeout_seconds` in `[llm]`; the first request after a cold start loads the model and can take much longer |
 | a legitimate device keeps alerting | raise thresholds in `[detection]` or add it to `trusted_ips` |
@@ -363,7 +363,7 @@ More in [USER_GUIDE.md](USER_GUIDE.md#troubleshooting).
   notification, LLM or screen, and the console only ever shows it as plain text under a strict
   Content-Security-Policy.
 - The console listens on `127.0.0.1` only and needs the per-run token.
-- Sentinel never blocks or changes anything on the network. Capture never stalls the detectors.
+- Raven never blocks or changes anything on the network. Capture never stalls the detectors.
 - The attack scripts in `tools/` refuse any target except loopback. Use them only on your own machine.
 - Secrets live only in `secrets.env` (mode 600) or environment variables.
 
@@ -387,7 +387,7 @@ make build         # wheel + sdist in dist/
 make demo          # practice capture with one of each attack, replayed in the terminal
 ```
 
-`make check` takes about two minutes. Layout: `sentinel/` (code; `api/` is the service surface used
+`make check` takes about two minutes. Layout: `raven/` (code; `api/` is the service surface used
 by both the CLI and the web console), `tests/`, `tools/` (demo and attack scripts), `examples/`
 (demo config), `schemas/` (JSON schemas of the data contracts), `spikes/` (hardware checks to run
 on the gateway), `docs/` (spec, decisions, diagrams, state, ablation, and `docs/pitch/`: the pitch deck plus `build_deck.js` that regenerates it).

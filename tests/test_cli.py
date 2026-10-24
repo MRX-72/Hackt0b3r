@@ -8,14 +8,14 @@ from pathlib import Path
 
 import pytest
 
-from sentinel.api.service import SentinelService
-from sentinel.cli import main as cli_main
-from sentinel.cli.main import main, parse_duration
-from sentinel.config.secrets import Secrets
-from sentinel.config.settings import Settings, load_settings
-from sentinel.contracts.models import IncidentReport
-from sentinel.net.http import Request, Response
-from sentinel.sensor.replay import read_pcap
+from raven.api.service import RavenService
+from raven.cli import main as cli_main
+from raven.cli.main import main, parse_duration
+from raven.config.secrets import Secrets
+from raven.config.settings import Settings, load_settings
+from raven.contracts.models import IncidentReport
+from raven.net.http import Request, Response
+from raven.sensor.replay import read_pcap
 from tests import frames as f
 from tests import scenarios as sc
 from tools.make_demo_pcap import main as make
@@ -56,8 +56,8 @@ def env(tmp_path: Path) -> dict[str, object]:
     sc.write_pcap(pcap, sc.normal_browsing(0, 300, sc.USER) + sc.port_scan(100.0, range(1, 201)))
     net = Net()
 
-    def factory(settings: Settings, secrets_: Secrets) -> SentinelService:
-        return SentinelService(settings, secrets_, net)
+    def factory(settings: Settings, secrets_: Secrets) -> RavenService:
+        return RavenService(settings, secrets_, net)
 
     return {"config": str(config), "pcap": str(pcap), "factory": factory, "net": net}
 
@@ -227,7 +227,7 @@ def test_no_command_prints_help_and_version_works(capsys: pytest.CaptureFixture[
     assert "examples:" in capsys.readouterr().out
     with pytest.raises(SystemExit) as exc:
         main(["--version"])
-    assert exc.value.code == 0 and capsys.readouterr().out.startswith("sentinel 0.1.0")
+    assert exc.value.code == 0 and capsys.readouterr().out.startswith("raven 0.1.0")
 
 
 def test_notify_flag_warns_when_notifications_are_not_configured(
@@ -244,7 +244,7 @@ def test_notify_flag_warns_when_notifications_are_not_configured(
 def test_demo_pcap_tool_produces_all_four_attacks(tmp_path: Path) -> None:
     make(tmp_path / "demo.pcap")
     reports: list[IncidentReport] = []
-    service = SentinelService(Settings(database=tmp_path / "s.db"), Secrets())
+    service = RavenService(Settings(database=tmp_path / "s.db"), Secrets())
     service.replay(tmp_path / "demo.pcap", on_report=reports.append)
     service.close()
     chains = {tuple(r.incident.chain) for r in reports}
@@ -285,7 +285,7 @@ def test_init_creates_private_files_and_never_overwrites(
 
 
 def test_shipped_config_template_is_valid_and_keeps_the_defaults() -> None:
-    template = Path(__file__).resolve().parent.parent / "sentinel/config/templates/config.toml"
+    template = Path(__file__).resolve().parent.parent / "raven/config/templates/config.toml"
     assert load_settings(template) == Settings()
 
 
@@ -312,7 +312,7 @@ def test_ack_dismiss_resolve_by_prefix_with_audit_and_filtering(
     assert "no matching incidents" in run_ok(env, capsys, "incidents")
     assert "dismissed" in run_ok(env, capsys, "incidents", "--all")
     assert "-> resolved" in run_ok(env, capsys, "resolve", "inc-aabbccddee30-110")
-    svc = SentinelService(load_settings(Path(str(env["config"]))), Secrets())
+    svc = RavenService(load_settings(Path(str(env["config"]))), Secrets())
     actions = [(e.action, e.detail["status"]) for e in svc.storage.audit_entries()]
     svc.close()
     assert actions == [
@@ -392,7 +392,7 @@ def test_watch_passes_the_duration_to_the_capture(
         seen.update(argv=argv, duration=duration_seconds)
         return iter(frames)
 
-    monkeypatch.setattr("sentinel.api.service.capture_live", fake_capture)
+    monkeypatch.setattr("raven.api.service.capture_live", fake_capture)
     out = run_ok(env, capsys, "watch", "--for", "35s", "--iface", "lo0")
     assert seen["duration"] == 35.0 and seen["argv"][:3] == ["tcpdump", "-i", "lo0"]  # type: ignore[index]
     assert "INCIDENT" in out and "frames=" in out
@@ -565,7 +565,7 @@ def test_init_leaves_nothing_half_written_if_the_template_cannot_be_read(
         def read_text(self) -> str:
             raise OSError("template unreadable")
 
-    monkeypatch.setattr("sentinel.api.service.resources.files", lambda _: Unreadable())
+    monkeypatch.setattr("raven.api.service.resources.files", lambda _: Unreadable())
     target = tmp_path / "ws"
     with pytest.raises(OSError, match="unreadable"):
         main(["init", "--dir", str(target)])

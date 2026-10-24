@@ -3,7 +3,7 @@
 Status labels: statements about the real network or hardware are ASSUMED until `docs/HUMAN_VERIFICATION.md` items are reported back.
 
 ## Problem and users
-Small teams, colleges and offices have no security staff. Commercial tools assume one. Sentinel is a network anomaly detector that runs on one MacBook acting as the gateway, learns what each device normally does, and tells an admin in plain English what to look at.
+Small teams, colleges and offices have no security staff. Commercial tools assume one. Raven is a network anomaly detector that runs on one MacBook acting as the gateway, learns what each device normally does, and tells an admin in plain English what to look at.
 
 ## What it does
 Passively captures traffic crossing the gateway, builds flows and multi-timescale features, detects scans, brute force, beaconing and DNS tunneling, scores devices against their own baseline and their peers, correlates alerts into incidents tagged with ATT&CK techniques, explains incidents in plain text, notifies the admin on one opt-in channel, and proposes firewall rules for human approval. It tests itself with scripted attacks against a closed lab and reports its own misses.
@@ -17,7 +17,7 @@ Passively captures traffic crossing the gateway, builds flows and multi-timescal
 
 ## Architecture (diagrams in `docs/diagrams/`)
 - Context and trust boundary: `01-system-context.mmd`. Lab layout: `02-network-topology.mmd`.
-- Two processes: `sentineld` (root: capture, ring buffer, approved pf changes) and `sentinel-api` (unprivileged: everything else), joined by a 0600 Unix socket: `03-process-architecture.mmd`.
+- Two processes: `ravend` (root: capture, ring buffer, approved pf changes) and `raven-api` (unprivileged: everything else), joined by a 0600 Unix socket: `03-process-architecture.mmd`.
 - Data path packets → flows → windows → detectors → ensemble → incidents → sanitizer → explanation: `04-data-flow-cascade.mmd`, example in `07-detection-sequence.mmd`, incident states in `08-incident-lifecycle.mmd`.
 - Import direction between modules, enforced by a test: `05-module-dependencies.mmd`.
 - Storage: `06-data-model.mmd`. Enforcement guards: `09-enforcement-approval.mmd`. Notifications: `10-notification-flow.mmd`. Models: `11-model-registry.mmd`. Order of work: `12-build-order.mmd`.
@@ -29,7 +29,7 @@ Storage (everything depends on it); the packet parser (hostile input, must never
 Privilege separation; approval-gated enforcement with safelist, lockout protection, TTL, blast radius, audit and revoke; sanitized LLM and notification input with faithfulness checks and template fallback; local-first, with notifications as the only opt-in external traffic and off in Air-gapped and Replay modes; secrets only in env/Keychain.
 
 ## Model roster
-Each model has one job and ships enabled only if the ablation table justifies it. P0: Isolation Forest and robust-z peers (anomaly), periodicity analysis (beaconing), char n-gram + logistic regression plus entropy rules (DNS), an embedding model (incident dedupe), a tool-calling model for `sentinel ask`, and a small LLM for explanations. Model names, sizes and licenses in the spec are UNVERIFIED (see `FACTS.md`). P1/P2 models are listed in `docs/spec/04-models.md`.
+Each model has one job and ships enabled only if the ablation table justifies it. P0: Isolation Forest and robust-z peers (anomaly), periodicity analysis (beaconing), char n-gram + logistic regression plus entropy rules (DNS), an embedding model (incident dedupe), a tool-calling model for `raven ask`, and a small LLM for explanations. Model names, sizes and licenses in the spec are UNVERIFIED (see `FACTS.md`). P1/P2 models are listed in `docs/spec/04-models.md`.
 
 ## Build order and definition of done
 Stage 0 design and skeleton → Stage 1 core, 13 components in order, each with a brief, failing tests first, `make check` green, wired in, one commit → Gate 1 (end-to-end replay) → Stage 2 surround → Gate 2 → polish. A component is done when it matches the diagrams, has tests that can fail (negative cases included), passes `make check`, and is used by something.

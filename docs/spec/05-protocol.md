@@ -117,14 +117,14 @@ At every Gate, review the work from a clean angle:
 
 - Pin Python version and dependencies in a lockfile. `make bootstrap` creates a working environment from scratch.
 - A clean-checkout test runs in CI-style fashion (`make check` from a fresh clone) before Gate 2 and before release.
-- Record every model's source, license and SHA-256 in `MODELS.md` and `registry.yaml`, and make `sentinel models verify` pass.
+- Record every model's source, license and SHA-256 in `MODELS.md` and `registry.yaml`, and make `raven models verify` pass.
 - No network access at runtime. Test it by running the pipeline with networking blocked where possible.
 - Keep fixtures small and committed. Large artifacts (pcaps, models) get checksums and a fetch script, not a blob in git.
 
 ## 12. `CLAUDE.md` template (create at Stage 0)
 
 ```
-# Sentinel: rules for Claude Code
+# Raven: rules for Claude Code
 Read first, every session: docs/STATE.md, docs/DECISIONS.md, docs/FACTS.md.
 Spec lives in docs/spec/. Requirements in docs/REQUIREMENTS.csv. Diagrams in docs/diagrams/.
 

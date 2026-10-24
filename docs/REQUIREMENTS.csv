@@ -46,19 +46,19 @@ R-ENF-004,P0,"TTL required on blocks, max configurable, auto-expiry",P4 s8.2,enf
 R-ENF-005,P0,Blast-radius limit on simultaneously blocked hosts,P4 s8.2,enforce.validate,,todo
 R-ENF-006,P0,Full audit of propose/approve/apply/expire/revoke; revoke --all,P4 s8.2,enforce,,todo
 R-ENF-007,P1,"Real pf apply inside anchor with TTL and rollback, only after human confirms H-04",P2 Stage2.11,enforce.pf,,todo
-R-DMN-001,P0,"sentineld (root) does only capture, ring buffer, approved enforcement; Unix socket mode 0600",P4 s2,daemon,,todo
+R-DMN-001,P0,"ravend (root) does only capture, ring buffer, approved enforcement; Unix socket mode 0600",P4 s2,daemon,,todo
 R-API-001,P0,"API on 127.0.0.1, bearer token (0600 file), constant-time compare, auth-failure rate limit; rejects missing token","P4 s2, s10, s13.2",api,,todo
 R-API-002,P0,"REST + live stream exposing incidents, devices, status; GET /metrics counters",P4 s3,api,,todo
 R-CLI-001,P0,"CLI: status, start/stop, mode, devices, incidents, replay, eval run, doctor; --json parses","P4 s12, s13.3",cli,test_cli.py,"partial: replay, watch, incidents, notify test, llm test, doctor; mode/start/stop open"
-R-CLI-002,P0,`sentinel doctor` reports green or actionable errors,P4 s13.1,cli,test_cli.py,"partial: doctor checks secrets, creds, interface, LLM"
+R-CLI-002,P0,`raven doctor` reports green or actionable errors,P4 s13.1,cli,test_cli.py,"partial: doctor checks secrets, creds, interface, LLM"
 R-INV-001,P0,"Device inventory keyed by MAC, OUI vendor offline, new-device alert, IP/MAC conflict alerts",P3 s7,inventory,,todo
 R-INV-002,P0,Device type guess with confidence; admin label overrides; behavior-change alert,P3 s7,inventory,,todo
 R-MDE-001,P0,"Modes Learning, Standard, Strict, Replay, Air-gapped as config bundles; audited switching","P4 s7, s13.8",modes,,todo
 R-NOT-001,P0,"One channel (Discord or Slack) with severity routing, test button, sanitization, failure never blocks detection",P4 s12,notify,test_notify.py,"done for Slack, Discord, Telegram (real send unverified: H-10)"
 R-GUI-001,P0,"GUI Overview, Incidents, Devices, Modes, Purple-team; textContent only, strict CSP, vendored assets, no CDN",P4 s5,web,,deferred to end (D-013)
-R-PKT-001,P0,"Packets view lite: live list, host/port filter, incident click-through, pcap export [CLI form first: sentinel packets live|show, capture export; GUI view deferred]","P4 s12, s13.5",packets,,todo
+R-PKT-001,P0,"Packets view lite: live list, host/port filter, incident click-through, pcap export [CLI form first: raven packets live|show, capture export; GUI view deferred]","P4 s12, s13.5",packets,,todo
 R-NLP-001,P0,Embedding dedupe and similar past incidents,P5 s12,nlp.embed,,todo
-R-NLP-002,P0,"`sentinel ask` with read-only allowlist, arg validation, refuses unrelated, cannot enforce; >=90% on labeled set (report real number)","P5 s6, s13.7",nlp.ask,,todo
+R-NLP-002,P0,"`raven ask` with read-only allowlist, arg validation, refuses unrelated, cannot enforce; >=90% on labeled set (report real number)","P5 s6, s13.7",nlp.ask,,todo
 R-EVL-001,P0,"Purple-team eval: per attack detected/time to detect/detector, FP per hour, 3 configs (single window, multi-timescale, full), budget reduction",P3 s15,evalharness,,todo
 R-EVL-002,P0,Ablation table rules vs rules + each model with CPU/RAM/latency,P5 s9,evalharness,,todo
 R-EVL-003,P0,"Injection suite measures leakage to LLM, notification, UI; target zero on structured path",P5 s9,evalharness,,todo

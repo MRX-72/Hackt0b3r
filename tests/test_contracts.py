@@ -1,8 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
-from sentinel.contracts.models import Alert, Flow
-from sentinel.contracts.schemas import SCHEMA_DIR, render
+from raven.contracts.models import Alert, Flow
+from raven.contracts.schemas import SCHEMA_DIR, render
 
 MAC = "aa:bb:cc:dd:ee:ff"
 

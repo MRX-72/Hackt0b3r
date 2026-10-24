@@ -1,9 +1,9 @@
 import pytest
 
-from sentinel.config.settings import DetectionSettings
-from sentinel.features import windows as w
-from sentinel.features.windows import HostContext, WindowEngine, split_name
-from sentinel.sensor.parse import FrameParser
+from raven.config.settings import DetectionSettings
+from raven.features import windows as w
+from raven.features.windows import HostContext, WindowEngine, split_name
+from raven.sensor.parse import FrameParser
 from tests import frames
 from tests import scenarios as sc
 

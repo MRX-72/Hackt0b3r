@@ -1,4 +1,4 @@
-"""Attacks against YOUR OWN machine's loopback interface, for trying Sentinel. Own machine only.
+"""Attacks against YOUR OWN machine's loopback interface, for trying Raven. Own machine only.
 
     python tools/localhost_attacks.py scan      # port scan: 400 ports in about a second
     python tools/localhost_attacks.py brute     # password guessing against a fake SSH-like service
@@ -136,7 +136,7 @@ def dns(args: argparse.Namespace) -> str:
         for i in range(args.count):
             progress(args, i + 1, args.count)
             label = "".join(rnd.choice(ALPHABET) for _ in range(52))
-            # Nothing listens on port 53 here; the query packets are what Sentinel sees.
+            # Nothing listens on port 53 here; the query packets are what Raven sees.
             sock.sendto(dns_query(f"{label}.t.badzone.test", 16), (LOOPBACK, 53))
             time.sleep(1 / args.rate)
     return f"sent {args.count} TXT lookups of 52-character random names to 127.0.0.1:53"

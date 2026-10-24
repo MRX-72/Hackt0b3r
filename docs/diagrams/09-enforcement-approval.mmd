@@ -1,10 +1,10 @@
 %% 09 Enforcement approval and guards. P0 stops at dry-run; apply is P1 and needs human-confirmed pf spike.
 sequenceDiagram
   actor Admin
-  participant A as sentinel-api
+  participant A as raven-api
   participant V as validator
   participant R as pf renderer
-  participant D as sentineld
+  participant D as ravend
   A->>V: proposal from structured incident fields (never LLM text)
   V->>V: safelist (gateway, admin, config hosts)
   V->>V: lockout (API client IP/MAC)
@@ -16,7 +16,7 @@ sequenceDiagram
   A-->>Admin: show dry run
   Admin->>A: approve (GUI/CLI)
   Note over A,D: P1 only, after HUMAN_VERIFICATION pf spike confirmed
-  A->>D: apply into anchor "sentinel" via Unix socket
+  A->>D: apply into anchor "raven" via Unix socket
   D-->>A: result
   A->>A: audit apply, schedule expiry
   D-->>A: TTL expiry removes rule (audit)

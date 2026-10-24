@@ -1,7 +1,7 @@
-// Builds Sentinel_Pitch.pptx. Setup: npm install pptxgenjs react react-dom react-icons sharp
+// Builds Raven_Pitch.pptx. Setup: npm install pptxgenjs react react-dom react-icons sharp
 // Run: node build_deck.js [outfile]   (screenshots: assets/live.png, assets/history_c.png)
 // Every number on a slide comes from this repository's tests, docs/ABLATION.md, demo.md or the
-// screenshots (a real run of `sentinel ui` against loopback attacks).
+// screenshots (a real run of `raven ui` against loopback attacks).
 const path = require("path");
 const pptxgen = require("pptxgenjs");
 const React = require("react");
@@ -18,8 +18,8 @@ const SANS = "Calibri", MONO = "Courier New";
 
 const pres = new pptxgen();
 pres.layout = "LAYOUT_WIDE"; // 13.33 x 7.5 in
-pres.title = "Sentinel: network security for places with no security team";
-pres.author = "Sentinel";
+pres.title = "Raven: network security for places with no security team";
+pres.author = "Raven";
 pres.theme = { headFontFace: SANS, bodyFontFace: SANS };
 const W = 13.33;
 
@@ -30,7 +30,7 @@ pres.defineSlideMaster({
   objects: [
     { rect: { x: 0, y: 7.1, w: W, h: 0.4, fill: { color: T.bar }, line: { color: T.bar, width: 0 } } },
     { rect: { x: 0.6, y: 7.17, w: 0.12, h: 0.12, fill: { color: T.crit }, line: { color: T.crit, width: 0 } } },
-    { text: { text: "SENTINEL", options: { x: 0.82, y: 7.1, w: 3, h: 0.28, fontFace: MONO, fontSize: 10, bold: true, color: T.dim, charSpacing: 4, margin: 0, valign: "middle" } } },
+    { text: { text: "RAVEN", options: { x: 0.82, y: 7.1, w: 3, h: 0.28, fontFace: MONO, fontSize: 10, bold: true, color: T.dim, charSpacing: 4, margin: 0, valign: "middle" } } },
     {
       placeholder: {
         options: {
@@ -91,13 +91,13 @@ async function build() {
   {
     const s = pres.addSlide({ masterName: "TITLE" });
     s.addNotes(
-      "One-line promise: network security for places with no security team. Sentinel runs on the gateway Mac, " +
+      "One-line promise: network security for places with no security team. Raven runs on the gateway Mac, " +
         "spots port scans, password guessing, malware check-ins, DNS tunnelling and unusual traffic, explains each in " +
         "plain English, keeps a permanent history, and can alert Slack, Discord or Telegram. The screenshot on the right is the real console during a live test on this Mac."
     );
     rect(s, 0, 0, 0.18, 7.5, T.crit, null, "edge");
     mono(s, "NETWORK ANOMALY DETECTOR", { x: 0.7, y: 1.2, w: 6, h: 0.3, fontSize: 12, bold: true, color: T.crit, charSpacing: 5 });
-    text(s, "Sentinel", { x: 0.7, y: 1.6, w: 6, h: 1.2, fontSize: 66, bold: true, color: T.bright, valign: "middle" });
+    text(s, "Raven", { x: 0.7, y: 1.6, w: 6, h: 1.2, fontSize: 66, bold: true, color: T.bright, valign: "middle" });
     text(s, "Network security for places with no security team.", { x: 0.7, y: 2.9, w: 5.6, h: 1.1, fontSize: 24, color: T.text });
     const stats = [["5", "detectors, rules and\nstatistical"], ["418", "automated tests"], ["4 / 4", "live attacks caught\non loopback"]];
     stats.forEach(([n, l], i) => {
@@ -109,7 +109,7 @@ async function build() {
     mono(s, "Runs on one Mac. No cloud. No account.", { x: 0.7, y: 6.6, w: 6, h: 0.3, fontSize: 12, color: T.dim });
     const iw = 6.6, ih = iw * (1620 / 2880);
     rect(s, 6.45, 1.8 - 0.06, iw + 0.12, ih + 0.12, T.panel, T.line2, "frame");
-    s.addImage({ path: path.join(__dirname, "assets", "live.png"), x: 6.51, y: 1.8, w: iw, h: ih, altText: "Sentinel web console during a live port scan, brute force, beacon and DNS tunnel test: packet monitor, topology and four CRITICAL alerts" });
+    s.addImage({ path: path.join(__dirname, "assets", "live.png"), x: 6.51, y: 1.8, w: iw, h: ih, altText: "Raven web console during a live port scan, brute force, beacon and DNS tunnel test: packet monitor, topology and four CRITICAL alerts" });
     mono(s, "REAL SCREENSHOT: LIVE TEST ON LOOPBACK", { x: 6.51, y: 1.8 + ih + 0.2, w: 6.6, h: 0.25, fontSize: 9, color: T.faint, charSpacing: 2 });
   }
 
@@ -135,7 +135,7 @@ async function build() {
     }
     rect(s, 0.6, 5.6, 12.15, 1.0, T.raise, T.line2, "callout");
     rect(s, 0.6, 5.6, 0.08, 1.0, T.crit, null, "callout-edge");
-    text(s, [{ text: "Sentinel: ", options: { bold: true, color: T.bright } }, { text: "one Mac on the gateway watches the traffic, spots the pattern, and tells the admin in plain English what to look at.", options: {} }],
+    text(s, [{ text: "Raven: ", options: { bold: true, color: T.bright } }, { text: "one Mac on the gateway watches the traffic, spots the pattern, and tells the admin in plain English what to look at.", options: {} }],
       { x: 0.95, y: 5.6, w: 11.5, h: 1.0, fontSize: 19, valign: "middle" });
   }
 
@@ -222,7 +222,7 @@ async function build() {
     kicker(s, "THE LIVE CONSOLE");
     const iw = 8.3, ih = iw * (1620 / 2880);
     rect(s, 0.6 - 0.05, 1.75 - 0.05, iw + 0.1, ih + 0.1, T.panel, T.line2, "frame");
-    s.addImage({ path: path.join(__dirname, "assets", "live.png"), x: 0.6, y: 1.75, w: iw, h: ih, altText: "Live tab of the Sentinel console" });
+    s.addImage({ path: path.join(__dirname, "assets", "live.png"), x: 0.6, y: 1.75, w: iw, h: ih, altText: "Live tab of the Raven console" });
     // numbered markers on the screenshot (coordinates are fractions of the image)
     const mk = [[0.215, 0.077], [0.975, 0.077], [0.975, 0.505], [0.2, 0.845]];
     mk.forEach(([fx, fy], i) => {
@@ -251,17 +251,17 @@ async function build() {
     const s = content(
       "A permanent history you can search, export and clean up",
       "Every detection is written to a SQLite database in the user's folder, so it survives restarts. The History tab filters by severity, time and source, searches headline, address, technique or incident id, " +
-        "opens the full explanation and the numbers behind it, exports CSV, and deletes chosen entries (two clicks to confirm, each deletion recorded in an audit log). The same data is available in the terminal with 'sentinel history'."
+        "opens the full explanation and the numbers behind it, exports CSV, and deletes chosen entries (two clicks to confirm, each deletion recorded in an audit log). The same data is available in the terminal with 'raven history'."
     );
     kicker(s, "THE HISTORY");
     const iw = 8.75, ih = iw * (1620 / 2880);
     rect(s, 0.55, 1.7, iw + 0.1, ih + 0.1, T.panel, T.line2, "frame");
     s.addImage({ path: path.join(__dirname, "assets", "history.png"), x: 0.6, y: 1.75, w: iw, h: ih, altText: "History tab with four CRITICAL detections and the detail pane open on a beaconing alert" });
     const pts = [
-      ["Survives restarts", "SQLite in ~/.sentinel. The same history from any folder."],
+      ["Survives restarts", "SQLite in ~/.raven. The same history from any folder."],
       ["Find anything", "Filter by severity, time, source. Search headline, IP, technique or incident."],
       ["See why", "Plain-English explanation plus the numbers that triggered it."],
-      ["Take it with you", "CSV export, or sentinel history --json for scripts."],
+      ["Take it with you", "CSV export, or raven history --json for scripts."],
       ["Stay in control", "Delete chosen entries; every deletion is audited."],
     ];
     pts.forEach(([h, b], i) => {
@@ -329,7 +329,7 @@ async function build() {
       ["What is switched on", "Rules, windows, thresholds and both statistical models."],
       ["Setup at a glance", "Alerts armed? Which LLM model? Credentials: set or not."],
       ["The database", "Size and counts of history, devices and deliveries."],
-      ["Checks built in", "The same checks as sentinel doctor, refreshed live."],
+      ["Checks built in", "The same checks as raven doctor, refreshed live."],
     ]
   );
 
@@ -337,7 +337,7 @@ async function build() {
   {
     const s = content(
       "Fast attacks and slow ones: three clocks, not one",
-      "A single short window misses a patient attacker who probes slowly. Sentinel counts over 10 seconds, 5 minutes and 1 hour. " +
+      "A single short window misses a patient attacker who probes slowly. Raven counts over 10 seconds, 5 minutes and 1 hour. " +
         "The default scan thresholds are 20 distinct ports in 10 seconds, 15 in 5 minutes and 60 in an hour. Expressed as a probing rate, that is the chart: " +
         "a scan must go faster than 120 probes a minute to trip the short clock, but the 5-minute clock catches 3 a minute and the 1-hour clock catches 1 a minute. " +
         "In the live loopback test a fast scan was CRITICAL through the 10-second window and a scan of one probe per second was HIGH through the 5-minute window."
@@ -422,7 +422,7 @@ async function build() {
   {
     const s = content(
       "Tested live: all four attacks caught, the control stayed quiet",
-      "These come from the live loopback test in demo.md: Sentinel captured lo0 on this Mac with only the 10-second window while the four attack scripts ran against 127.0.0.1. " +
+      "These come from the live loopback test in demo.md: Raven captured lo0 on this Mac with only the 10-second window while the four attack scripts ran against 127.0.0.1. " +
         "Bars show seconds from attack start to alert. The DNS tunnel was fastest, 1.7 s; the beacon needed about 12 s because it needs ten check-ins one second apart. " +
         "The control, ordinary web browsing, raised nothing. Stability: port scan, brute force, DNS and the control were right in about 15 live runs each; the beacon missed 2 of 21 early attempts because the attack started before tcpdump was capturing, and after the driver waited for tcpdump it was 4 of 4. " +
         "Real beacons check in every 30 to 300 seconds, so they need minutes, not seconds."
@@ -556,14 +556,14 @@ async function build() {
     const s = content(
       "A security tool has to be safe to run",
       "Five points. One: strings from the network are hostile and go through one sanitiser. Two: the console is local only, with a token, a strict content-security policy and no way for network text to become markup; the test suite fails if code that builds HTML from strings is added. " +
-        "Three: Sentinel only observes and alerts; it never blocks or changes the network. Four: secrets are in a mode 600 file and never printed. Five: the demo attack scripts refuse any target except loopback. " +
+        "Three: Raven only observes and alerts; it never blocks or changes the network. Four: secrets are in a mode 600 file and never printed. Five: the demo attack scripts refuse any target except loopback. " +
         "Also mention the delete and history paths are validated and audited, and that automated security review found and we fixed a symlink issue in the sudo file-ownership code."
     );
     kicker(s, "SECURITY BY DESIGN");
     const rows = [
       [fa.FaBug, "Network text is hostile", "DNS names and hostnames pass one sanitiser before any LLM, alert or screen. The console shows them as plain text only."],
       [fa.FaLock, "A locked-down console", "127.0.0.1 only, per-run token, strict content-security policy, no inline scripts, and a test that fails if HTML is built from strings."],
-      [fa.FaBan, "Observe and alert only", "Sentinel never blocks, changes firewall rules or touches the network. A human decides what to do."],
+      [fa.FaBan, "Observe and alert only", "Raven never blocks, changes firewall rules or touches the network. A human decides what to do."],
       [fa.FaKey, "Secrets stay private", "Webhook URLs and tokens live in a mode 600 file, are never printed or logged, and errors never leak URLs."],
       [fa.FaBullseye, "Attack scripts stay home", "The demo attacks refuse any target except loopback. Own machine only."],
     ];
@@ -588,7 +588,7 @@ async function build() {
   {
     const s = content(
       "Who it is for, and where it sits",
-      "Sentinel sees what crosses the interface it captures, so it belongs on the gateway: a Mac sharing its connection, where clients appear on bridge100. On a normal laptop on Wi-Fi it only sees that laptop's own traffic. " +
+      "Raven sees what crosses the interface it captures, so it belongs on the gateway: a Mac sharing its connection, where clients appear on bridge100. On a normal laptop on Wi-Fi it only sees that laptop's own traffic. " +
         "Be clear about the audience: small teams, schools and labs with no analyst, and people learning detection. It is not an enterprise product, not an intrusion prevention system, and does not read encrypted content."
     );
     kicker(s, "WHO AND WHERE");
@@ -602,7 +602,7 @@ async function build() {
     await iconBox(s, 3.65, dy + 0.5, 0.55, fa.FaShieldAlt, T.crit);
     text(s, "Gateway Mac", { x: 4.35, y: dy + 0.45, w: 2.1, h: 0.4, fontSize: 16, bold: true, color: T.bright });
     mono(s, "Internet Sharing\nbridge100", { x: 4.35, y: dy + 0.85, w: 2.1, h: 0.5, fontSize: 10, color: T.dim });
-    text(s, "runs Sentinel", { x: 3.65, y: dy + 1.45, w: 2.7, h: 0.4, fontSize: 14, bold: true, color: T.crit });
+    text(s, "runs Raven", { x: 3.65, y: dy + 1.45, w: 2.7, h: 0.4, fontSize: 14, bold: true, color: T.crit });
     arrow(s, 6.55, dy + 1.15, 7.35);
     const devs = [[fa.FaLaptop, "Laptops"], [fa.FaMobileAlt, "Phones"], [fa.FaPrint, "Printers, IoT"]];
     devs.forEach(([ic, n], i) => {
@@ -642,9 +642,9 @@ async function build() {
     );
     kicker(s, "RUN IT");
     const blocks = [
-      ["1  INSTALL", ["brew install uv", "git clone https://github.com/MRX-72/Hackt0b3r.git sentinel && cd sentinel", "uv tool install .", "sentinel init && sentinel doctor"]],
-      ["2  QUICK START  (no network needed)", ["uv run python tools/make_demo_pcap.py demo.pcap", "sentinel replay demo.pcap", "sentinel ui --replay demo.pcap", "sentinel history"]],
-      ["3  ATTACK YOURSELF  (two terminals)", ["# terminal 1: the monitor", "sentinel --config examples/demo-10s.toml ui --iface lo0", "# terminal 2: the attacks, on your own machine only", "uv run python tools/demo_attacks.py"]],
+      ["1  INSTALL", ["brew install uv", "git clone https://github.com/MRX-72/Hackt0b3r.git raven && cd raven", "uv tool install .", "raven init && raven doctor"]],
+      ["2  QUICK START  (no network needed)", ["uv run python tools/make_demo_pcap.py demo.pcap", "raven replay demo.pcap", "raven ui --replay demo.pcap", "raven history"]],
+      ["3  ATTACK YOURSELF  (two terminals)", ["# terminal 1: the monitor", "raven --config examples/demo-10s.toml ui --iface lo0", "# terminal 2: the attacks, on your own machine only", "uv run python tools/demo_attacks.py"]],
     ];
     blocks.forEach(([h, lines], i) => {
       const y = 1.8 + i * 1.7;
@@ -664,12 +664,12 @@ async function build() {
     text(s, "See it catch an attack on your own machine.", { x: 0.8, y: 1.95, w: 7.2, h: 1.9, fontSize: 40, bold: true, color: T.bright, valign: "top" });
     text(s, "Five minutes, no network needed, nothing leaves your Mac.", { x: 0.8, y: 4.0, w: 7, h: 0.5, fontSize: 18, color: T.text });
     rect(s, 8.6, 1.9, 4.2, 2.3, T.panel, T.line2, "term");
-    mono(s, "$ uv tool install .\n$ sentinel init\n$ uv run python \\\n    tools/demo_attacks.py", { x: 8.85, y: 2.15, w: 3.8, h: 1.9, fontSize: 14, color: T.bright, valign: "top", paraSpaceAfter: 6 });
+    mono(s, "$ uv tool install .\n$ raven init\n$ uv run python \\\n    tools/demo_attacks.py", { x: 8.85, y: 2.15, w: 3.8, h: 1.9, fontSize: 14, color: T.bright, valign: "top", paraSpaceAfter: 6 });
     mono(s, "README.md  ·  USER_GUIDE.md  ·  docs/ABLATION.md", { x: 0.8, y: 6.5, w: 9, h: 0.3, fontSize: 12, color: T.dim });
     mono(s, "Questions?", { x: 8.6, y: 4.5, w: 4.2, h: 0.5, fontSize: 24, bold: true, color: T.crit });
   }
 
-  const out = process.argv[2] || path.join(__dirname, "Sentinel_Pitch.pptx");
+  const out = process.argv[2] || path.join(__dirname, "Raven_Pitch.pptx");
   await pres.writeFile({ fileName: out });
   console.log("wrote", out);
 }

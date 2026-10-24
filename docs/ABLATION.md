@@ -24,7 +24,7 @@ cases, and 1 hour of ordinary browsing for the forest alone. All raise nothing w
   becoming "normal" (tested).
 - While a named attack (scan, brute force, beacon, tunnel) is active on a device, the vague
   "unusual" alert for it is suppressed: it would only add noise and hide the specific explanation.
-- The forest says only "unusual", never an attack: its technique id is `SENT001` (not ATT&CK, no
+- The forest says only "unusual", never an attack: its technique id is `RVN001` (not ATT&CK, no
   attack-chain stage), and its severity is capped so it never outranks a named detection.
 
 ## Limits (be honest about these)

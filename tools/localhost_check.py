@@ -2,8 +2,8 @@
 
     uv run python tools/localhost_check.py
 
-For each attack it starts `sentinel watch --iface lo0` (no --notify, notifications off), runs
-tools/localhost_attacks.py against 127.0.0.1, then reads back what Sentinel stored. A control
+For each attack it starts `raven watch --iface lo0` (no --notify, notifications off), runs
+tools/localhost_attacks.py against 127.0.0.1, then reads back what Raven stored. A control
 run of ordinary web traffic must raise nothing. Prints a markdown table; exit 0 if all pass.
 """
 
@@ -66,7 +66,7 @@ def attack_start(stdout: str) -> float:
 
 
 def wait_until_capturing(watch: subprocess.Popen[str], timeout: float = 15.0) -> None:
-    """Block until sentinel has started tcpdump, so no early attack packets are missed."""
+    """Block until raven has started tcpdump, so no early attack packets are missed."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         child = subprocess.run(  # noqa: S603
@@ -76,11 +76,11 @@ def wait_until_capturing(watch: subprocess.Popen[str], timeout: float = 15.0) ->
             time.sleep(1.0)  # tcpdump is up; give it a moment to open the interface
             return
         time.sleep(0.2)
-    raise RuntimeError("sentinel did not start tcpdump within 15 s")
+    raise RuntimeError("raven did not start tcpdump within 15 s")
 
 
-def sentinel(config: Path, *args: str) -> subprocess.Popen[str]:
-    cmd = [sys.executable, "-m", "sentinel.cli.main", "--config", str(config), "--json", *args]
+def raven(config: Path, *args: str) -> subprocess.Popen[str]:
+    cmd = [sys.executable, "-m", "raven.cli.main", "--config", str(config), "--json", *args]
     return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)  # noqa: S603
 
 
@@ -88,7 +88,7 @@ def run_case(workdir: Path, name: str, expected: str | None, attack: str, second
     secrets = workdir / "none.env"
     config = workdir / f"{attack}.toml"
     config.write_text(CONFIG.format(db=workdir / f"{attack}.db", secrets=secrets))
-    watch = sentinel(config, "watch", "--iface", "lo0", "--for", f"{seconds}s")
+    watch = raven(config, "watch", "--iface", "lo0", "--for", f"{seconds}s")
     wait_until_capturing(watch)
     attack_run = subprocess.run(  # noqa: S603
         [sys.executable, str(ATTACK_SCRIPT), attack], capture_output=True, text=True, check=False
@@ -100,7 +100,7 @@ def run_case(workdir: Path, name: str, expected: str | None, attack: str, second
     alerts: list[dict[str, object]] = []
     for report in (line["report"] for line in lines if "report" in line):
         detail = subprocess.run(  # noqa: S603
-            [sys.executable, "-m", "sentinel.cli.main", "--config", str(config), "--json",
+            [sys.executable, "-m", "raven.cli.main", "--config", str(config), "--json",
              "incident", report["incident"]["id"]],
             capture_output=True, text=True, check=False,
         )  # fmt: skip
