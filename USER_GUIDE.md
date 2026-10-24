@@ -374,13 +374,13 @@ It prints a URL like `http://127.0.0.1:8787/?t=<token>` and opens it in your bro
 to skip, `--port N` to change). The page only works with that token (it is traded for a cookie on
 first load), only on 127.0.0.1, and nothing is loaded from the internet.
 
-- **LIVE:** *Network* shows each device as a square and every packet as a small block travelling
-  between them (blue TCP, green UDP, amber ICMP). Traffic that stays on one machine, such as
-  loopback, is drawn as packets going to and from small port boxes around it, so a port scan is
-  visible as a ring of ports lighting up. A device with an alert turns red and its packets turn red.
-  *Alerts* stacks every alert of the session, newest on top; click one to open it in History.
-  *Packets* is the live packet list (`PAUSE` or press `p`). The bar at the top counts packets per
-  second, events, and CRIT / HIGH / MED alerts.
+- **LIVE:** the **packet monitor** takes the centre of the screen: a large, readable live table of
+  every packet event, newest first (time, source, destination, protocol, flags, length, info such as
+  DNS names), with a filter box (`/` focuses it) that matches addresses, ports, protocols or text,
+  and `PAUSE` (or `p`). Above it a small packets-per-second chart. On the right, *Alerts* stacks every
+  alert of the session, newest on top; click one to open it in History. Packets from a host that
+  has just raised an alert are shown in red for a minute. The top bar counts packets per second,
+  events, and CRIT / HIGH / MED alerts.
 - **HISTORY:** every anomaly Sentinel has ever reported, kept permanently in the database (the
   `anomaly_log` table is append-only and is never pruned), so it is all still there after a restart.
   Filter by severity, time range or source (live / replay), search headline, address, technique or

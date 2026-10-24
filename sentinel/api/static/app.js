@@ -12,126 +12,11 @@
   const hhmmss = (t) => { const d = new Date(t * 1000); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
   const stamp = (t) => { const d = new Date(t * 1000); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hhmmss(t)}`; };
   const num = (n) => Number(n).toLocaleString("en-US");
-  const COLOR = { tcp: "#5b8db8", udp: "#6a9a8e", icmp: "#b8993b", other: "#7b8794", flag: "#c4403f" };
-  const PRIVATE = /^(10\.|192\.168\.|127\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|fe80|fc|fd|::1)/i;
-  const MAX_ROWS = 140;
-  const MAX_PARTICLES = 700;
-  const FLIGHT_MS = 700;
-  const state = { paused: false, flagged: new Set() };
-
-  // ---------------------------------------------------------------------------- network view
-  class NetView {
-    constructor(canvas) {
-      this.canvas = canvas; this.ctx = canvas.getContext("2d");
-      this.nodes = new Map(); this.parts = []; this.edges = new Map(); this.w = 0; this.h = 0;
-      new ResizeObserver(() => this.resize()).observe(canvas.parentElement);
-      this.resize();
-      requestAnimationFrame((t) => this.frame(t));
-    }
-    resize() {
-      const r = this.canvas.parentElement.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
-      this.w = r.width; this.h = r.height;
-      this.canvas.width = Math.max(1, Math.round(r.width * dpr)); this.canvas.height = Math.max(1, Math.round(r.height * dpr));
-      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-    place(key, i) {
-      if (key === "INTERNET") return [0.8, -0.66];
-      if (i === 0) return [0, 0];
-      const a = i * 2.39996 + 0.5, r = Math.min(0.8, 0.36 + 0.14 * Math.sqrt(i));
-      return [Math.cos(a) * r, Math.sin(a) * r * 0.85];
-    }
-    node(ip, mac) {
-      const key = PRIVATE.test(ip) ? ip : "INTERNET";
-      let n = this.nodes.get(key);
-      if (!n) {
-        n = { key, label: key, last: 0, macs: new Set(), sats: new Map(), pos: this.place(key, this.nodes.size) };
-        this.nodes.set(key, n);
-      }
-      if (mac) n.macs.add(mac);
-      return n;
-    }
-    xy(n) { return [this.w / 2 + n.pos[0] * (this.w / 2 - 80), this.h / 2 + n.pos[1] * (this.h / 2 - 54)]; }
-    satSlot(n, port, now) {
-      let s = n.sats.get(port);
-      if (!s) {
-        const used = new Set([...n.sats.values()].map((v) => v.slot));
-        let slot = [...Array(10).keys()].find((i) => !used.has(i));
-        if (slot === undefined) {
-          const oldest = [...n.sats.entries()].sort((a, b) => a[1].last - b[1].last)[0];
-          slot = oldest[1].slot; n.sats.delete(oldest[0]);
-        }
-        s = { slot, port, last: now }; n.sats.set(port, s);
-      }
-      s.last = now;
-      return s;
-    }
-    satXY(n, s) {
-      const [x, y] = this.xy(n), a = (s.slot / 10) * Math.PI * 2 - Math.PI / 2;
-      return [x + Math.cos(a) * 62, y + Math.sin(a) * 62];
-    }
-    flagged(n) { return [...n.macs].some((m) => state.flagged.has(m)); }
-    add(ev, delay) {
-      if (ev.k !== "f") return;
-      const now = performance.now(), a = this.node(ev.s, ev.m), b = this.node(ev.d);
-      a.last = b.last = now;
-      const flag = state.flagged.has(ev.m);
-      const color = flag ? COLOR.flag : COLOR[ev.p] || COLOR.other;
-      let from = { n: a }, to = { n: b };
-      if (a === b) {  // traffic on one host: show it travelling to / from the service port
-        const client = (ev.sp || 0) > (ev.dp || 0), port = client ? ev.dp : ev.sp;
-        const s = this.satSlot(a, port || 0, now);
-        if (client) to = { n: a, s }; else from = { n: a, s };
-        if (client) from = { n: a }; else to = { n: a };
-      } else {
-        this.edges.set(a.key + ">" + b.key, now);
-      }
-      if (this.parts.length > MAX_PARTICLES) this.parts.splice(0, this.parts.length - MAX_PARTICLES);
-      this.parts.push({ from, to, t0: now + delay, color });
-    }
-    pt(end) { return end.s ? this.satXY(end.n, end.s) : this.xy(end.n); }
-    frame(now) {
-      const g = this.ctx, w = this.w, h = this.h;
-      g.clearRect(0, 0, w, h);
-      g.strokeStyle = "#161b20"; g.lineWidth = 1; g.beginPath();
-      for (let x = 0; x < w; x += 32) { g.moveTo(x + 0.5, 0); g.lineTo(x + 0.5, h); }
-      for (let y = 0; y < h; y += 32) { g.moveTo(0, y + 0.5); g.lineTo(w, y + 0.5); }
-      g.stroke();
-      for (const [key, t] of this.edges) {
-        const age = now - t;
-        if (age > 6000) { this.edges.delete(key); continue; }
-        const [ak, bk] = key.split(">"), a = this.nodes.get(ak), b = this.nodes.get(bk);
-        const [x1, y1] = this.xy(a), [x2, y2] = this.xy(b);
-        g.strokeStyle = `rgba(91,141,184,${0.38 * (1 - age / 6000)})`; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
-      }
-      g.font = "10px ui-monospace, Menlo, monospace"; g.textAlign = "center";
-      for (const n of this.nodes.values()) {
-        const [x, y] = this.xy(n), bad = this.flagged(n), live = now - n.last < 500;
-        for (const [port, s] of n.sats) {
-          const age = now - s.last;
-          if (age > 8000) { n.sats.delete(port); continue; }
-          const [sx, sy] = this.satXY(n, s), on = age < 500;
-          g.strokeStyle = on ? "#5b8db8" : "#2f3943"; g.strokeRect(sx - 4.5, sy - 4.5, 9, 9);
-          if (on) { g.fillStyle = "#5b8db8"; g.fillRect(sx - 2, sy - 2, 4, 4); }
-          g.fillStyle = on ? "#9fb4c7" : "#4d5762"; g.fillText(":" + port, sx, sy + (sy < y ? -9 : 17));
-        }
-        g.fillStyle = bad ? "#2a1819" : "#1b2127"; g.strokeStyle = bad ? "#c4403f" : "#3b4652";
-        g.fillRect(x - 8, y - 8, 16, 16); g.strokeRect(x - 7.5, y - 7.5, 15, 15);
-        if (live) { g.fillStyle = bad ? "#c4403f" : "#8a99a8"; g.fillRect(x - 3, y - 3, 6, 6); }
-        g.fillStyle = bad ? "#c4403f" : "#7b8794"; g.fillText(n.label, x, y + 23);
-      }
-      this.parts = this.parts.filter((p) => now - p.t0 < FLIGHT_MS);
-      for (const p of this.parts) {
-        const k = (now - p.t0) / FLIGHT_MS;
-        if (k < 0) continue;
-        const [x1, y1] = this.pt(p.from), [x2, y2] = this.pt(p.to);
-        const x = x1 + (x2 - x1) * k, y = y1 + (y2 - y1) * k, k0 = Math.max(0, k - 0.1);
-        g.strokeStyle = p.color; g.globalAlpha = 0.45; g.beginPath();
-        g.moveTo(x1 + (x2 - x1) * k0, y1 + (y2 - y1) * k0); g.lineTo(x, y); g.stroke();
-        g.globalAlpha = 1; g.fillStyle = p.color; g.fillRect(x - 2, y - 2, 4, 4);
-      }
-      requestAnimationFrame((t) => this.frame(t));
-    }
-  }
+  const KNOWN = new Set(["tcp", "udp", "icmp"]);
+  const MAX_ROWS = 300;
+  const FLAG_MS = 60000;  // rows from a host stay red this long after its alert
+  const state = { paused: false, flagged: new Map(), filter: "" };
+  const isFlagged = (mac) => (state.flagged.get(mac) || 0) > Date.now();
 
   // ---------------------------------------------------------------------------- rate chart
   class RateView {
@@ -166,17 +51,17 @@
   }
 
   // ---------------------------------------------------------------------------- live view
-  const net = new NetView($("#net")), rate = new RateView($("#rate"));
+  const rate = new RateView($("#rate"));
   const body = $("#pkts tbody");
 
   const kind = (ev) => ev.k === "f" ? ev.p : ev.k;
   function packetRow(ev) {
-    const tr = h("tr", state.flagged.has(ev.m) ? "flag" : "");
+    const tr = h("tr", isFlagged(ev.m) ? "flag" : "");
     const c = (text, cls) => tr.appendChild(h("td", cls, text));
     const ep = (ip, port) => (port ? `${ip}:${port}` : ip);
     c(hhmmss(ev.t));
     if (ev.k === "f") {
-      c(ep(ev.s, ev.sp)); c(ep(ev.d, ev.dp)); c(ev.p.toUpperCase(), "p-" + (COLOR[ev.p] ? ev.p : "other"));
+      c(ep(ev.s, ev.sp)); c(ep(ev.d, ev.dp)); c(ev.p.toUpperCase(), "p-" + (KNOWN.has(ev.p) ? ev.p : "other"));
       c(ev.f); c(num(ev.b), "r"); c(ev.q ? "dns? " + ev.q : "");
     } else if (ev.k === "arp") {
       c(ev.s); c(ev.d); c("ARP", "p-other"); c(""); c(""); c(ev.op === "request" ? "who-has" : "is-at");
@@ -185,16 +70,31 @@
     } else {
       c(ev.s); c(""); c("MDNS", "p-other"); c(""); c(""); c(ev.n);
     }
+    tr.dataset.k = tr.textContent.toLowerCase();
+    tr.hidden = !matches(tr);
     return tr;
   }
+
+  const matches = (tr) => !state.filter || tr.dataset.k.includes(state.filter);
+  function countShown() {
+    let n = 0;
+    for (const tr of body.rows) if (!tr.hidden) n++;
+    $("#p-count").textContent = `${n} shown`;
+  }
+  $("#p-filter").addEventListener("input", (e) => {
+    state.filter = e.target.value.trim().toLowerCase();
+    for (const tr of body.rows) tr.hidden = !matches(tr);
+    countShown();
+  });
 
   function onBatch(msg) {
     rate.add(msg.n);
     if (state.paused) return;
-    const gap = 100 / Math.max(1, msg.events.length), frag = document.createDocumentFragment();
-    msg.events.forEach((ev, i) => { net.add(ev, i * gap); frag.prepend(packetRow(ev)); });
+    const frag = document.createDocumentFragment();
+    msg.events.forEach((ev) => frag.prepend(packetRow(ev)));
     body.prepend(frag);
     while (body.rows.length > MAX_ROWS) body.deleteRow(body.rows.length - 1);
+    countShown();
   }
 
   const alerts = $("#alerts");
@@ -202,7 +102,7 @@
   function addAlert(a) {
     const first = alerts.firstChild;
     if (first && first.className === "none") alerts.removeChild(first);
-    state.flagged.add(a.mac);
+    state.flagged.set(a.mac, Date.now() + FLAG_MS);
     const row = h("div", "alert " + a.label);
     row.appendChild(h("span", "sev " + a.label, a.label));
     row.appendChild(h("span", "t", hhmmss(a.t)));
@@ -221,7 +121,6 @@
   function togglePause() {
     state.paused = !state.paused;
     $("#pause").textContent = state.paused ? "RESUME" : "PAUSE";
-    $("#net-sub").textContent = state.paused ? "paused" : "packets in flight";
   }
 
   function setStatus(s) {
@@ -348,7 +247,7 @@
     if (e.key === "1") show("live");
     else if (e.key === "2") show("history");
     else if (e.key === "p") togglePause();
-    else if (e.key === "/") { show("history"); e.preventDefault(); $("#f-text").focus(); }
+    else if (e.key === "/") { e.preventDefault(); if ($("#live").hidden) { show("history"); $("#f-text").focus(); } else $("#p-filter").focus(); }
   });
   setInterval(() => { if (!$("#history").hidden) history.reload(); }, 10000);
 

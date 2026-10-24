@@ -26,29 +26,27 @@
 
 <main id="live" class="view">
   <div class="col">
-    <section class="panel grow">
-      <h2>NETWORK <span class="sub" id="net-sub">packets in flight</span>
-        <span class="legend"><i class="tcp"></i>TCP <i class="udp"></i>UDP <i class="icmp"></i>ICMP <i class="flag"></i>FLAGGED HOST</span></h2>
-      <div class="body"><canvas id="net"></canvas></div>
-    </section>
     <section class="panel" id="p-rate">
       <h2>PACKETS / SEC <span class="sub">last 60 s</span></h2>
       <div class="body"><canvas id="rate"></canvas></div>
     </section>
-  </div>
-  <div class="col side">
-    <section class="panel" id="p-alerts">
-      <h2>ALERTS <span class="sub" id="alert-sub">this session</span><button class="ghost" id="clear">CLEAR</button></h2>
-      <div id="alerts" class="list"></div>
-    </section>
     <section class="panel grow">
-      <h2>PACKETS <span class="sub">newest first</span><button class="ghost" id="pause">PAUSE</button></h2>
+      <h2>PACKET MONITOR <span class="sub">newest first</span>
+        <input id="p-filter" type="text" maxlength="60" placeholder="FILTER  ip, port, proto, text" spellcheck="false" autocomplete="off">
+        <span class="sub" id="p-count">0 shown</span>
+        <button class="ghost" id="pause">PAUSE</button></h2>
       <div class="body scroll">
         <table id="pkts">
           <thead><tr><th>TIME</th><th>SOURCE</th><th>DESTINATION</th><th>PROTO</th><th>FLAGS</th><th class="r">LEN</th><th>INFO</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
+    </section>
+  </div>
+  <div class="col side">
+    <section class="panel grow" id="p-alerts">
+      <h2>ALERTS <span class="sub" id="alert-sub">this session</span><button class="ghost" id="clear">CLEAR</button></h2>
+      <div id="alerts" class="list"></div>
     </section>
   </div>
 </main>
