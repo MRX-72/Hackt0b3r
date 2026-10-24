@@ -398,3 +398,23 @@ def get_raw(port: int, path: str, token: str) -> http.client.HTTPResponse:
     conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
     conn.request("GET", path, headers={"Host": f"127.0.0.1:{port}", "Cookie": f"{COOKIE}={token}"})
     return conn.getresponse()
+
+
+@pytest.mark.security
+def test_a_client_that_stalls_mid_request_is_dropped(
+    server: tuple[UiServer, Hub], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr("sentinel.api.ui.REQUEST_TIMEOUT_SECONDS", 0.5)
+    db = tmp_path / "t.db"
+    Storage(db).close()
+    ui = UiServer(db, Hub("off", str(db)), "tok", "127.0.0.1", 0)
+    ui.start()
+    try:
+        sock = socket.create_connection(("127.0.0.1", ui.port), timeout=5)
+        sock.sendall(b"GET /api/status HTTP/1.1\r\nHost: 127.0.0.1")  # never finishes the request
+        started = time.monotonic()
+        assert sock.recv(100) == b""  # the server closed the connection
+        assert time.monotonic() - started < 4
+        sock.close()
+    finally:
+        ui.stop()

@@ -47,6 +47,9 @@ COOKIE = "sentinel"
 MAC_RE = re.compile(MAC_PATTERN)
 MAX_BODY = 16_384  # a delete request is at most 500 small integers
 KEEPALIVE_SECONDS = 15.0
+REQUEST_TIMEOUT_SECONDS = (
+    30.0  # a client that stalls mid-request is dropped, not given a thread forever
+)
 CSP = (
     "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
     "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
@@ -138,6 +141,7 @@ class UiServer:
         class Handler(BaseHTTPRequestHandler):
             server_version = "Sentinel"
             sys_version = ""
+            timeout = REQUEST_TIMEOUT_SECONDS
 
             def log_message(self, *_: object) -> None:  # silence per-request logging
                 pass
