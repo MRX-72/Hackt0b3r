@@ -309,3 +309,24 @@ def test_a_growing_incident_is_described_by_its_newest_step_with_earlier_ones_na
         explain_template(chained).what_happened
     )
     assert "Earlier" not in e1.what_happened
+
+
+@pytest.mark.security
+def test_an_api_key_is_never_sent_over_plain_http_to_another_machine() -> None:
+    for base in ("http://llm.example.com:8080", "http://10.0.0.5:8080"):
+        rec = Recorder(200, {"choices": [{"message": {"content": "{}"}}]})
+        s = LlmSettings(enabled=True, runtime="openai", model="m", base_url=base)
+        with pytest.raises(LlmError, match="plain http"):
+            OpenAICompatClient(s, "k3y", rec).complete_json("a", "b", {})
+        assert rec.requests == []  # nothing was sent
+    for base in ("http://127.0.0.1:8080", "http://localhost:8080", "https://llm.example.com"):
+        rec = Recorder(200, {"choices": [{"message": {"content": "{}"}}]})
+        s = LlmSettings(enabled=True, runtime="openai", model="m", base_url=base)
+        assert OpenAICompatClient(s, "k3y", rec).complete_json("a", "b", {}) == "{}"
+    rec = Recorder(200, {"choices": [{"message": {"content": "{}"}}]})
+    keyless = LlmSettings(
+        enabled=True, runtime="openai", model="m", base_url="http://10.0.0.5:8080"
+    )
+    assert (
+        OpenAICompatClient(keyless, None, rec).complete_json("a", "b", {}) == "{}"
+    )  # no secret to leak

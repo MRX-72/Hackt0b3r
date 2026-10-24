@@ -3,6 +3,7 @@
 import json
 from http import HTTPStatus
 from typing import Any, Protocol
+from urllib.parse import urlsplit
 
 from sentinel.config.settings import LlmSettings
 from sentinel.net.http import Request, Transport, TransportError, json_request, urllib_transport
@@ -18,6 +19,8 @@ class LlmClient(Protocol):
     def complete_json(self, system: str, user: str, schema: dict[str, Any]) -> str: ...
     def models(self) -> list[str]: ...
 
+
+_LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1")
 
 # HTTP statuses a server uses to say "I cannot do schema-constrained output" (Ollama MLX: 501).
 _NO_STRUCTURED_OUTPUT = (HTTPStatus.BAD_REQUEST, HTTPStatus.NOT_IMPLEMENTED)
@@ -49,7 +52,12 @@ class _Base:
             raise LlmError("LLM server returned non-JSON") from exc
 
     def _request(self, method: str, url: str, payload: Any) -> Request:
-        headers = {"Authorization": f"Bearer {self._key}"} if self._key else {}
+        headers = {}
+        if self._key:
+            parts = urlsplit(url)
+            if parts.scheme != "https" and parts.hostname not in _LOCAL_HOSTS:
+                raise LlmError("refusing to send the API key over plain http to a non-local server")
+            headers = {"Authorization": f"Bearer {self._key}"}
         return json_request(method, url, payload, headers, self._s.timeout_seconds)
 
 
