@@ -1,0 +1,42 @@
+{
+  "additionalProperties": false,
+  "description": "Connection-start regularity toward one destination, for beacon detection.",
+  "properties": {
+    "count": {
+      "title": "Count",
+      "type": "integer"
+    },
+    "dst_ip": {
+      "title": "Dst Ip",
+      "type": "string"
+    },
+    "dst_port": {
+      "maximum": 65535,
+      "minimum": 0,
+      "title": "Dst Port",
+      "type": "integer"
+    },
+    "interval_cv": {
+      "title": "Interval Cv",
+      "type": "number"
+    },
+    "mean_bytes": {
+      "title": "Mean Bytes",
+      "type": "number"
+    },
+    "mean_interval_seconds": {
+      "title": "Mean Interval Seconds",
+      "type": "number"
+    }
+  },
+  "required": [
+    "dst_ip",
+    "dst_port",
+    "count",
+    "mean_interval_seconds",
+    "interval_cv",
+    "mean_bytes"
+  ],
+  "title": "DestinationTiming",
+  "type": "object"
+}

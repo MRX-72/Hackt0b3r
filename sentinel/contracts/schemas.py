@@ -9,10 +9,12 @@ from sentinel.contracts.models import (
     Alert,
     ArpEvent,
     AuditEntry,
+    DestinationTiming,
     DhcpEvent,
     Flow,
     Incident,
     MdnsEvent,
+    WindowFeatures,
 )
 
 MODELS: tuple[type[BaseModel], ...] = (
@@ -20,6 +22,8 @@ MODELS: tuple[type[BaseModel], ...] = (
     ArpEvent,
     DhcpEvent,
     MdnsEvent,
+    WindowFeatures,
+    DestinationTiming,
     Alert,
     Incident,
     AuditEntry,

@@ -26,10 +26,11 @@ target-version = "py313"
 select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "C4", "PL", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101", "PLR2004"]
+"tests/*" = ["S101", "S311", "PLR2004", "PLR0913", "PLR0917"]
 
 [tool.mypy]
 strict = true
+plugins = ["pydantic.mypy"]
 files = ["sentinel", "tests"]
 
 [[tool.mypy.overrides]]
@@ -44,6 +45,7 @@ markers = ["security: security test group; must never be empty"]
 [tool.vulture]
 paths = ["sentinel"]
 min_confidence = 80
+ignore_names = ["cls"]  # pydantic classmethod validators
 
 [tool.deptry]
 known_first_party = ["sentinel"]

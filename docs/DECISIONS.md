@@ -58,3 +58,20 @@ Decision: Stage 2 item 5 (GUI) moves after item 12 and before Stage 3 polish. Un
 4. A live event stream (incidents, alerts, status, drop counters) exists in the API from the start, because the CLI needs `--follow` and the GUI needs the same feed.
 5. No presentation strings in core: severity labels, colors and wording are produced by the client; untrusted strings stay data (the GUI will render with textContent per spec).
 Reason: keeps the GUI a pure client; P0 acceptance items about the GUI (R-GUI-001, GUI parts of R-PKT-001) are deferred, not dropped.
+
+## D-014 Priority order changed by the user (2026-10-24)
+Decision: build the detection engine first, then notifiers (Slack, Discord, Telegram), then a pluggable local LLM summariser, with a CLI that can show or hide network traffic. Order: config+secrets -> replay -> windows/features -> detectors+engine -> correlation -> sanitizer+templates -> notifiers -> LLM runtimes -> pipeline/service -> CLI. The remaining Stage 1 items (event bus, baseline/peers ML, enforcement validator, daemon, registry, API server) follow. Spec's "core before surround" is overridden for notify and LLM by the user's explicit instruction; detection stays first.
+
+## D-015 CLI talks to a service facade, not to the pipeline
+Decision: add `api/service.py` (`SentinelService`, in-process facade; the HTTP server is later another adapter over it). `cli --> api` is added to diagram 05; `cli` must not import `pipeline` or detection modules directly. The CLI runs the service in-process for now.
+Reason: the HTTP API server does not exist yet but the CLI must work; a GUI later calls the same facade or its HTTP adapter (D-013).
+
+## D-016 Config is TOML; secrets in a gitignored 0600 file
+Decision: `config.toml` (stdlib `tomllib`, no PyYAML dependency) validated by pydantic. Secrets (webhook URLs, bot token, optional LLM API key) are read from `secrets.env` (KEY=VALUE, gitignored, must be mode 0600 or the loader refuses) with environment variables taking precedence. Config holds no secrets and logs/API redact them.
+Reason: user asked for keys in a file I create; spec forbids secrets in config.yaml and the repo. Keychain stays a backlog option. Spec said config.yaml; TOML avoids a dependency.
+
+## D-017 Faithfulness checks live in explain/
+Decision: `explain/faithfulness.py` (not `nlp/`), because `nlp -> explain` in diagram 05 and the explanation path needs the checks. Amends D-002.
+
+## D-018 Notifier transport and LLM runtimes use stdlib urllib
+Decision: no HTTP dependency. A `Transport` callable (url, body, headers) -> (status, body) is injected; the default uses `urllib.request` with a timeout, and tests use fakes. LLM adapters: `ollama` (native `/api/chat`, `format` = JSON schema) and `openai` (any OpenAI-compatible server, including llama.cpp `llama-server`, via `/v1/chat/completions` with `response_format`). Any model name can be configured.

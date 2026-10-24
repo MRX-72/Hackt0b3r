@@ -1,0 +1,131 @@
+{
+  "additionalProperties": false,
+  "description": "Numeric per-host features for one window (spec Part 3 s6). Numeric only by construction.",
+  "properties": {
+    "attempts": {
+      "title": "Attempts",
+      "type": "integer"
+    },
+    "bytes_in": {
+      "title": "Bytes In",
+      "type": "integer"
+    },
+    "bytes_out": {
+      "title": "Bytes Out",
+      "type": "integer"
+    },
+    "conns_started": {
+      "title": "Conns Started",
+      "type": "integer"
+    },
+    "dns_max_entropy": {
+      "title": "Dns Max Entropy",
+      "type": "number"
+    },
+    "dns_max_subdomains_per_parent": {
+      "title": "Dns Max Subdomains Per Parent",
+      "type": "integer"
+    },
+    "dns_mean_entropy": {
+      "title": "Dns Mean Entropy",
+      "type": "number"
+    },
+    "dns_mean_length": {
+      "title": "Dns Mean Length",
+      "type": "number"
+    },
+    "dns_queries": {
+      "title": "Dns Queries",
+      "type": "integer"
+    },
+    "dns_txt_null_share": {
+      "title": "Dns Txt Null Share",
+      "type": "number"
+    },
+    "dns_unique_subdomains": {
+      "title": "Dns Unique Subdomains",
+      "type": "integer"
+    },
+    "end_ts": {
+      "title": "End Ts",
+      "type": "number"
+    },
+    "failed_ratio": {
+      "title": "Failed Ratio",
+      "type": "number"
+    },
+    "host_ip": {
+      "title": "Host Ip",
+      "type": "string"
+    },
+    "host_mac": {
+      "pattern": "^([0-9a-f]{2}:){5}[0-9a-f]{2}$",
+      "title": "Host Mac",
+      "type": "string"
+    },
+    "hour_of_day": {
+      "title": "Hour Of Day",
+      "type": "integer"
+    },
+    "novel_dsts": {
+      "title": "Novel Dsts",
+      "type": "integer"
+    },
+    "share_dns": {
+      "title": "Share Dns",
+      "type": "number"
+    },
+    "share_other": {
+      "title": "Share Other",
+      "type": "number"
+    },
+    "share_ssh": {
+      "title": "Share Ssh",
+      "type": "number"
+    },
+    "share_web": {
+      "title": "Share Web",
+      "type": "number"
+    },
+    "unique_dst_ips": {
+      "title": "Unique Dst Ips",
+      "type": "integer"
+    },
+    "unique_dst_ports": {
+      "title": "Unique Dst Ports",
+      "type": "integer"
+    },
+    "window_seconds": {
+      "title": "Window Seconds",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "host_mac",
+    "host_ip",
+    "window_seconds",
+    "end_ts",
+    "conns_started",
+    "attempts",
+    "failed_ratio",
+    "unique_dst_ips",
+    "unique_dst_ports",
+    "novel_dsts",
+    "bytes_out",
+    "bytes_in",
+    "dns_queries",
+    "dns_unique_subdomains",
+    "dns_max_subdomains_per_parent",
+    "dns_mean_entropy",
+    "dns_max_entropy",
+    "dns_mean_length",
+    "dns_txt_null_share",
+    "share_web",
+    "share_ssh",
+    "share_dns",
+    "share_other",
+    "hour_of_day"
+  ],
+  "title": "WindowFeatures",
+  "type": "object"
+}

@@ -97,3 +97,16 @@ def valid_frames() -> list[bytes]:
         eth(ipv4(17, udp(67, 68, dhcp(2, DST_MAC, "192.168.2.50", b"printer")))),
         eth(ipv4(17, udp(5353, 5353, mdns_response("macbook.local")))),
     ]
+
+
+def tcp_frame(
+    src: tuple[bytes, str], dst: tuple[bytes, str], sport: int, dport: int, flags: int,
+    payload: bytes = b"",
+) -> bytes:  # fmt: skip
+    return eth(ipv4(6, tcp(sport, dport, flags, payload), src[1], dst[1]), src=src[0], dst=dst[0])
+
+
+def udp_frame(
+    src: tuple[bytes, str], dst: tuple[bytes, str], sport: int, dport: int, payload: bytes = b""
+) -> bytes:
+    return eth(ipv4(17, udp(sport, dport, payload), src[1], dst[1]), src=src[0], dst=dst[0])

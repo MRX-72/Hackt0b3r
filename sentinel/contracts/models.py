@@ -111,3 +111,43 @@ class MdnsEvent(_Frozen):
 
 
 Event = Flow | ArpEvent | DhcpEvent | MdnsEvent
+
+
+class WindowFeatures(_Frozen):
+    """Numeric per-host features for one window (spec Part 3 s6). Numeric only by construction."""
+
+    host_mac: Mac
+    host_ip: IpAddr
+    window_seconds: int
+    end_ts: float
+    conns_started: int
+    attempts: int
+    failed_ratio: float
+    unique_dst_ips: int
+    unique_dst_ports: int
+    novel_dsts: int
+    bytes_out: int
+    bytes_in: int
+    dns_queries: int
+    dns_unique_subdomains: int
+    dns_max_subdomains_per_parent: int
+    dns_mean_entropy: float
+    dns_max_entropy: float
+    dns_mean_length: float
+    dns_txt_null_share: float
+    share_web: float
+    share_ssh: float
+    share_dns: float
+    share_other: float
+    hour_of_day: int
+
+
+class DestinationTiming(_Frozen):
+    """Connection-start regularity toward one destination, for beacon detection."""
+
+    dst_ip: IpAddr
+    dst_port: Port
+    count: int
+    mean_interval_seconds: float
+    interval_cv: float
+    mean_bytes: float

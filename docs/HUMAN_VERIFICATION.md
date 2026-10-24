@@ -11,3 +11,7 @@ Run these on the gateway Mac (Mac C) unless noted. Report the printed PASS/FAIL 
 | H-06 | Ollama + Gemma 4 E2B tag, constrained JSON | `ollama list`; `ollama show <tag>` | exact tag, size |
 | H-07 | Needle runs on this Mac for our schema | later, at `ask` stage | accuracy on labeled set |
 | H-08 | Slack/Discord/Telegram real send | later, human supplies webhook via env/Keychain | message received? |
+
+| H-09 | Live capture via `sudo sentinel watch --iface bridge100` shows traffic (interim: tcpdump pipe, replaced by sentineld) | `sudo .venv/bin/sentinel watch --iface bridge100 --show-traffic` while generating traffic | lines appear? any error text |
+| H-10 | Each notifier delivers a test message (put keys in `secrets.env` first) | `sentinel notify test slack`, `... discord`, `... telegram` | message arrives? error text |
+| H-11 | LLM summary works with your model | start `ollama serve` (or `llama-server -m <gguf>`), set `[llm]` in `config.toml`, run `sentinel llm test` | output, latency |
