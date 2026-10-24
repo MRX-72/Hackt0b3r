@@ -9,6 +9,7 @@ on Slack, Discord or Telegram. This guide covers everything you can do with the 
 - [Five-minute tour (no network needed)](#five-minute-tour-no-network-needed)
 - [How detection works](#how-detection-works)
 - [Command reference](#command-reference)
+- [Web console](#web-console-sentinel-ui)
 - [Live dashboard](#live-dashboard--d)
 - [Watching traffic](#watching-traffic)
 - [Notifications: Slack, Discord, Telegram](#notifications-slack-discord-telegram)
@@ -356,6 +357,39 @@ capture interface exists (a warning only: just `watch` needs it) and, if the LLM
 the server answers and lists your model. Credentials are optional, so "not set" is reported as OK.
 Exit `1` if a hard check fails. `doctor` still works when `secrets.env` has the wrong permissions
 (other commands refuse to run then); `--fix` runs `chmod 600` for you.
+
+---
+
+## Web console (`sentinel ui`)
+
+A local, sharp console for watching and reviewing:
+
+```bash
+uv run sentinel ui --iface lo0               # live capture (same permission as `watch`)
+uv run sentinel ui --replay demo.pcap        # play a capture (--speed 20 = 20x real time)
+uv run sentinel ui                           # no capture: just browse the history
+```
+
+It prints a URL like `http://127.0.0.1:8787/?t=<token>` and opens it in your browser (`--no-open`
+to skip, `--port N` to change). The page only works with that token (it is traded for a cookie on
+first load), only on 127.0.0.1, and nothing is loaded from the internet.
+
+- **LIVE:** *Network* shows each device as a square and every packet as a small block travelling
+  between them (blue TCP, green UDP, amber ICMP). Traffic that stays on one machine, such as
+  loopback, is drawn as packets going to and from small port boxes around it, so a port scan is
+  visible as a ring of ports lighting up. A device with an alert turns red and its packets turn red.
+  *Alerts* stacks every alert of the session, newest on top; click one to open it in History.
+  *Packets* is the live packet list (`PAUSE` or press `p`). The bar at the top counts packets per
+  second, events, and CRIT / HIGH / MED alerts.
+- **HISTORY:** every anomaly Sentinel has ever reported, kept permanently in the database (the
+  `anomaly_log` table is append-only and is never pruned), so it is all still there after a restart.
+  Filter by severity, time range or source (live / replay), search headline, address, technique or
+  incident id, page through results, click a row for the full explanation and the numbers behind
+  it, and `EXPORT CSV`. Keys: `1` live, `2` history, `/` search, `p` pause.
+- The history lives in the database named in the footer (`database` in `config.toml`, relative to
+  where you run the command): run from the same folder, or give an absolute path, to see the same
+  history each time.
+- The same history is available in the terminal: `sentinel history --label critical --since 7d`.
 
 ---
 

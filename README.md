@@ -9,6 +9,7 @@ Discord or Telegram.
 - Spec: `SENTINEL_PROJECT.md` (split in `docs/spec/`). Status and open items: `docs/STATE.md`.
 
 ```bash
+uv run sentinel ui --replay demo.pcap     # local web console: live packets + permanent history
 make bootstrap
 uv run python tools/make_demo_pcap.py demo.pcap
 uv run sentinel replay demo.pcap --show-traffic

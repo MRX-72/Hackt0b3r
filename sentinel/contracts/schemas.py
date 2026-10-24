@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from sentinel.contracts.models import (
     Alert,
+    AnomalyRecord,
     ArpEvent,
     AuditEntry,
     Delivery,
@@ -15,6 +16,7 @@ from sentinel.contracts.models import (
     DoctorCheck,
     Explanation,
     Flow,
+    HistoryQuery,
     Incident,
     IncidentDetail,
     IncidentReport,
@@ -36,6 +38,8 @@ MODELS: tuple[type[BaseModel], ...] = (
     SanitizedIncident,
     Explanation,
     Delivery,
+    AnomalyRecord,
+    HistoryQuery,
     IncidentReport,
     IncidentDetail,
     RunSummary,

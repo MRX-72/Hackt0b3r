@@ -5,6 +5,7 @@ import json
 import os
 import re
 import sys
+import time
 from collections.abc import Callable
 from importlib.metadata import version
 from pathlib import Path
@@ -13,6 +14,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from sentinel.api.service import SentinelService, ServiceError, init_workspace
+from sentinel.api.ui import run_ui
 from sentinel.cli.dashboard import Dashboard
 from sentinel.cli.render import (
     dim,
@@ -26,7 +28,7 @@ from sentinel.cli.render import (
 )
 from sentinel.config.secrets import Secrets, SecretsError, load_secrets
 from sentinel.config.settings import Settings, load_settings
-from sentinel.contracts.models import Event, IncidentReport
+from sentinel.contracts.models import Event, HistoryQuery, IncidentReport
 from sentinel.contracts.text import terminal_safe
 
 ServiceFactory = Callable[[Settings, Secrets], SentinelService]
@@ -92,6 +94,23 @@ def _common_options() -> argparse.ArgumentParser:
     return common
 
 
+def _ui_commands(sub: Any, add: Any) -> None:
+    ui = add(sub, "ui", help="local web console: live packets, alerts and the permanent history")
+    ui.add_argument("--iface", help="capture this interface (needs capture permission)")
+    ui.add_argument("--live", action="store_true", help="capture on [capture] interface")
+    ui.add_argument("--replay", type=Path, nargs="+", metavar="PCAP", help="play capture files")
+    ui.add_argument("--speed", type=float, default=20.0, help="replay speed multiple (default 20)")
+    ui.add_argument("--port", type=int, default=8787)
+    ui.add_argument("--no-open", action="store_true", help="do not open the browser")
+    ui.add_argument("-n", "--notify", action="store_true", help="notify about new incidents")
+    hist = add(sub, "history", help="the permanent anomaly history (what the console shows)")
+    hist.add_argument("-n", "--limit", type=int, default=30)
+    hist.add_argument("--label", choices=["critical", "high", "medium", "low"])
+    hist.add_argument("--source", choices=["live", "replay"])
+    hist.add_argument("--since", type=parse_duration, metavar="TIME", help="e.g. 24h, 7d")
+    hist.add_argument("--text", help="search headline, addresses, technique, incident id")
+
+
 def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="sentinel",
@@ -125,6 +144,7 @@ def _parser() -> argparse.ArgumentParser:
         help="stop after this long, e.g. 90s, 10m, 2h",
     )  # fmt: skip
     _stream_flags(watch)
+    _ui_commands(sub, add)
     add(sub, "status", help="one-screen summary: database, incidents, notify, LLM")
     inc = add(sub, "incidents", help="list stored incidents (open ones by default)")
     inc.add_argument("-n", "--limit", type=int, default=20)
@@ -307,6 +327,33 @@ def _show_incident(args: argparse.Namespace, service: SentinelService) -> int:
     return 0
 
 
+def _run_ui(args: argparse.Namespace, service: SentinelService, settings: Settings) -> int:
+    iface = args.iface or (settings.capture.interface if args.live else None)
+    return run_ui(
+        service, port=args.port, iface=iface, pcaps=args.replay, speed=args.speed,
+        notify=args.notify, open_browser=not args.no_open,
+    )  # fmt: skip
+
+
+def _show_history(args: argparse.Namespace, service: SentinelService) -> int:
+    query = HistoryQuery(
+        label=args.label.upper() if args.label else None, source=args.source, text=args.text,
+        since=time.time() - args.since if args.since else None, limit=args.limit,
+    )  # fmt: skip
+    total, rows = service.history(query)
+    for r in rows:
+        when = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(r.ts))
+        target = f" -> {r.target_ip}" if r.target_ip else ""
+        human = (
+            f"{when}  {r.label:<8}  {r.detector:<10} {r.technique:<9} {r.host_ip}{target}  "
+            f"{terminal_safe(r.headline)}  [{r.source}]"
+        )
+        _out(args, human, r.model_dump())
+    if not args.json:
+        print(f"{len(rows)} of {total} logged anomalies" if rows else "no logged anomalies match")
+    return 0
+
+
 def _status(args: argparse.Namespace, service: SentinelService) -> int:
     report = service.status()
     _out(args, format_status(report), report.model_dump())
@@ -331,6 +378,8 @@ def _dispatch(
     handlers: dict[str, Callable[[], int]] = {
         "replay": lambda: _run_stream(args, service, settings),
         "watch": lambda: _run_stream(args, service, settings),
+        "ui": lambda: _run_ui(args, service, settings),
+        "history": lambda: _show_history(args, service),
         "status": lambda: _status(args, service),
         "incidents": lambda: _list_incidents(args, service),
         "incident": lambda: _show_incident(args, service),

@@ -86,6 +86,12 @@ Decision: detection is NOT "flawless", so per the user's condition no new detect
 ## D-020 Flows are not stored by default
 Decision: `[storage] store_flows = false`. Detection runs in memory; storing every packet cost disk and privacy for no current consumer. Retention (`flow_retention_days`, `alert_retention_days`) is applied hourly during `watch` only, because pruning by capture time would delete replayed historic captures.
 
+## D-023 Local web console (user request, 2026-10-25)
+Context: D-013 deferred the GUI; the user asked for a minimal, sharp "security console" with moving packets and a permanent anomaly history.
+Decision: `sentinel ui` serves a vendored, dependency-free single-page console from `sentinel/api/` (stdlib `http.server`, SSE, canvas): LIVE (network view with packets in flight, alert stack, packet table, rate chart) and HISTORY (filters, search, detail, CSV). Security per spec: 127.0.0.1 only, per-run token trade for a SameSite=Strict HttpOnly cookie, Host-header check, strict CSP (no inline script/style, no CDN), textContent only (a test forbids HTML sinks), CSV formula neutralising, validated query model.
+History lives in a new append-only `anomaly_log` table (migration 003; UPDATE/DELETE blocked by triggers; retention never touches it), written by the pipeline for every report with source live/replay, so it survives restarts and pruning. `sentinel history` shows the same data in the terminal.
+Threading: capture runs in its own thread; HTTP threads open their own read connections (WAL), so the UI never shares a SQLite connection.
+
 ## D-022 Live watch heartbeat, stoppable capture, phase-tested bursts
 Found by the four-attack localhost test: a beacon was missed when the 10 s evaluation grid fell badly (the "still active" check was shorter than the grid) and live evaluation waited for the next packet. Fixes: beacon staleness is `max(3 intervals, 10 s)`; `watch` reads capture in a thread and ticks detectors every second (`DetectionEngine.advance`); `capture_live` honours a stop event and duration without packets. `test_short_bursts_are_caught_whatever_the_phase_of_the_10s_grid` sweeps 12 grid phases for each attack.
 

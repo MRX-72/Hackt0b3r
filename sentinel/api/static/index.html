@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SENTINEL</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header id="bar">
+  <div class="brand"><span class="mark"></span>SENTINEL</div>
+  <nav id="tabs">
+    <button class="tab on" data-tab="live">LIVE</button>
+    <button class="tab" data-tab="history">HISTORY</button>
+  </nav>
+  <div class="spacer"></div>
+  <div class="stat"><span class="k">CAPTURE</span><span class="v" id="s-cap">-</span></div>
+  <div class="stat"><span class="k">PKT/S</span><span class="v" id="s-pps">0</span></div>
+  <div class="stat"><span class="k">EVENTS</span><span class="v" id="s-events">0</span></div>
+  <div class="stat crit"><span class="k">CRIT</span><span class="v" id="s-crit">0</span></div>
+  <div class="stat high"><span class="k">HIGH</span><span class="v" id="s-high">0</span></div>
+  <div class="stat med"><span class="k">MED</span><span class="v" id="s-med">0</span></div>
+  <div class="stat link"><span class="led off" id="led"></span><span class="v" id="s-link">CONNECTING</span></div>
+</header>
+
+<main id="live" class="view">
+  <div class="col">
+    <section class="panel grow">
+      <h2>NETWORK <span class="sub" id="net-sub">packets in flight</span>
+        <span class="legend"><i class="tcp"></i>TCP <i class="udp"></i>UDP <i class="icmp"></i>ICMP <i class="flag"></i>FLAGGED HOST</span></h2>
+      <div class="body"><canvas id="net"></canvas></div>
+    </section>
+    <section class="panel" id="p-rate">
+      <h2>PACKETS / SEC <span class="sub">last 60 s</span></h2>
+      <div class="body"><canvas id="rate"></canvas></div>
+    </section>
+  </div>
+  <div class="col side">
+    <section class="panel" id="p-alerts">
+      <h2>ALERTS <span class="sub" id="alert-sub">this session</span><button class="ghost" id="clear">CLEAR</button></h2>
+      <div id="alerts" class="list"></div>
+    </section>
+    <section class="panel grow">
+      <h2>PACKETS <span class="sub">newest first</span><button class="ghost" id="pause">PAUSE</button></h2>
+      <div class="body scroll">
+        <table id="pkts">
+          <thead><tr><th>TIME</th><th>SOURCE</th><th>DESTINATION</th><th>PROTO</th><th>FLAGS</th><th class="r">LEN</th><th>INFO</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</main>
+
+<main id="history" class="view" hidden>
+  <div class="col wide">
+    <section class="panel grow">
+      <div class="toolbar">
+        <div class="seg" id="f-label">
+          <button data-v="" class="on">ALL <b id="c-all">0</b></button>
+          <button data-v="CRITICAL">CRITICAL <b id="c-CRITICAL">0</b></button>
+          <button data-v="HIGH">HIGH <b id="c-HIGH">0</b></button>
+          <button data-v="MEDIUM">MEDIUM <b id="c-MEDIUM">0</b></button>
+          <button data-v="LOW">LOW <b id="c-LOW">0</b></button>
+        </div>
+        <select id="f-range">
+          <option value="86400">LAST 24 HOURS</option>
+          <option value="604800">LAST 7 DAYS</option>
+          <option value="2592000">LAST 30 DAYS</option>
+          <option value="" selected>ALL TIME</option>
+        </select>
+        <select id="f-source">
+          <option value="">ALL SOURCES</option>
+          <option value="live">LIVE</option>
+          <option value="replay">REPLAY</option>
+        </select>
+        <input id="f-text" type="text" maxlength="100" placeholder="SEARCH  headline, ip, technique, incident" spellcheck="false" autocomplete="off">
+        <button class="ghost" id="reload">RELOAD</button>
+        <a class="ghost" id="export" href="/api/history.csv" download>EXPORT CSV</a>
+      </div>
+      <div class="body scroll" id="h-scroll">
+        <table id="hist">
+          <thead><tr><th>TIME</th><th>SEVERITY</th><th>DETECTOR</th><th>TECHNIQUE</th><th>DEVICE</th><th>TARGET</th><th>SUMMARY</th><th>SRC</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div id="h-empty" class="empty" hidden>NO ANOMALIES LOGGED</div>
+      </div>
+      <div class="pager">
+        <span id="h-range">0</span>
+        <span class="spacer"></span>
+        <span id="h-db" class="dim"></span>
+        <button class="ghost" id="prev">PREV</button>
+        <button class="ghost" id="next">NEXT</button>
+      </div>
+    </section>
+  </div>
+  <div class="col detail">
+    <section class="panel grow" id="detail">
+      <h2>DETAIL</h2>
+      <div class="body scroll" id="d-body"><div class="empty">SELECT AN ENTRY</div></div>
+    </section>
+  </div>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>

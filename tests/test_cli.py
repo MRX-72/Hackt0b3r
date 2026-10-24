@@ -440,3 +440,20 @@ def test_common_options_work_after_the_command_too(
     out = run_ok(env, capsys, "replay", str(env["pcap"]), "--json", "--color", "never")
     assert json.loads(out.splitlines()[-1])["summary"]["alerts"] >= 1
     assert run_ok(env, capsys, "status", "--json").startswith("{")
+
+
+def test_history_command_lists_the_permanent_log_with_filters(
+    env: dict[str, object], capsys: pytest.CaptureFixture[str]
+) -> None:
+    run_ok(env, capsys, "replay", str(env["pcap"]))
+    out = run_ok(env, capsys, "history")
+    assert "CRITICAL" in out and "portscan" in out and "T1046" in out and "[replay]" in out
+    assert "1 of 1 logged anomalies" in out
+    assert "no logged anomalies match" in run_ok(env, capsys, "history", "--label", "low")
+    assert "no logged anomalies match" in run_ok(env, capsys, "history", "--source", "live")
+    assert "no logged anomalies match" in run_ok(
+        env, capsys, "history", "--since", "1h"
+    )  # capture is 1970
+    assert "portscan" in run_ok(env, capsys, "history", "--text", "192.168.2.20")
+    row = json.loads(run_ok(env, capsys, "history", "--json").splitlines()[0])
+    assert row["label"] == "CRITICAL" and row["evidence"]["unique_dst_ports"] >= 200

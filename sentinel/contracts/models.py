@@ -232,6 +232,43 @@ class RunSummary(_Frozen):
     llm_errors: int
 
 
+class AnomalyRecord(_Frozen):
+    """One row of the permanent anomaly history. `id` is None until it is stored."""
+
+    id: int | None = None
+    ts: float  # capture time of the alert
+    logged_at: float  # wall-clock time it was written
+    source: Literal["live", "replay"]
+    detector: str
+    technique: str
+    severity: Unit
+    confidence: Unit
+    label: Literal["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+    score: float
+    host_mac: Mac
+    host_ip: IpAddr
+    target_ip: IpAddr | None = None
+    headline: str
+    what_happened: str
+    likely_cause: str
+    action: str
+    chain: list[str]
+    incident_id: str
+    evidence: dict[str, float]
+
+
+class HistoryQuery(_Frozen):
+    """Filters for the permanent anomaly history. Validated, so callers can pass user input."""
+
+    label: Literal["CRITICAL", "HIGH", "MEDIUM", "LOW"] | None = None
+    source: Literal["live", "replay"] | None = None
+    text: str | None = Field(default=None, max_length=100)
+    since: float | None = None
+    until: float | None = None
+    limit: int = Field(default=100, ge=1, le=500)
+    offset: int = Field(default=0, ge=0)
+
+
 class IncidentDetail(_Frozen):
     incident: Incident
     alerts: list[Alert]

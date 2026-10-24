@@ -1,0 +1,92 @@
+{
+  "additionalProperties": false,
+  "description": "Filters for the permanent anomaly history. Validated, so callers can pass user input.",
+  "properties": {
+    "label": {
+      "anyOf": [
+        {
+          "enum": [
+            "CRITICAL",
+            "HIGH",
+            "MEDIUM",
+            "LOW"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Label"
+    },
+    "limit": {
+      "default": 100,
+      "maximum": 500,
+      "minimum": 1,
+      "title": "Limit",
+      "type": "integer"
+    },
+    "offset": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Offset",
+      "type": "integer"
+    },
+    "since": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Since"
+    },
+    "source": {
+      "anyOf": [
+        {
+          "enum": [
+            "live",
+            "replay"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source"
+    },
+    "text": {
+      "anyOf": [
+        {
+          "maxLength": 100,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Text"
+    },
+    "until": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Until"
+    }
+  },
+  "title": "HistoryQuery",
+  "type": "object"
+}

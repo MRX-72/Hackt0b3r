@@ -11,7 +11,15 @@ from contextlib import contextmanager
 from importlib import resources
 from pathlib import Path
 
-from sentinel.contracts.models import Alert, AuditEntry, Delivery, Flow, Incident
+from sentinel.contracts.models import (
+    Alert,
+    AnomalyRecord,
+    AuditEntry,
+    Delivery,
+    Flow,
+    HistoryQuery,
+    Incident,
+)
 
 # Two indexed lookups unioned: a host is either side of a flow.
 FLOWS_FOR_HOST_SQL = """
@@ -54,7 +62,8 @@ def migrate(conn: sqlite3.Connection, migrations: list[tuple[int, str]]) -> None
 class Storage:
     def __init__(self, path: Path, clock: Callable[[], float] = time.time) -> None:
         self._clock = clock
-        self.conn = sqlite3.connect(path, isolation_level=None)
+        # One thread uses a Storage at a time; the capture thread may be joined and closed by main.
+        self.conn = sqlite3.connect(path, isolation_level=None, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA foreign_keys=ON")
@@ -212,6 +221,71 @@ class Storage:
             " VALUES (?, ?, ?, ?, ?)",
             (self._clock(), d.channel, incident_id, d.status, error),
         )
+
+    def log_anomaly(self, record: AnomalyRecord) -> int:
+        """Append to the permanent history; returns the new row id."""
+        cursor = self.conn.execute(
+            "INSERT INTO anomaly_log (ts, logged_at, source, detector, technique, severity,"
+            " confidence, label, score, host_mac, host_ip, target_ip, headline, what_happened,"
+            " likely_cause, action, chain_json, incident_id, evidence_json)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (record.ts, record.logged_at, record.source, record.detector, record.technique,
+             record.severity, record.confidence, record.label, record.score, record.host_mac,
+             record.host_ip, record.target_ip, record.headline, record.what_happened,
+             record.likely_cause, record.action, json.dumps(record.chain), record.incident_id,
+             json.dumps(record.evidence)),
+        )  # fmt: skip
+        assert cursor.lastrowid is not None  # noqa: S101 - an INSERT always has a row id
+        return cursor.lastrowid
+
+    @staticmethod
+    def _anomaly(row: sqlite3.Row) -> AnomalyRecord:
+        skip = ("chain_json", "evidence_json")
+        fields = {k: row[k] for k in row.keys() if k not in skip}  # noqa: SIM118
+        return AnomalyRecord.model_validate(
+            {**fields, "chain": json.loads(row["chain_json"]),
+             "evidence": json.loads(row["evidence_json"])}
+        )  # fmt: skip
+
+    def anomalies(self, query: HistoryQuery) -> tuple[int, list[AnomalyRecord]]:
+        """Newest first, with the total number of matches. `text` searches the visible columns."""
+        where, args = self._anomaly_filter(query)
+        total_sql = "SELECT COUNT(*) FROM anomaly_log WHERE " + where  # noqa: S608 - fixed fragments
+        order = " ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?"
+        rows_sql = "SELECT * FROM anomaly_log WHERE " + where + order  # noqa: S608 - fixed fragments
+        total = self.conn.execute(total_sql, args).fetchone()[0]
+        rows = self.conn.execute(rows_sql, [*args, query.limit, query.offset])
+        return total, [self._anomaly(r) for r in rows]
+
+    @staticmethod
+    def _anomaly_filter(query: HistoryQuery) -> tuple[str, list[object]]:
+        """A WHERE clause made only of fixed fragments; every value travels as a parameter."""
+        where: list[str] = ["1 = 1"]
+        args: list[object] = []
+        for column, value in (("label", query.label), ("source", query.source)):
+            if value:
+                where.append(f"{column} = ?")
+                args.append(value)
+        if query.since is not None:
+            where.append("ts >= ?")
+            args.append(query.since)
+        if query.until is not None:
+            where.append("ts < ?")
+            args.append(query.until)
+        if query.text:
+            escaped = query.text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            columns = ("headline", "detector", "technique", "host_ip", "target_ip", "incident_id")
+            where.append("(" + " OR ".join(f"{c} LIKE ? ESCAPE '\\'" for c in columns) + ")")
+            args += [f"%{escaped}%"] * len(columns)
+        return " AND ".join(where), args
+
+    def anomaly(self, anomaly_id: int) -> AnomalyRecord | None:
+        row = self.conn.execute("SELECT * FROM anomaly_log WHERE id = ?", (anomaly_id,)).fetchone()
+        return None if row is None else self._anomaly(row)
+
+    def anomaly_label_counts(self) -> dict[str, int]:
+        rows = self.conn.execute("SELECT label, COUNT(*) AS n FROM anomaly_log GROUP BY label")
+        return {r["label"]: r["n"] for r in rows}
 
     def audit_entries(self) -> list[AuditEntry]:
         rows = self.conn.execute("SELECT * FROM audit_log ORDER BY id")

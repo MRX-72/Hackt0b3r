@@ -1,0 +1,145 @@
+{
+  "additionalProperties": false,
+  "description": "One row of the permanent anomaly history. `id` is None until it is stored.",
+  "properties": {
+    "action": {
+      "title": "Action",
+      "type": "string"
+    },
+    "chain": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Chain",
+      "type": "array"
+    },
+    "confidence": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "detector": {
+      "title": "Detector",
+      "type": "string"
+    },
+    "evidence": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Evidence",
+      "type": "object"
+    },
+    "headline": {
+      "title": "Headline",
+      "type": "string"
+    },
+    "host_ip": {
+      "title": "Host Ip",
+      "type": "string"
+    },
+    "host_mac": {
+      "pattern": "^([0-9a-f]{2}:){5}[0-9a-f]{2}$",
+      "title": "Host Mac",
+      "type": "string"
+    },
+    "id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Id"
+    },
+    "incident_id": {
+      "title": "Incident Id",
+      "type": "string"
+    },
+    "label": {
+      "enum": [
+        "CRITICAL",
+        "HIGH",
+        "MEDIUM",
+        "LOW"
+      ],
+      "title": "Label",
+      "type": "string"
+    },
+    "likely_cause": {
+      "title": "Likely Cause",
+      "type": "string"
+    },
+    "logged_at": {
+      "title": "Logged At",
+      "type": "number"
+    },
+    "score": {
+      "title": "Score",
+      "type": "number"
+    },
+    "severity": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Severity",
+      "type": "number"
+    },
+    "source": {
+      "enum": [
+        "live",
+        "replay"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "target_ip": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Ip"
+    },
+    "technique": {
+      "title": "Technique",
+      "type": "string"
+    },
+    "ts": {
+      "title": "Ts",
+      "type": "number"
+    },
+    "what_happened": {
+      "title": "What Happened",
+      "type": "string"
+    }
+  },
+  "required": [
+    "ts",
+    "logged_at",
+    "source",
+    "detector",
+    "technique",
+    "severity",
+    "confidence",
+    "label",
+    "score",
+    "host_mac",
+    "host_ip",
+    "headline",
+    "what_happened",
+    "likely_cause",
+    "action",
+    "chain",
+    "incident_id",
+    "evidence"
+  ],
+  "title": "AnomalyRecord",
+  "type": "object"
+}

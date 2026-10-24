@@ -11,15 +11,18 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from importlib import resources
 from pathlib import Path
+from typing import Literal
 
 from sentinel.config.secrets import Secrets, SecretsError, load_secrets
 from sentinel.config.settings import Settings
 from sentinel.contracts.models import (
     Alert,
+    AnomalyRecord,
     Channel,
     Delivery,
     DoctorCheck,
     Event,
+    HistoryQuery,
     Incident,
     IncidentDetail,
     IncidentReport,
@@ -37,6 +40,7 @@ from sentinel.pipeline.run import Pipeline
 from sentinel.sensor.replay import CaptureError, capture_live, read_pcap, tcpdump_argv
 from sentinel.storage.db import Storage
 
+_MAX_PACED_GAP_SECONDS = 1.0  # a paced replay never waits longer than this between frames
 _IDLE_TICK_SECONDS = 1.0  # live mode runs the detectors at least this often
 _PRUNE_EVERY_SECONDS = 3600.0  # live capture applies the retention settings this often
 OnEvent = Callable[[Event], None]
@@ -84,6 +88,10 @@ class SentinelService:
         self._storage: Storage | None = None
 
     @property
+    def database(self) -> Path:
+        return self._database
+
+    @property
     def storage(self) -> Storage:
         if self._storage is None:
             self._storage = Storage(self._database)
@@ -104,27 +112,39 @@ class SentinelService:
         return Notifier(self._settings.notify, self._secrets, self._transport)
 
     def _pipeline(
-        self, on_event: OnEvent | None, on_report: OnReport | None, notify: bool
+        self,
+        on_event: OnEvent | None,
+        on_report: OnReport | None,
+        notify: bool,
+        source: Literal["live", "replay"] = "live",
     ) -> Pipeline:
         notifier = self._notifier() if notify else None
         return Pipeline(
             self._settings, self.storage, Explainer(self._llm()), notifier,
-            on_event=on_event, on_report=on_report,
+            on_event=on_event, on_report=on_report, source=source,
         )  # fmt: skip
 
-    def replay(
+    def replay(  # noqa: PLR0913 - keyword-only options of one operation
         self, path: Path, *, on_event: OnEvent | None = None, on_report: OnReport | None = None,
-        notify: bool = False,
+        notify: bool = False, pace: float | None = None, stop: threading.Event | None = None,
     ) -> RunSummary:  # fmt: skip
-        pipeline = self._pipeline(on_event, on_report, notify)
+        """Replay a capture. `pace` plays it at that multiple of real time (for live displays)."""
+        pipeline = self._pipeline(on_event, on_report, notify, "replay")
+        previous: float | None = None
         with _errors():
             for ts, frame in read_pcap(path):
+                if stop is not None and stop.is_set():
+                    break
+                if pace and previous is not None:
+                    time.sleep(min(_MAX_PACED_GAP_SECONDS, max(0.0, (ts - previous) / pace)))
+                previous = ts
                 pipeline.ingest(ts, frame)
         return pipeline.finish()
 
-    def watch(
+    def watch(  # noqa: PLR0913 - keyword-only options of one operation
         self, interface: str, *, on_event: OnEvent | None = None, on_report: OnReport | None = None,
         notify: bool = False, duration_seconds: float | None = None,
+        halt: threading.Event | None = None,
     ) -> RunSummary:  # fmt: skip
         """Capture live with tcpdump until interrupted, `duration_seconds`, or the capture ends.
 
@@ -133,7 +153,7 @@ class SentinelService:
         """
         cap = self._settings.capture
         pipeline = self._pipeline(on_event, on_report, notify)
-        stop = threading.Event()
+        stop = halt if halt is not None else threading.Event()
         incoming: queue.Queue[tuple[float, bytes] | CaptureError | None] = queue.Queue()
         argv = tcpdump_argv(interface, cap.snaplen, cap.bpf)
 
@@ -151,6 +171,8 @@ class SentinelService:
         last_prune = 0.0
         try:
             while True:
+                if stop.is_set():
+                    break
                 try:
                     item = incoming.get(timeout=_IDLE_TICK_SECONDS)
                 except queue.Empty:
@@ -170,6 +192,16 @@ class SentinelService:
             stop.set()
             reader.join(timeout=5)
         return pipeline.finish()
+
+    def history(self, query: HistoryQuery) -> tuple[int, list[AnomalyRecord]]:
+        """The permanent anomaly history, newest first, with the number of matches."""
+        return self.storage.anomalies(query)
+
+    def history_item(self, anomaly_id: int) -> AnomalyRecord | None:
+        return self.storage.anomaly(anomaly_id)
+
+    def history_counts(self) -> dict[str, int]:
+        return self.storage.anomaly_label_counts()
 
     def incidents(
         self,
