@@ -20,3 +20,4 @@ dist/
 *.egg-info/
 docs/pitch/node_modules/
 demo.pcap
+.audit-requirements.txt

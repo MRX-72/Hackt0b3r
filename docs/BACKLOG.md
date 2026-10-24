@@ -8,4 +8,3 @@ Ideas that are not current work. Do not build from here without moving to REQUIR
 - Isolation Forest: per-device baselines next to the network-wide one, and a persisted baseline so the warm-up is not repeated after a restart.
 - Test-send results are not stored in the delivery log (no incident to attach them to); a "test" pseudo-incident would fix that.
 - A launchd job for a background capture, with the file-ownership handback verified under a real `sudo` (H-12 style checklist item).
-- Replace the unclosed-database `ResourceWarning` that shows up intermittently in the test run (the leaking test is not yet identified).
