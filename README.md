@@ -344,6 +344,9 @@ The statistical detectors are tuned under `[detection.ml]` (`ngram_dns`, `isolat
 | `another Sentinel is already capturing ...` | stop the other one: `pkill -f sentinel` |
 | capture permission denied / no packets | use `sudo "$(which sentinel)" ...`; check the interface with `ifconfig`; run `sentinel doctor` |
 | history empty after a restart | you ran from a different `SENTINEL_HOME`/config; `sentinel status` shows which database is used |
+| `source: template (fallback: cannot reach the LLM server ...)` | Ollama is not running: start it with `ollama serve` (or open the Ollama app) and run `sentinel llm test` again |
+| `fallback: LLM server returned HTTP 404` or `model not listed` | the `model` in `[llm]` must match `ollama list` exactly, tag included (for example `gemma4:e2b`) |
+| `fallback: ... timed out` | raise `timeout_seconds` in `[llm]`; the first request after a cold start loads the model and can take much longer |
 | a legitimate device keeps alerting | raise thresholds in `[detection]` or add it to `trusted_ips` |
 | too many "unusual traffic" alerts | raise `if_threshold` or set `isolation_forest = false` |
 | a repeated attack raises no new alert | the 5-minute cooldown; use `examples/demo-10s.toml` for demos |
