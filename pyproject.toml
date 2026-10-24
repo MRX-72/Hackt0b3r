@@ -52,4 +52,4 @@ min_confidence = 80
 ignore_names = ["cls"]  # pydantic classmethod validators
 
 [tool.deptry]
-known_first_party = ["sentinel"]
+known_first_party = ["sentinel", "localhost_attacks"]  # tools/ scripts import each other
