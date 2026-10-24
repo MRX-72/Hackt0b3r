@@ -25,15 +25,18 @@ except the alerts you switch on. No cloud, no account, no payload inspection.
 | Port / host scan | T1046 | one device probing many ports or hosts, fast or slow (10 s, 5 min and 1 h windows) |
 | Brute force | T1110 | many connections to SSH, RDP, SMB, FTP... that mostly complete |
 | Beaconing | T1071.001 | a device contacting one server at suspiciously regular intervals |
-| DNS tunnelling | T1071.004 | many long, random-looking lookups under one domain |
+| DNS tunnelling | T1071.004 | many long, random-looking lookups under one domain; a character n-gram model scores how "random" names look and catches slow tunnels with short names |
+| Unusual behaviour | none (statistical) | an Isolation Forest learns your network's normal for ~35 minutes, then flags a device whose traffic volume is far beyond anything seen (for example a bulk upload no rule covers) |
 
 Alerts with the same device are joined into one **incident** (for example scan then brute force)
 and given a 0 to 1 severity score. Explanations come from built-in templates, or from a local LLM
 (Ollama or llama.cpp) if you enable one; the LLM only writes the wording and never decides
 anything.
 
-Not built yet: the machine-learning detectors (Isolation Forest, DNS n-gram model), automatic
-blocking, and a background service. See `docs/BACKLOG.md`.
+The two statistical detectors are measured in [docs/ABLATION.md](docs/ABLATION.md) (synthetic
+traffic only; their false-alarm rate on a real network is unverified) and can be switched off in
+`[detection.ml]`. Not built yet: an autoencoder, per-device peer baselines, automatic blocking and
+a background service. See `docs/BACKLOG.md`.
 
 ## Install
 

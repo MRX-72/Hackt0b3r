@@ -13,7 +13,7 @@ def _score(alerts: list[Alert]) -> float:
     stages = [
         TECHNIQUES[a.technique][1]
         for a in sorted(alerts, key=lambda a: a.ts)
-        if a.technique in TECHNIQUES
+        if TECHNIQUES.get(a.technique, ("", 0))[1]  # stage 0 = unusual-only, no progression
     ]
     ordered = sorted(set(stages))
     first_seen = [s for i, s in enumerate(stages) if s not in stages[:i]]

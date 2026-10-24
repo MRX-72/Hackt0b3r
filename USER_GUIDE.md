@@ -681,6 +681,22 @@ Things to know:
 
 ---
 
+## Statistical detectors (`[detection.ml]`)
+
+Two detectors go beyond fixed rules; details and measurements in `docs/ABLATION.md`.
+
+- **DNS n-gram** (`ngram_dns`, default on): scores how pronounceable DNS names are. Random-looking
+  names raise a fifth signal for the DNS tunnelling rule (which still needs two signals), so a
+  slow tunnel with short names is caught.
+- **Behaviour forest** (`isolation_forest`, default on): an Isolation Forest over what each device
+  does in 10 seconds, learned from your own network. It is silent for the first
+  `if_min_samples` (200) active device-windows, then raises an "unusual traffic" alert (technique
+  `SENT001`, not an ATT&CK technique, never above MEDIUM) when a count or volume is more than
+  double anything it has seen. It is hidden while a named attack is active on the same device.
+  Too many such alerts: raise `if_threshold` or set `isolation_forest = false`.
+
+---
+
 ## Settings reference
 
 All settings are optional; unknown keys are rejected so typos do not pass silently.

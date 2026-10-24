@@ -137,6 +137,7 @@ class WindowFeatures(_Frozen):
     dns_max_entropy: float
     dns_mean_length: float
     dns_txt_null_share: float
+    dns_mean_surprisal: float = 0.0  # character-trigram bits/char, see sentinel.ml.ngram
     share_web: float
     share_ssh: float
     share_dns: float

@@ -19,8 +19,11 @@ Alerts carry a validated `target_ip` (schema migration 002 tested on a v1 databa
 ## Web console and persistence
 `sentinel ui` (live packet monitor, topology, alerts, permanent searchable history, CSV), append-only `anomaly_log`, `sentinel history`, per-user data folder, packaged wheel verified by installing it in a clean venv and running init/doctor/status/replay/history.
 
+## Statistical detectors
+DNS character n-gram signal and Isolation Forest behaviour detector (D-026, docs/ABLATION.md), on by default, switchable.
+
 ## Not built yet
-Rogue DHCP/ARP/canary detectors, Isolation Forest + peers, DNS n-gram model, event bus with drop accounting, enforcement validator/pf renderer, sentineld daemon, model registry, HTTP API server, device inventory, modes, rule engine, embeddings, `ask`, eval/purple-team, background service (launchd).
+Rogue DHCP/ARP/canary detectors, per-device peer baselines, autoencoder, event bus with drop accounting, enforcement validator/pf renderer, sentineld daemon, model registry, HTTP API server, device inventory, modes, rule engine, embeddings, `ask`, eval/purple-team, background service (launchd).
 
 ## Process deviations (honest list)
 - Component briefs exist only for storage, parser and features; later components were specified in DECISIONS and tests instead.

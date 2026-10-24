@@ -105,6 +105,30 @@ def dns_tunnel(start: float, count: int, per_second: float = 2.0, seed: int = 3)
     return out
 
 
+def stealth_dns_tunnel(
+    start: float, count: int, per_second: float = 0.2, seed: int = 5
+) -> list[Packet]:
+    """A slow tunnel with short labels: under the length, volume and TXT thresholds, so only
+    entropy (and the n-gram model) can tell it from ordinary lookups."""
+    rnd = random.Random(seed)
+    out: list[Packet] = []
+    for i in range(count):
+        label = "".join(rnd.choice("abcdefghijklmnopqrstuvwxyz234567") for _ in range(20))
+        out += dns(start + i / per_second, VICTIM, f"{label}.t.badzone.net", 1)
+    return out
+
+
+def bulk_upload(
+    start: float, src: Host, dst: Host, seconds: float, per_second: int = 60
+) -> list[Packet]:
+    """One long connection pushing ~1.4 kB segments out: no scan, login or beacon pattern at all."""
+    out = handshake(start, src, dst, 51000, 443)[:3]
+    for i in range(int(seconds * per_second)):
+        out.append((start + 0.1 + i / per_second,
+                    f.tcp_frame(src, dst, 51000, 443, f.PSH | f.ACK, bytes(1400))))  # fmt: skip
+    return out
+
+
 def _extra_host(n: int) -> Host:
     return (bytes.fromhex(f"aabbccddee{n:02x}"), f"192.168.2.{n}")
 

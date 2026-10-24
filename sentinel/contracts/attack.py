@@ -9,4 +9,6 @@ TECHNIQUES: dict[str, tuple[str, int]] = {
     "T1071.004": ("Application Layer Protocol: DNS", 3),
     "T1041": ("Exfiltration Over C2 Channel", 3),
     "T1557.002": ("Adversary-in-the-Middle: ARP Cache Poisoning", 1),
+    # Not ATT&CK: the statistical detector only knows "unusual", so it has no stage (0).
+    "SENT001": ("Unusual behaviour (statistical, not an ATT&CK technique)", 0),
 }

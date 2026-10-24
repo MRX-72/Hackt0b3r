@@ -11,6 +11,11 @@ show_traffic = false          # --show-traffic / --no-traffic override this per 
 interface = "bridge100"       # check with `ifconfig`; Internet Sharing normally creates bridge100
 snaplen = 384                 # bytes per packet; must cover long DNS names (see docs/DECISIONS.md D-011)
 
+[detection.ml]                # statistical detectors, see docs/ABLATION.md
+# ngram_dns = true            # character-trigram signal for DNS tunnelling
+# isolation_forest = true     # "unusual behaviour" alerts; learns your network for ~35 min first
+# if_threshold = 0.6          # raise to get fewer "unusual" alerts
+
 [notify]
 enabled = false               # set true, list channels, and fill secrets.env
 channels = []                 # any of "slack", "discord", "telegram"

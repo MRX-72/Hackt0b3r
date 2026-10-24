@@ -141,6 +141,7 @@ class DnsTunnel:
                 f.dns_mean_length >= s.dns_min_mean_length,
                 f.dns_max_subdomains_per_parent >= s.dns_min_unique_subdomains,
                 f.dns_txt_null_share >= s.dns_min_txt_null_share,
+                s.ml.ngram_dns and f.dns_mean_surprisal >= s.ml.dns_min_surprisal,
             )
         )
 
@@ -163,6 +164,7 @@ class DnsTunnel:
             "dns_mean_entropy": f.dns_mean_entropy, "dns_mean_length": f.dns_mean_length,
             "dns_max_subdomains_per_parent": float(f.dns_max_subdomains_per_parent),
             "dns_txt_null_share": f.dns_txt_null_share, "signals": float(signals),
+            "dns_mean_surprisal": f.dns_mean_surprisal,
         }  # fmt: skip
         return [
             _alert(

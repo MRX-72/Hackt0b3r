@@ -80,11 +80,43 @@ def _dns_tunnel(host: str, step: SanitizedStep) -> Text:
     )
 
 
+_UNUSUAL = {
+    "bytes_out": "an unusually large amount of data sent out",
+    "bytes_in": "an unusually large amount of data received",
+    "conns_started": "an unusual number of new connections",
+    "attempts": "an unusual number of connection attempts",
+    "failed_ratio": "an unusual share of failed connections",
+    "unique_dst_ips": "contact with an unusual number of different hosts",
+    "unique_dst_ports": "contact with an unusual number of different ports",
+    "novel_dsts": "contact with many hosts it had not used before",
+    "dns_queries": "an unusual number of DNS requests",
+}
+
+
+def _behavior(host: str, step: SanitizedStep) -> Text:
+    e = step.evidence
+    ranked = sorted(
+        ((v, k.removeprefix("excess_")) for k, v in e.items() if k.startswith("excess_"))
+    )
+    top = ranked[-1][1] if ranked else ""
+    what = _UNUSUAL.get(top, "an unusual mix of traffic")
+    value = e.get(f"value_{top}")
+    detail = f" ({_n(value)})" if value is not None and top != "failed_ratio" else ""
+    return (
+        "Traffic unlike this network's usual pattern",
+        f"{host} showed {what}{detail}{_within(step)}, compared with what this network normally "
+        "does. This comes from a statistical check, not from a known attack pattern.",
+        "Unusual does not mean malicious: a backup, an update or a new app can cause this.",
+        "investigate_device",
+    )
+
+
 _BUILDERS: dict[str, Callable[[str, SanitizedStep], Text]] = {
     "portscan": _portscan,
     "bruteforce": _bruteforce,
     "beaconing": _beaconing,
     "dns_tunnel": _dns_tunnel,
+    "behavior": _behavior,
 }
 
 
@@ -102,6 +134,7 @@ _EARLIER = {
     "bruteforce": "tried to guess logins",
     "beaconing": "contacted a server at fixed intervals",
     "dns_tunnel": "sent suspicious DNS lookups",
+    "behavior": "behaved unusually",
 }
 
 

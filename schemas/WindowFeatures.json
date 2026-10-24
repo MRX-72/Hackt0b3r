@@ -34,6 +34,11 @@
       "title": "Dns Mean Length",
       "type": "number"
     },
+    "dns_mean_surprisal": {
+      "default": 0.0,
+      "title": "Dns Mean Surprisal",
+      "type": "number"
+    },
     "dns_queries": {
       "title": "Dns Queries",
       "type": "integer"

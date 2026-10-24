@@ -7,7 +7,7 @@ from sentinel.contracts.attack import TECHNIQUES
 from sentinel.contracts.models import Alert, Incident, SanitizedIncident, SanitizedStep
 from sentinel.contracts.text import safe_identifier
 
-_TECHNIQUE_ID = re.compile(r"^T\d{4}(\.\d{3})?$")
+_TECHNIQUE_ID = re.compile(r"^(T\d{4}(\.\d{3})?|SENT\d{3})$")
 _EVIDENCE_KEY = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 
 

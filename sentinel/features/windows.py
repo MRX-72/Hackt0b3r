@@ -8,6 +8,7 @@ from itertools import pairwise
 
 from sentinel.config.settings import BUCKET_SECONDS, DetectionSettings
 from sentinel.contracts.models import DestinationTiming, Event, Flow, WindowFeatures
+from sentinel.ml.ngram import DEFAULT as NGRAMS
 
 # Bounds so a hostile or noisy network cannot grow memory without limit.
 _SEEN_DST_CAP = 10_000
@@ -76,6 +77,7 @@ class _Bucket:
     dns_entropy_sum: float = 0.0
     dns_entropy_max: float = 0.0
     dns_txt_null: int = 0
+    dns_surprisal_sum: float = 0.0
     subdomains: dict[str, set[str]] = field(default_factory=dict)
 
 
@@ -249,6 +251,7 @@ class WindowEngine:
         bucket.dns_entropy_sum += entropy
         bucket.dns_entropy_max = max(bucket.dns_entropy_max, entropy)
         bucket.dns_txt_null += qtype in (_TXT, _NULL)
+        bucket.dns_surprisal_sum += NGRAMS.surprisal(sub or name.split(".", 1)[0])
         names = bucket.subdomains.setdefault(parent, set())
         if len(names) < _SUBDOMAIN_CAP:
             names.add(sub or name)
@@ -338,6 +341,9 @@ class WindowEngine:
             dns_max_entropy=max((b.dns_entropy_max for b in buckets), default=0.0),
             dns_mean_length=sum(b.dns_length_sum for b in buckets) / queries if queries else 0.0,
             dns_txt_null_share=sum(b.dns_txt_null for b in buckets) / queries if queries else 0.0,
+            dns_mean_surprisal=(
+                sum(b.dns_surprisal_sum for b in buckets) / queries if queries else 0.0
+            ),
             share_web=classes["web"] / packets if packets else 0.0,
             share_ssh=classes["ssh"] / packets if packets else 0.0,
             share_dns=classes["dns"] / packets if packets else 0.0,

@@ -4,9 +4,12 @@ import ipaddress
 
 from sentinel.config.settings import BUCKET_SECONDS, DetectionSettings
 from sentinel.contracts.models import Alert, Event
+from sentinel.detect.behavior import BehaviorAnomaly
 from sentinel.detect.interface import Detector
 from sentinel.detect.rules import Beaconing, BruteForce, DnsTunnel, PortScan
 from sentinel.features.windows import WindowEngine
+
+BEHAVIOR = BehaviorAnomaly.name
 
 
 class DetectionEngine:
@@ -16,6 +19,7 @@ class DetectionEngine:
         self.windows = WindowEngine(settings)
         self._detectors: list[Detector] = detectors or [
             PortScan(settings), BruteForce(settings), Beaconing(settings), DnsTunnel(settings),
+            *([BehaviorAnomaly(settings.ml)] if settings.ml.isolation_forest else []),
         ]  # fmt: skip
         self._cooldown = settings.cooldown_seconds
         self._trusted = [ipaddress.ip_network(n, strict=False) for n in settings.trusted_ips]
@@ -51,6 +55,9 @@ class DetectionEngine:
         """Evaluate once at the latest event time (end of a replay)."""
         return self._evaluate(self._latest) if self._next_tick is not None else []
 
+    def _named_attack_active(self, host_mac: str) -> bool:
+        return any(name != BEHAVIOR and mac == host_mac for name, mac in self._active)
+
     def _evaluate(self, now: float) -> list[Alert]:
         """An ongoing condition alerts once; it is forgotten when it stops firing, and a
         recurrence within the cooldown of the last alert is suppressed as flapping."""
@@ -62,6 +69,8 @@ class DetectionEngine:
             for detector in self._detectors:
                 key = (detector.name, ctx.host_mac)
                 alerts = detector.on_window(ctx)
+                if detector.name == BEHAVIOR and self._named_attack_active(ctx.host_mac):
+                    alerts = []  # a named attack already explains why this device looks unusual
                 if not alerts:
                     self._active.discard(key)
                     continue

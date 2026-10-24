@@ -45,6 +45,24 @@ class _Section(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class MlSettings(_Section):
+    """The two statistical detectors. Both are off-switchable; see docs/ABLATION.md for why."""
+
+    # Character-trigram surprisal of DNS names: a fifth signal for the DNS tunnelling rule.
+    ngram_dns: bool = True
+    dns_min_surprisal: float = 4.8  # bits/char; ordinary names ~2.5-3.5, random names 5.4+
+    # Isolation Forest over the 10 s per-device behaviour vectors of recent traffic.
+    isolation_forest: bool = True
+    # Modest on purpose: the extremity check in detect/behavior.py is the main false-positive guard.
+    if_threshold: float = Field(0.6, gt=0.5, lt=1.0)
+    if_min_samples: int = Field(200, ge=20)  # active device-windows to learn from first (~35 min)
+    if_history: int = Field(2000, ge=50)  # recent normal vectors the forest is refitted on
+    if_refit_every: int = Field(120, ge=1)  # new normal vectors between refits
+    if_trees: int = Field(50, ge=10, le=500)
+    if_sample_size: int = Field(128, ge=16, le=1024)
+    if_seed: int = 0
+
+
 class DetectionSettings(_Section):
     # 10 s catches fast attacks; 5 min and 1 h catch low-and-slow ones a short window misses.
     windows: list[int] = [10, 300, 3600]
@@ -86,6 +104,7 @@ class DetectionSettings(_Section):
     dns_min_mean_length: float = 40.0
     dns_min_unique_subdomains: int = 20  # under one parent domain
     dns_min_txt_null_share: float = 0.3
+    ml: MlSettings = Field(default_factory=MlSettings)
 
     @field_validator("trusted_ips", "beacon_allow_destinations")
     @classmethod
