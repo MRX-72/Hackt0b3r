@@ -1,0 +1,22 @@
+{
+  "additionalProperties": false,
+  "description": "Admin label for a device; empty clears it. Comes straight from the web page.",
+  "properties": {
+    "mac": {
+      "pattern": "^([0-9a-f]{2}:){5}[0-9a-f]{2}$",
+      "title": "Mac",
+      "type": "string"
+    },
+    "name": {
+      "maxLength": 40,
+      "title": "Name",
+      "type": "string"
+    }
+  },
+  "required": [
+    "mac",
+    "name"
+  ],
+  "title": "DeviceName",
+  "type": "object"
+}

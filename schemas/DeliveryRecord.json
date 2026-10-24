@@ -1,0 +1,87 @@
+{
+  "additionalProperties": false,
+  "description": "One stored notification attempt, with the incident it was about (for the console).",
+  "properties": {
+    "channel": {
+      "enum": [
+        "slack",
+        "discord",
+        "telegram"
+      ],
+      "title": "Channel",
+      "type": "string"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Error"
+    },
+    "headline": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Headline"
+    },
+    "id": {
+      "title": "Id",
+      "type": "integer"
+    },
+    "incident_id": {
+      "title": "Incident Id",
+      "type": "string"
+    },
+    "label": {
+      "anyOf": [
+        {
+          "enum": [
+            "CRITICAL",
+            "HIGH",
+            "MEDIUM",
+            "LOW"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Label"
+    },
+    "status": {
+      "enum": [
+        "sent",
+        "failed",
+        "skipped"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "ts": {
+      "title": "Ts",
+      "type": "number"
+    }
+  },
+  "required": [
+    "id",
+    "ts",
+    "channel",
+    "status",
+    "error",
+    "incident_id",
+    "headline",
+    "label"
+  ],
+  "title": "DeliveryRecord",
+  "type": "object"
+}

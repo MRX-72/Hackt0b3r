@@ -385,7 +385,33 @@ first load), only on 127.0.0.1, and nothing is loaded from the internet.
   ENTRY**; it asks for a second click to confirm, and each deletion is recorded in the audit log.
   Filter by severity, time range or source (live / replay), search headline, address, technique or
   incident id, page through results, click a row for the full explanation and the numbers behind
-  it, and `EXPORT CSV`. Keys: `1` live, `2` history, `/` search, `p` pause.
+  it, and `EXPORT CSV`.
+- **NOTIFICATIONS:** one card per channel (Slack, Discord, Telegram) showing whether it is ready,
+  has no credentials, or is not listed in `[notify] channels`, plus sent / failed / skipped counts
+  for the last 24 hours. **SEND TEST** (two clicks) sends one clearly marked sample message through
+  that channel to your real workspace or chat, ignoring severity and rate limits, and shows the
+  result next to the button; it only works for channels with credentials, and the attempt is
+  written to the audit log. The banner says **ARMED** when this run was started with `-n` (and
+  `[notify] enabled = true`), otherwise **NOT ARMED**: alerts are not sent. Below is every stored
+  delivery, newest first, filterable by channel and status. Each row keeps the headline and severity
+  of the alert it was sent for and, for failures, a short reason (`HTTP 500`, `rate limit`,
+  `circuit open after repeated failures`, `network error: ...`; never a URL or token). **OPEN IN
+  HISTORY** jumps to that incident.
+- **DEVICES:** the inventory of devices (by MAC address) the capture has seen, stored in the
+  database so it survives restarts: addresses (up to eight, newest first), first and last seen,
+  packets and bytes sent, bytes received, and the number of alerts with the worst severity. A green
+  square means traffic in the last minute. Select a device to see its recent alerts and to name it
+  (up to 40 characters; the name is yours, never taken from network data, and saving it is audited).
+  Broadcast and multicast addresses are not devices and are not listed. Counts are written every
+  few seconds during live capture and at the end of a replay.
+- **HEALTH:** what is going on in this run: capture source, state, how long it has been up, events,
+  packets per second and how long ago the last packet arrived (amber if a live capture has been
+  silent for 30 s); the active detectors, windows and statistical-detector settings; notification
+  and LLM setup (credentials are only shown as set / not set); the database file, size and row
+  counts; versions; and the `sentinel doctor` checks (secrets file, credentials, interface, LLM
+  server), refreshed at most every ten seconds.
+- Keys: `1` live, `2` history, `3` notifications, `4` devices, `5` health, `/` search or filter,
+  `p` pause the packet table.
 - The history lives in `~/.sentinel/sentinel.db` (`database` in `config.toml`; a relative path
   there means next to the config file), so it is the same whichever folder you run from.
 - The same history is available in the terminal: `sentinel history --label critical --since 7d`.

@@ -19,6 +19,9 @@ Alerts carry a validated `target_ip` (schema migration 002 tested on a v1 databa
 ## Web console and persistence
 `sentinel ui` (live packet monitor, topology, alerts, permanent searchable history, CSV), append-only `anomaly_log`, `sentinel history`, per-user data folder, packaged wheel verified by installing it in a clean venv and running init/doctor/status/replay/history.
 
+## Console tabs
+LIVE, HISTORY, NOTIFICATIONS, DEVICES, HEALTH (D-027). Device inventory and the notification log are persisted; test-send button audited.
+
 ## Statistical detectors
 DNS character n-gram signal and Isolation Forest behaviour detector (D-026, docs/ABLATION.md), on by default, switchable.
 

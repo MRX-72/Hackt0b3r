@@ -11,6 +11,7 @@ import hmac
 import io
 import json
 import queue
+import re
 import secrets
 import threading
 import time
@@ -23,23 +24,39 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib import resources
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 from pydantic import ValidationError
 
 from sentinel.api.hub import Hub
 from sentinel.api.service import SentinelService, ServiceError
-from sentinel.contracts.models import AnomalyRecord, HistoryDelete, HistoryQuery
+from sentinel.contracts.models import (
+    MAC_PATTERN,
+    AnomalyRecord,
+    Channel,
+    ChannelTest,
+    Delivery,
+    DeviceName,
+    DoctorCheck,
+    HistoryDelete,
+    HistoryQuery,
+)
 from sentinel.storage.db import Storage
 
 COOKIE = "sentinel"
+MAC_RE = re.compile(MAC_PATTERN)
 MAX_BODY = 16_384  # a delete request is at most 500 small integers
 KEEPALIVE_SECONDS = 15.0
 CSP = (
     "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
     "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 )
-STATIC_TYPES = {"app.js": "text/javascript", "app.css": "text/css", "index.html": "text/html"}
+STATIC_TYPES = {
+    "app.js": "text/javascript",
+    "tabs.js": "text/javascript",
+    "app.css": "text/css",
+    "index.html": "text/html",
+}
 CSV_COLUMNS = (
     "id", "time_utc", "source", "label", "detector", "technique", "host_ip", "target_ip",
     "score", "headline", "chain", "incident_id",
@@ -79,9 +96,41 @@ def parse_query(params: dict[str, list[str]]) -> HistoryQuery:
         raise ValueError(str(exc.errors()[0]["loc"])) from exc
 
 
+_DELIVERY_COLUMNS = {
+    "channel": ("slack", "discord", "telegram"),
+    "status": ("sent", "failed", "skipped"),
+}
+_DAY = 86400.0
+_MAX_LIMIT = 500
+_DOCTOR_CACHE_SECONDS = 10.0  # the checks touch the network and the LLM: not on every refresh
+
+
+def parse_deliveries_query(params: dict[str, list[str]]) -> dict[str, Any]:
+    """channel/status/limit/offset for the Notifications tab; raises ValueError on bad input."""
+    out: dict[str, Any] = {"limit": 100, "offset": 0}
+    for key, allowed in _DELIVERY_COLUMNS.items():
+        if value := (params.get(key) or [""])[0]:
+            if value not in allowed:
+                raise ValueError(key)
+            out[key] = value
+    for key in ("limit", "offset"):
+        if value := (params.get(key) or [""])[0]:
+            if not value.isdigit() or not (key == "offset" or 1 <= int(value) <= _MAX_LIMIT):
+                raise ValueError(key)
+            out[key] = int(value)
+    return out
+
+
 class UiServer:
-    def __init__(self, database: Path, hub: Hub, token: str, host: str, port: int) -> None:
+    def __init__(  # noqa: PLR0913 - the optional extras are what the console tabs need
+        self, database: Path, hub: Hub, token: str, host: str, port: int, *,
+        config_info: dict[str, Any] | None = None,
+        doctor: Callable[[], list[DoctorCheck]] | None = None,
+        notify_test: Callable[[Channel], Delivery] | None = None,
+    ) -> None:  # fmt: skip
         self._database, self._hub, self._token = database, hub, token
+        self._config_info, self._doctor, self._notify_test = config_info, doctor, notify_test
+        self._doctor_cache: tuple[float, list[dict[str, Any]]] = (0.0, [])
         self._stop = threading.Event()
         allowed: set[str] = set()  # filled once the real port is known (port 0 = any free port)
         outer = self
@@ -125,7 +174,7 @@ class UiServer:
                 return morsel is not None and hmac.compare_digest(morsel.value, outer._token)
 
             # ---- routing ----
-            def do_GET(self) -> None:
+            def do_GET(self) -> None:  # noqa: PLR0911 - one early return per refusal or route
                 if self.headers.get("Host", "") not in allowed:  # DNS-rebinding guard
                     return self._deny()
                 url = urlsplit(self.path)
@@ -141,38 +190,138 @@ class UiServer:
                 routes: dict[str, Callable[[], None]] = {
                     "/": lambda: self._static("index.html"),
                     "/static/app.js": lambda: self._static("app.js"),
+                    "/static/tabs.js": lambda: self._static("tabs.js"),
                     "/static/app.css": lambda: self._static("app.css"),
                     "/api/stream": self._stream,
                     "/api/status": lambda: self._json(outer._hub.hello()),
                     "/api/history": lambda: self._history(params),
                     "/api/history.csv": lambda: self._history_csv(params),
+                    "/api/notifications": lambda: self._notifications(params),
+                    "/api/devices": self._devices,
+                    "/api/health": self._health,
                 }
                 if url.path in routes:
                     return routes[url.path]()
                 if url.path.startswith("/api/history/"):
                     return self._history_item(url.path.rsplit("/", 1)[1])
+                if url.path.startswith("/api/devices/"):
+                    return self._device(url.path.rsplit("/", 1)[1])
                 self._send(HTTPStatus.NOT_FOUND, "text/plain; charset=utf-8", b"not found\n")
 
             def do_POST(self) -> None:
                 if self.headers.get("Host", "") not in allowed or not self._cookie_ok():
                     return self._deny()
                 # A custom header cannot be sent cross-site without a CORS preflight, which we
-                # never answer: this plus the SameSite=Strict cookie stops other pages deleting.
-                if self.headers.get("X-Sentinel") != "1" or self.path != "/api/history/delete":
+                # never answer: this plus the SameSite=Strict cookie stops other pages acting.
+                actions: dict[str, Callable[[bytes], None]] = {
+                    "/api/history/delete": self._post_history_delete,
+                    "/api/devices/name": self._post_device_name,
+                    "/api/notifications/test": self._post_notify_test,
+                }
+                if self.headers.get("X-Sentinel") != "1" or self.path not in actions:
                     return self._deny()
                 try:
                     length = int(self.headers.get("Content-Length", ""))
                     if not 0 < length <= MAX_BODY:
                         raise ValueError("body size")
-                    request = HistoryDelete.model_validate_json(self.rfile.read(length))
-                except (ValueError, ValidationError):
+                    body = self.rfile.read(length)
+                except ValueError:
                     return self._json({"error": "bad request"}, HTTPStatus.BAD_REQUEST)
+                try:
+                    actions[self.path](body)
+                except ValidationError:
+                    self._json({"error": "bad request"}, HTTPStatus.BAD_REQUEST)
+
+            def _post_history_delete(self, body: bytes) -> None:
+                request = HistoryDelete.model_validate_json(body)
                 store = Storage(outer._database)
                 try:
                     deleted = store.delete_anomalies(request.ids)
                 finally:
                     store.close()
                 self._json({"deleted": deleted})
+
+            def _post_device_name(self, body: bytes) -> None:
+                request = DeviceName.model_validate_json(body)
+                store = Storage(outer._database)
+                try:
+                    found = store.set_device_name(request.mac, request.name)
+                finally:
+                    store.close()
+                if not found:
+                    return self._json({"error": "unknown device"}, HTTPStatus.NOT_FOUND)
+                self._json({"ok": True})
+
+            def _post_notify_test(self, body: bytes) -> None:
+                request = ChannelTest.model_validate_json(body)
+                info = outer._config_info or {}
+                creds = info.get("notify", {}).get("credentials", {})
+                if outer._notify_test is None or not creds.get(request.channel):
+                    return self._json(
+                        {"error": "channel has no credentials"}, HTTPStatus.BAD_REQUEST
+                    )
+                delivery = outer._notify_test(request.channel)
+                store = Storage(outer._database)
+                try:
+                    store.audit("ui", "notify_test", request.channel, {"status": delivery.status})
+                finally:
+                    store.close()
+                self._json({"status": delivery.status, "detail": delivery.detail})
+
+            def _notifications(self, params: dict[str, list[str]]) -> None:
+                try:
+                    q = parse_deliveries_query(params)
+                except ValueError as exc:
+                    return self._json({"error": f"bad filter: {exc}"}, HTTPStatus.BAD_REQUEST)
+                store = Storage(outer._database)
+                try:
+                    total, rows = store.deliveries(**q)
+                    counts = store.delivery_counts(time.time() - _DAY)
+                finally:
+                    store.close()
+                notify = (outer._config_info or {}).get("notify", {})
+                self._json({"total": total, "counts": counts, "config": notify,
+                            "rows": [r.model_dump(mode="json") for r in rows]})  # fmt: skip
+
+            def _devices(self) -> None:
+                store = Storage(outer._database)
+                try:
+                    devices = store.devices()
+                finally:
+                    store.close()
+                self._json(
+                    {"now": time.time(), "devices": [d.model_dump(mode="json") for d in devices]}
+                )
+
+            def _device(self, mac: str) -> None:
+                store = Storage(outer._database)
+                try:
+                    mac = unquote(mac)
+                    device = store.device(mac) if MAC_RE.match(mac) else None
+                    recent = store.anomalies_of_device(mac) if device else []
+                finally:
+                    store.close()
+                if device is None:
+                    return self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
+                self._json({"device": device.model_dump(mode="json"),
+                            "alerts": [a.model_dump(mode="json") for a in recent]})  # fmt: skip
+
+            def _health(self) -> None:
+                store = Storage(outer._database)
+                try:
+                    database = {
+                        "path": str(outer._database),
+                        "bytes": outer._database.stat().st_size if outer._database.exists() else 0,
+                        "alerts": store.count_rows("alert"),
+                        "devices": store.count_rows("device"),
+                        "history": sum(store.anomaly_label_counts().values()),
+                        "deliveries": store.count_rows("notification_delivery"),
+                        "incidents": store.incident_status_counts(),
+                    }
+                finally:
+                    store.close()
+                self._json({"runtime": outer._hub.health(), "config": outer._config_info,
+                            "database": database, "checks": outer._checks()})  # fmt: skip
 
             def _static(self, name: str) -> None:
                 body = (resources.files("sentinel.api") / "static" / name).read_bytes()
@@ -252,6 +401,19 @@ class UiServer:
         allowed |= {f"127.0.0.1:{self.port}", f"localhost:{self.port}"}
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
 
+    def _checks(self) -> list[dict[str, Any]]:
+        """`sentinel doctor` results, refreshed at most every few seconds."""
+        if self._doctor is None:
+            return []
+        stamp, cached = self._doctor_cache
+        if time.monotonic() - stamp > _DOCTOR_CACHE_SECONDS or not cached:
+            try:
+                cached = [c.model_dump() for c in self._doctor()]
+            except Exception as exc:
+                cached = [{"name": "checks", "ok": False, "detail": type(exc).__name__}]
+            self._doctor_cache = (time.monotonic(), cached)
+        return cached
+
     def start(self) -> None:
         self._thread.start()
 
@@ -286,7 +448,16 @@ def run_ui(  # noqa: PLR0913 - one keyword per command-line option
     hub = Hub(capture, str(service.database))
     token = secrets.token_urlsafe(24)
     try:
-        server = UiServer(service.database, hub, token, host, port)
+        server = UiServer(
+            service.database,
+            hub,
+            token,
+            host,
+            port,
+            config_info=service.console_info(notify_armed=notify),
+            doctor=lambda: service.doctor(service.secrets_file),
+            notify_test=service.notify_test,
+        )
     except OSError as exc:
         raise ServiceError(f"cannot listen on {host}:{port}: {exc}") from exc
     stop = stop if stop is not None else threading.Event()

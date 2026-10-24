@@ -10,6 +10,7 @@ import stat
 import time
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
 
@@ -18,10 +19,14 @@ from sentinel.contracts.models import (
     AnomalyRecord,
     AuditEntry,
     Delivery,
+    DeliveryRecord,
+    DeviceRecord,
     Flow,
     HistoryQuery,
     Incident,
 )
+from sentinel.contracts.severity import severity_label
+from sentinel.contracts.text import terminal_safe
 
 # Two indexed lookups unioned: a host is either side of a flow.
 FLOWS_FOR_HOST_SQL = """
@@ -59,6 +64,34 @@ def migrate(conn: sqlite3.Connection, migrations: list[tuple[int, str]]) -> None
             if conn.in_transaction:
                 conn.execute("ROLLBACK")
             raise
+
+
+@dataclass
+class DeviceSeen:
+    """Traffic one device showed since the last flush (deltas), merged into the inventory."""
+
+    mac: str
+    ips: set[str] = field(default_factory=set)
+    first: float = 0.0
+    last: float = 0.0
+    packets: int = 0
+    bytes_out: int = 0
+    bytes_in: int = 0
+
+
+_LABEL_BY_RANK = ("CRITICAL", "HIGH", "MEDIUM", "LOW")
+_DEVICES_SQL = """
+SELECT d.mac, d.first_seen, d.last_seen, d.packets, d.bytes_out, d.bytes_in,
+       d.type_label_admin AS name,
+       (SELECT group_concat(ip, ',') FROM
+          (SELECT ip FROM device_ip WHERE mac = d.mac ORDER BY last_seen DESC LIMIT 8)) AS ips,
+       COALESCE(a.n, 0) AS alerts, a.last_ts, a.rank
+FROM device d LEFT JOIN (
+  SELECT host_mac, COUNT(*) AS n, MAX(ts) AS last_ts,
+         MIN(CASE label WHEN 'CRITICAL' THEN 0 WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 ELSE 3 END)
+           AS rank
+  FROM anomaly_log GROUP BY host_mac) a ON a.host_mac = d.mac
+"""
 
 
 def _give_away(path: Path, uid: int, gid: int) -> None:
@@ -249,7 +282,7 @@ class Storage:
             self.audit(actor, "incident_status", incident_id, {"status": status})
 
     def count_rows(self, table: str) -> int:
-        allowed = {"alert", "flow", "incident"}
+        allowed = {"alert", "flow", "incident", "device", "notification_delivery"}
         if table not in allowed:
             raise ValueError(table)
         return int(self.conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])  # noqa: S608
@@ -258,12 +291,14 @@ class Storage:
         rows = self.conn.execute("SELECT status, COUNT(*) AS n FROM incident GROUP BY status")
         return {r["status"]: r["n"] for r in rows}
 
-    def log_delivery(self, d: Delivery, incident_id: str) -> None:
+    def log_delivery(
+        self, d: Delivery, incident_id: str, headline: str | None = None, label: str | None = None
+    ) -> None:
         error = None if d.status == "sent" else d.detail
         self.conn.execute(
-            "INSERT INTO notification_delivery (ts, channel, incident_id, status, error)"
-            " VALUES (?, ?, ?, ?, ?)",
-            (self._clock(), d.channel, incident_id, d.status, error),
+            "INSERT INTO notification_delivery (ts, channel, incident_id, status, error,"
+            " headline, label) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (self._clock(), d.channel, incident_id, d.status, error, headline, label),
         )
 
     def log_anomaly(self, record: AnomalyRecord) -> int:
@@ -348,6 +383,109 @@ class Storage:
             ).rowcount
             self.audit(actor, "history_delete", f"{deleted} entries", {"ids": chosen})
         return deleted
+
+    # ---- notifications ------------------------------------------------------------------
+    def deliveries(
+        self, *, channel: str | None = None, status: str | None = None, limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[int, list[DeliveryRecord]]:  # fmt: skip
+        """Stored notification attempts, newest first, with the incident they were about."""
+        where, args = [], []
+        for column, value in (("d.channel", channel), ("d.status", status)):
+            if value is not None:
+                where.append(f"{column} = ?")
+                args.append(value)
+        clause = f" WHERE {' AND '.join(where)}" if where else ""  # fixed fragments only
+        count_sql = "SELECT COUNT(*) FROM notification_delivery d" + clause  # noqa: S608
+        total = self.conn.execute(count_sql, args).fetchone()[0]
+        list_sql = (
+            "SELECT d.id, d.ts, d.channel, d.status, d.error, d.incident_id,"  # noqa: S608 - clause holds only fixed column names and ? marks
+            " COALESCE(d.headline, i.summary) AS headline, d.label AS stored_label,"
+            " i.score FROM notification_delivery d LEFT JOIN incident i ON i.id = d.incident_id"
+            + clause
+            + " ORDER BY d.ts DESC, d.id DESC LIMIT ? OFFSET ?"
+        )
+        rows = self.conn.execute(list_sql, [*args, limit, offset])
+        return total, [self._delivery(r) for r in rows]
+
+    @staticmethod
+    def _delivery(row: sqlite3.Row) -> DeliveryRecord:
+        score = row["score"]
+        label = row["stored_label"] or (None if score is None else severity_label(score).upper())
+        return DeliveryRecord.model_validate(
+            {**{k: row[k] for k in ("id", "ts", "channel", "status", "error", "incident_id",
+                                    "headline")}, "label": label}
+        )  # fmt: skip
+
+    def delivery_counts(self, since: float) -> dict[str, dict[str, int]]:
+        """{channel: {status: n}} for attempts at or after `since`."""
+        out: dict[str, dict[str, int]] = {}
+        for r in self.conn.execute(
+            "SELECT channel, status, COUNT(*) AS n FROM notification_delivery WHERE ts >= ?"
+            " GROUP BY channel, status", (since,),
+        ):  # fmt: skip
+            out.setdefault(r["channel"], {})[r["status"]] = r["n"]
+        return out
+
+    # ---- devices ------------------------------------------------------------------------
+    def upsert_devices(self, seen: Iterable[DeviceSeen]) -> None:
+        with self._tx():
+            for d in seen:
+                self.conn.execute(
+                    "INSERT INTO device (mac, first_seen, last_seen, packets, bytes_out, bytes_in)"
+                    " VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(mac) DO UPDATE SET"
+                    " first_seen = MIN(first_seen, excluded.first_seen),"
+                    " last_seen = MAX(last_seen, excluded.last_seen),"
+                    " packets = packets + excluded.packets,"
+                    " bytes_out = bytes_out + excluded.bytes_out,"
+                    " bytes_in = bytes_in + excluded.bytes_in",
+                    (d.mac, d.first, d.last, d.packets, d.bytes_out, d.bytes_in),
+                )
+                for ip in d.ips:
+                    self.conn.execute(
+                        "INSERT INTO device_ip (mac, ip, first_seen, last_seen) VALUES (?, ?, ?, ?)"
+                        " ON CONFLICT(mac, ip) DO UPDATE SET"
+                        " first_seen = MIN(first_seen, excluded.first_seen),"
+                        " last_seen = MAX(last_seen, excluded.last_seen)",
+                        (d.mac, ip, d.first, d.last),
+                    )
+
+    @staticmethod
+    def _device(row: sqlite3.Row) -> DeviceRecord:
+        rank = row["rank"]
+        return DeviceRecord.model_validate(
+            {**{k: row[k] for k in ("mac", "name", "first_seen", "last_seen", "packets",
+                                    "bytes_out", "bytes_in", "alerts")},
+             "ips": (row["ips"] or "").split(",") if row["ips"] else [],
+             "worst_label": None if rank is None else _LABEL_BY_RANK[rank],
+             "last_alert_ts": row["last_ts"]}
+        )  # fmt: skip
+
+    def devices(self, limit: int = 500) -> list[DeviceRecord]:
+        rows = self.conn.execute(_DEVICES_SQL + " ORDER BY d.last_seen DESC LIMIT ?", (limit,))
+        return [self._device(r) for r in rows]
+
+    def device(self, mac: str) -> DeviceRecord | None:
+        row = self.conn.execute(_DEVICES_SQL + " WHERE d.mac = ?", (mac,)).fetchone()
+        return None if row is None else self._device(row)
+
+    def set_device_name(self, mac: str, name: str, actor: str = "ui") -> bool:
+        """Set (or, with an empty name, clear) the admin label. False if the device is unknown."""
+        value = terminal_safe(name.strip(), 40) or None
+        with self._tx():
+            changed = self.conn.execute(
+                "UPDATE device SET type_label_admin = ? WHERE mac = ?", (value, mac)
+            ).rowcount
+            if changed:
+                self.audit(actor, "device_label", mac, {"name": value})
+        return bool(changed)
+
+    def anomalies_of_device(self, mac: str, limit: int = 10) -> list[AnomalyRecord]:
+        rows = self.conn.execute(
+            "SELECT * FROM anomaly_log WHERE host_mac = ? ORDER BY ts DESC, id DESC LIMIT ?",
+            (mac, limit),
+        )
+        return [self._anomaly(r) for r in rows]
 
     def anomaly_label_counts(self) -> dict[str, int]:
         rows = self.conn.execute("SELECT label, COUNT(*) AS n FROM anomaly_log GROUP BY label")

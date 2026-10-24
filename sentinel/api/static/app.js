@@ -18,6 +18,24 @@
   const state = { paused: false, flagged: new Map(), filter: "" };
   const isFlagged = (mac) => (state.flagged.get(mac) || 0) > Date.now();
 
+  // Two clicks to do something destructive or outward-facing: the first arms the button, the
+  // second (within 4 s) does it. Returns a function that disarms and resets the label.
+  function twoStep(btn, idle, action) {
+    let timer = null;
+    const disarm = () => { clearTimeout(timer); btn.classList.remove("armed"); btn.textContent = idle(); };
+    btn.addEventListener("click", () => {
+      if (btn.classList.contains("armed")) { disarm(); action(); return; }
+      btn.classList.add("armed"); btn.textContent = "CONFIRM?";
+      timer = setTimeout(disarm, 4000);
+    });
+    return disarm;
+  }
+  async function post(path, body) {
+    return fetch(path, {
+      method: "POST", headers: { "Content-Type": "application/json", "X-Sentinel": "1" }, body: JSON.stringify(body),
+    });
+  }
+
   // ---------------------------------------------------------------------------- topology
   // Star around this machine (the gateway): one spoke per device, brighter = more recent traffic.
   const PRIVATE = /^(10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|fe80|fc|fd)/i;
@@ -297,21 +315,8 @@
       $("#prev").disabled = f.offset === 0; $("#next").disabled = f.offset + rows.length >= total;
     }
 
-    // Two clicks to delete: the first arms the button, the second (within 4 s) does it.
-    function twoStep(btn, idle, action) {
-      let timer = null;
-      const disarm = () => { clearTimeout(timer); btn.classList.remove("armed"); btn.textContent = idle(); };
-      btn.addEventListener("click", () => {
-        if (btn.classList.contains("armed")) { disarm(); action(); return; }
-        btn.classList.add("armed"); btn.textContent = "CONFIRM DELETE?";
-        timer = setTimeout(disarm, 4000);
-      });
-      return disarm;
-    }
     async function removeIds(ids) {
-      const res = await fetch("/api/history/delete", {
-        method: "POST", headers: { "Content-Type": "application/json", "X-Sentinel": "1" }, body: JSON.stringify({ ids }),
-      });
+      const res = await post("/api/history/delete", { ids });
       if (!res.ok) return;
       ids.forEach((id) => picked.delete(id));
       if (ids.includes(selected)) { selected = null; select(null); }
@@ -391,14 +396,20 @@
   // ---------------------------------------------------------------------------- tabs, keys
   function show(name) {
     document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("on", t.dataset.tab === name));
-    $("#live").hidden = name !== "live"; $("#history").hidden = name !== "history";
+    document.querySelectorAll(".view").forEach((v) => { v.hidden = v.id !== name; });
     if (name === "history") { history.syncText(); history.reload(); }
+    document.dispatchEvent(new CustomEvent("sentinel:tab", { detail: name }));
   }
+  function openHistory(text) { $("#f-text").value = text; setLabel(""); show("history"); }
+  window.sentinelUi = { $, h, stamp, hhmmss, num, twoStep, post, openHistory };
   document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => show(t.dataset.tab)));
   document.addEventListener("keydown", (e) => {
     if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.metaKey || e.ctrlKey) return;
     if (e.key === "1") show("live");
     else if (e.key === "2") show("history");
+    else if (e.key === "3") show("notifications");
+    else if (e.key === "4") show("devices");
+    else if (e.key === "5") show("health");
     else if (e.key === "p") togglePause();
     else if (e.key === "/") { e.preventDefault(); if ($("#live").hidden) { show("history"); $("#f-text").focus(); } else $("#p-filter").focus(); }
   });

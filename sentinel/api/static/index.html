@@ -13,6 +13,9 @@
   <nav id="tabs">
     <button class="tab on" data-tab="live">LIVE</button>
     <button class="tab" data-tab="history">HISTORY</button>
+    <button class="tab" data-tab="notifications">NOTIFICATIONS</button>
+    <button class="tab" data-tab="devices">DEVICES</button>
+    <button class="tab" data-tab="health">HEALTH</button>
   </nav>
   <div class="spacer"></div>
   <div class="stat"><span class="k">CAPTURE</span><span class="v" id="s-cap">-</span></div>
@@ -105,6 +108,71 @@
     </section>
   </div>
 </main>
+<main id="notifications" class="view" hidden>
+  <div class="col wide">
+    <section class="panel" id="n-chans">
+      <h2>CHANNELS <span class="sub" id="n-armed"></span></h2>
+      <div class="chan-row" id="n-cards"></div>
+    </section>
+    <section class="panel grow">
+      <div class="toolbar">
+        <div class="seg" id="n-channel">
+          <button data-v="" class="on">ALL CHANNELS</button><button data-v="slack">SLACK</button>
+          <button data-v="discord">DISCORD</button><button data-v="telegram">TELEGRAM</button>
+        </div>
+        <div class="seg" id="n-status">
+          <button data-v="" class="on">ALL</button><button data-v="sent">SENT</button>
+          <button data-v="failed">FAILED</button><button data-v="skipped">SKIPPED</button>
+        </div>
+        <button class="ghost" id="n-reload">RELOAD</button>
+      </div>
+      <div class="body scroll">
+        <table id="ntab">
+          <thead><tr><th>TIME</th><th>CHANNEL</th><th>STATUS</th><th>SEVERITY</th><th>INCIDENT SUMMARY</th><th>DETAIL</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div id="n-empty" class="empty" hidden>NO NOTIFICATIONS YET</div>
+      </div>
+      <div class="pager"><span id="n-range">0</span><span class="spacer"></span>
+        <button class="ghost" id="n-prev">PREV</button><button class="ghost" id="n-next">NEXT</button></div>
+    </section>
+  </div>
+  <div class="col detail">
+    <section class="panel grow"><h2>DETAIL</h2>
+      <div class="body scroll" id="n-detail"><div class="empty">SELECT A NOTIFICATION</div></div></section>
+  </div>
+</main>
+
+<main id="devices" class="view" hidden>
+  <div class="col wide">
+    <section class="panel grow">
+      <div class="toolbar">
+        <input id="dv-text" type="text" maxlength="60" placeholder="SEARCH  name, ip, mac" spellcheck="false" autocomplete="off">
+        <span class="sub dim" id="dv-count">0 devices</span>
+        <button class="ghost" id="dv-reload">RELOAD</button>
+      </div>
+      <div class="body scroll">
+        <table id="dtab">
+          <thead><tr><th></th><th>DEVICE</th><th>ADDRESSES</th><th>LAST SEEN</th><th class="r">PACKETS</th><th class="r">SENT</th><th class="r">RECEIVED</th><th>ALERTS</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div id="dv-empty" class="empty" hidden>NO DEVICES SEEN YET</div>
+      </div>
+    </section>
+  </div>
+  <div class="col detail">
+    <section class="panel grow"><h2>DETAIL</h2>
+      <div class="body scroll" id="dv-detail"><div class="empty">SELECT A DEVICE</div></div></section>
+  </div>
+</main>
+
+<main id="health" class="view single" hidden>
+  <section class="panel grow">
+    <h2>HEALTH <span class="sub" id="hl-sub">this run</span><button class="ghost" id="hl-reload">RELOAD</button></h2>
+    <div class="body scroll"><div class="cards" id="hl-cards"></div></div>
+  </section>
+</main>
 <script src="/static/app.js"></script>
+<script src="/static/tabs.js"></script>
 </body>
 </html>

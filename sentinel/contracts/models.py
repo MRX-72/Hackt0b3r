@@ -276,6 +276,46 @@ class HistoryDelete(_Frozen):
     ids: list[PositiveInt] = Field(min_length=1, max_length=500)
 
 
+class DeliveryRecord(_Frozen):
+    """One stored notification attempt, with the incident it was about (for the console)."""
+
+    id: int
+    ts: float
+    channel: Channel
+    status: Literal["sent", "failed", "skipped"]
+    error: str | None
+    incident_id: str
+    headline: str | None
+    label: Literal["CRITICAL", "HIGH", "MEDIUM", "LOW"] | None
+
+
+class DeviceRecord(_Frozen):
+    """A device (MAC) the capture has seen, with its traffic totals and alert summary."""
+
+    mac: Mac
+    ips: list[str]
+    name: str | None  # chosen by the admin; never derived from network data
+    first_seen: float
+    last_seen: float
+    packets: int
+    bytes_out: int
+    bytes_in: int
+    alerts: int
+    worst_label: Literal["CRITICAL", "HIGH", "MEDIUM", "LOW"] | None
+    last_alert_ts: float | None
+
+
+class DeviceName(_Frozen):
+    """Admin label for a device; empty clears it. Comes straight from the web page."""
+
+    mac: Mac
+    name: str = Field(max_length=40)
+
+
+class ChannelTest(_Frozen):
+    channel: Channel
+
+
 class IncidentDetail(_Frozen):
     incident: Incident
     alerts: list[Alert]

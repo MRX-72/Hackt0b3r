@@ -1,0 +1,19 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "channel": {
+      "enum": [
+        "slack",
+        "discord",
+        "telegram"
+      ],
+      "title": "Channel",
+      "type": "string"
+    }
+  },
+  "required": [
+    "channel"
+  ],
+  "title": "ChannelTest",
+  "type": "object"
+}

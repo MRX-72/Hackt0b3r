@@ -1,0 +1,96 @@
+{
+  "additionalProperties": false,
+  "description": "A device (MAC) the capture has seen, with its traffic totals and alert summary.",
+  "properties": {
+    "alerts": {
+      "title": "Alerts",
+      "type": "integer"
+    },
+    "bytes_in": {
+      "title": "Bytes In",
+      "type": "integer"
+    },
+    "bytes_out": {
+      "title": "Bytes Out",
+      "type": "integer"
+    },
+    "first_seen": {
+      "title": "First Seen",
+      "type": "number"
+    },
+    "ips": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Ips",
+      "type": "array"
+    },
+    "last_alert_ts": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Last Alert Ts"
+    },
+    "last_seen": {
+      "title": "Last Seen",
+      "type": "number"
+    },
+    "mac": {
+      "pattern": "^([0-9a-f]{2}:){5}[0-9a-f]{2}$",
+      "title": "Mac",
+      "type": "string"
+    },
+    "name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Name"
+    },
+    "packets": {
+      "title": "Packets",
+      "type": "integer"
+    },
+    "worst_label": {
+      "anyOf": [
+        {
+          "enum": [
+            "CRITICAL",
+            "HIGH",
+            "MEDIUM",
+            "LOW"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Worst Label"
+    }
+  },
+  "required": [
+    "mac",
+    "ips",
+    "name",
+    "first_seen",
+    "last_seen",
+    "packets",
+    "bytes_out",
+    "bytes_in",
+    "alerts",
+    "worst_label",
+    "last_alert_ts"
+  ],
+  "title": "DeviceRecord",
+  "type": "object"
+}

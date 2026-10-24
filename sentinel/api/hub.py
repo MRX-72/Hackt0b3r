@@ -78,6 +78,7 @@ class Hub:
         self._started = time.monotonic()
         self._state = "running"
         self._pps = 0.0
+        self._last_event: float | None = None
 
     # ---- feeding (called from the capture thread) ---------------------------------------
 
@@ -85,6 +86,7 @@ class Hub:
         with self._lock:
             self._events += 1
             self._since_status += 1
+            self._last_event = time.monotonic()
             self._pending.append(_compact(event))
 
     def add_report(self, report: IncidentReport) -> None:
@@ -113,6 +115,12 @@ class Hub:
     def hello(self) -> dict[str, Any]:
         with self._lock:
             return {**self._status(), "recent": list(self._recent)}
+
+    def health(self) -> dict[str, Any]:
+        """What the Health tab shows about this run's capture."""
+        with self._lock:
+            quiet = None if self._last_event is None else round(time.monotonic() - self._last_event)
+            return {**self._status(), "seconds_since_event": quiet}
 
     def _status(self) -> dict[str, Any]:
         return {

@@ -5,6 +5,7 @@ Returns contract models only; formatting and printing belong to the clients.
 
 import fcntl
 import os
+import platform
 import queue
 import socket
 import threading
@@ -12,8 +13,9 @@ import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from importlib import resources
+from importlib.metadata import version
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from sentinel.config.secrets import Secrets, SecretsError, load_secrets
 from sentinel.config.settings import Settings
@@ -93,6 +95,10 @@ class SentinelService:
     @property
     def database(self) -> Path:
         return self._database
+
+    @property
+    def secrets_file(self) -> Path:
+        return self._settings.secrets_file
 
     @property
     def storage(self) -> Storage:
@@ -294,6 +300,32 @@ class SentinelService:
             channels_with_credentials=[c for c, v in creds.items() if v],
             llm_enabled=s.llm.enabled, llm_model=s.llm.model,
         )  # fmt: skip
+
+    def console_info(self, *, notify_armed: bool) -> dict[str, Any]:
+        """Secret-free summary of how this run is set up, for the console's Health tab."""
+        s, sec = self._settings, self._secrets
+        creds = {
+            "slack": sec.slack_webhook_url is not None,
+            "discord": sec.discord_webhook_url is not None,
+            "telegram": sec.telegram_bot_token is not None and sec.telegram_chat_id is not None,
+        }
+        ml = s.detection.ml
+        return {
+            "version": version("sentinel"), "python": platform.python_version(),
+            "capture": {"interface": s.capture.interface, "snaplen": s.capture.snaplen},
+            "detectors": {
+                "windows": s.detection.windows, "cooldown_seconds": s.detection.cooldown_seconds,
+                "rules": ["portscan", "bruteforce", "beaconing", "dns_tunnel"],
+                "ngram_dns": ml.ngram_dns, "isolation_forest": ml.isolation_forest,
+                "if_threshold": ml.if_threshold, "if_min_samples": ml.if_min_samples,
+            },
+            "notify": {
+                "enabled": s.notify.enabled, "armed": notify_armed,
+                "channels": list(s.notify.channels), "credentials": creds,
+                "min_severity": s.notify.min_severity, "max_per_minute": s.notify.max_per_minute,
+            },
+            "llm": {"enabled": s.llm.enabled, "runtime": s.llm.runtime, "model": s.llm.model},
+        }  # fmt: skip
 
     def notify_test(self, channel: Channel) -> Delivery:
         incident, alerts = _sample_incident()

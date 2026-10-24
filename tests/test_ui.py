@@ -334,7 +334,7 @@ def test_malformed_delete_requests_are_rejected_without_deleting(
 # ---------------------------------------------------------------------------- static assets
 @pytest.mark.security
 def test_the_page_never_builds_html_from_strings() -> None:
-    js = (STATIC / "app.js").read_text()
+    js = (STATIC / "app.js").read_text() + (STATIC / "tabs.js").read_text()
     for sink in (
         "innerHTML",
         "outerHTML",
@@ -347,7 +347,10 @@ def test_the_page_never_builds_html_from_strings() -> None:
         assert sink not in js, sink
     html = (STATIC / "index.html").read_text()
     assert (
-        '<script src="/static/app.js">' in html and "onclick" not in html and "style=" not in html
+        '<script src="/static/app.js">' in html
+        and '<script src="/static/tabs.js">' in html
+        and "onclick" not in html
+        and "style=" not in html
     )
     assert (
         "http://" not in js + html + (STATIC / "app.css").read_text()

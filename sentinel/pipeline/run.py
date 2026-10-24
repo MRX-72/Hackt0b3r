@@ -8,6 +8,7 @@ from sentinel.config.settings import Settings
 from sentinel.contracts.models import (
     Alert,
     AnomalyRecord,
+    Delivery,
     Event,
     Explanation,
     Flow,
@@ -22,9 +23,20 @@ from sentinel.explain.explainer import Explainer
 from sentinel.explain.sanitize import sanitize_incident
 from sentinel.notify.router import Notifier
 from sentinel.sensor.parse import FrameParser
-from sentinel.storage.db import Storage
+from sentinel.storage.db import DeviceSeen, Storage
 
 _FLOW_BATCH = 500  # flows are written to SQLite in batches of this size
+_DEVICE_CAP = 2000  # distinct devices tracked per flush; a spoofed-MAC flood cannot grow this
+_DEVICE_FLUSH_EVENTS = 2000  # device totals are written after this many flows, or on a live tick
+_DEVICE_FLUSH_SECONDS = 10.0
+
+
+def _is_group(ip: str) -> bool:
+    """IPv4/IPv6 multicast and the limited broadcast address."""
+    if ip.startswith("ff") or ip == "255.255.255.255":
+        return True
+    first = ip.split(".", 1)[0]
+    return first.isdigit() and 224 <= int(first) <= 239  # noqa: PLR2004 - IPv4 multicast range
 
 
 class Pipeline:
@@ -48,8 +60,12 @@ class Pipeline:
         self._correlator = Correlator(settings.detection.incident_gap_seconds)
         self._pending_flows: list[Flow] = []
         self._flows = self._alerts = self._incidents = 0
+        self._seen: dict[str, DeviceSeen] = {}
+        self._seen_flows = 0
+        self._last_device_flush = time.monotonic()
         if notifier is not None:
-            notifier.on_delivery = storage.log_delivery
+            notifier.on_delivery = self._log_delivery
+        self._sending: tuple[str, str] | None = None  # headline and label of the alert being sent
 
     def ingest(self, ts: float, frame: bytes) -> None:
         for event in self._parser.parse(frame, ts):
@@ -57,6 +73,7 @@ class Pipeline:
                 self._on_event(event)
             if isinstance(event, Flow):
                 self._flows += 1
+                self._note_devices(event)
                 if self._store.store_flows:
                     self._pending_flows.append(event)
                     if len(self._pending_flows) >= _FLOW_BATCH:
@@ -66,6 +83,8 @@ class Pipeline:
 
     def tick(self, now: float) -> None:
         """Live idle heartbeat: evaluate detectors even though no packet has arrived."""
+        if time.monotonic() - self._last_device_flush >= _DEVICE_FLUSH_SECONDS:
+            self._flush_devices()
         for alert in self._engine.advance(now):
             self._handle(alert)
 
@@ -73,6 +92,7 @@ class Pipeline:
         for alert in self._engine.flush():
             self._handle(alert)
         self._flush_flows()
+        self._flush_devices()
         stats = self._explainer.stats
         return RunSummary(
             frames=self._parser.frames, flows=self._flows, alerts=self._alerts,
@@ -91,6 +111,39 @@ class Pipeline:
             flows_before=now - self._store.flow_retention_days * day,
             alerts_before=now - self._store.alert_retention_days * day,
         )
+
+    def _note_devices(self, flow: Flow) -> None:
+        """Count this flow for the devices it names (unicast MACs only, bounded)."""
+        for mac, ip, sent, out, inn in (
+            (flow.src_mac, flow.src_ip, 1, flow.bytes, 0),
+            (flow.dst_mac, flow.dst_ip, 0, 0, flow.bytes),
+        ):
+            if int(mac[:2], 16) & 1 or _is_group(ip):  # broadcast and multicast are not devices
+                continue
+            dev = self._seen.get(mac)
+            if dev is None:
+                if len(self._seen) >= _DEVICE_CAP:
+                    continue
+                dev = self._seen[mac] = DeviceSeen(mac, first=flow.ts, last=flow.ts)
+            dev.ips.add(ip)
+            dev.last = max(dev.last, flow.ts)
+            dev.first = min(dev.first, flow.ts)
+            dev.packets += sent
+            dev.bytes_out += out
+            dev.bytes_in += inn
+        self._seen_flows += 1
+        if self._seen_flows >= _DEVICE_FLUSH_EVENTS:
+            self._flush_devices()
+
+    def _log_delivery(self, delivery: Delivery, incident_id: str) -> None:
+        headline, label = self._sending or (None, None)
+        self._storage.log_delivery(delivery, incident_id, headline, label)
+
+    def _flush_devices(self) -> None:
+        if self._seen:
+            self._storage.upsert_devices(self._seen.values())
+        self._seen, self._seen_flows = {}, 0
+        self._last_device_flush = time.monotonic()
 
     def _flush_flows(self) -> None:
         if self._pending_flows:
@@ -134,6 +187,7 @@ class Pipeline:
         self._storage.save_incident(incident)
         sanitized = sanitize_incident(incident, self._correlator.alerts_of(alert.host_mac))
         explanation = self._explainer.explain(sanitized)
+        self._sending = (explanation.headline, severity_label(incident.score).upper())
         deliveries = self._notifier.notify(sanitized, explanation) if self._notifier else []
         notified = any(d.status == "sent" for d in deliveries) or (
             previous is not None and previous.status == "notified"
