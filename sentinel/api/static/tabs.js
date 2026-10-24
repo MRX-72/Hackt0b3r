@@ -39,8 +39,9 @@
         twoStep(btn, () => "SEND TEST", async () => {
           btn.disabled = true; testOut[ch] = out.textContent = "sending...";
           const res = await post("/api/notifications/test", { channel: ch });
-          const j = res.ok ? await res.json() : { status: "failed", detail: "request refused" };
-          testOut[ch] = out.textContent = `${j.status}: ${j.detail}`; btn.disabled = false;
+          const j = await res.json().catch(() => ({}));
+          testOut[ch] = out.textContent = res.ok ? `${j.status}: ${j.detail}` : j.error || "request refused";
+          btn.disabled = false;
         });
         foot.append(btn);
         card.append(head, stats, foot, out);

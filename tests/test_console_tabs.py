@@ -407,3 +407,14 @@ def test_requests_from_other_web_pages_are_refused_even_with_every_credential(
     for origin in (*ours, None):  # the console itself, and non-browser clients with no Origin
         assert console.request("GET", "/api/devices", origin=origin)[0] == 200
     assert console.request("POST", "/api/devices/name", body, origin=ours[0])[0] == 200
+
+
+@pytest.mark.security
+def test_test_messages_are_throttled_per_channel(
+    console: Console, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first = console.request("POST", "/api/notifications/test", {"channel": "slack"})
+    again = console.request("POST", "/api/notifications/test", {"channel": "slack"})
+    assert first[0] == 200 and again[0] == 429 and console.tests == ["slack"]
+    monkeypatch.setattr("sentinel.api.ui.TEST_COOLDOWN_SECONDS", 0.0)
+    assert console.request("POST", "/api/notifications/test", {"channel": "slack"})[0] == 200

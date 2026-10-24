@@ -49,6 +49,7 @@ MAX_BODY = 16_384  # a delete request is at most 500 small integers
 KEEPALIVE_SECONDS = 15.0
 # A client that stalls mid-request is dropped, not given a thread forever.
 REQUEST_TIMEOUT_SECONDS = 30.0
+TEST_COOLDOWN_SECONDS = 5.0  # one test message per channel per this long (it reaches a real chat)
 MAX_STREAMS = 16  # live event streams at once; each holds a thread and a queue
 CSP = (
     "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
@@ -135,6 +136,7 @@ class UiServer:
         self._config_info, self._doctor, self._notify_test = config_info, doctor, notify_test
         self._doctor_cache: tuple[float, list[dict[str, Any]]] = (0.0, [])
         self._streams = 0
+        self._last_test: dict[str, float] = {}
         self._streams_lock = threading.Lock()
         self._stop = threading.Event()
         allowed: set[str] = set()  # filled once the real port is known (port 0 = any free port)
@@ -276,6 +278,13 @@ class UiServer:
                     return self._json(
                         {"error": "channel has no credentials"}, HTTPStatus.BAD_REQUEST
                     )
+                with outer._streams_lock:
+                    wait = outer._last_test.get(request.channel, -TEST_COOLDOWN_SECONDS)
+                    if time.monotonic() - wait < TEST_COOLDOWN_SECONDS:
+                        return self._json(
+                            {"error": "wait a few seconds"}, HTTPStatus.TOO_MANY_REQUESTS
+                        )
+                    outer._last_test[request.channel] = time.monotonic()
                 delivery = outer._notify_test(request.channel)
                 store = Storage(outer._database)
                 try:
