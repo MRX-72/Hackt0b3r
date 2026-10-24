@@ -642,7 +642,7 @@ async function build() {
     );
     kicker(s, "RUN IT");
     const blocks = [
-      ["1  INSTALL", ["brew install uv", "git clone <repo-url> sentinel && cd sentinel", "uv tool install .", "sentinel init && sentinel doctor"]],
+      ["1  INSTALL", ["brew install uv", "git clone https://github.com/MRX-72/Hackt0b3r.git sentinel && cd sentinel", "uv tool install .", "sentinel init && sentinel doctor"]],
       ["2  QUICK START  (no network needed)", ["uv run python tools/make_demo_pcap.py demo.pcap", "sentinel replay demo.pcap", "sentinel ui --replay demo.pcap", "sentinel history"]],
       ["3  ATTACK YOURSELF  (two terminals)", ["# terminal 1: the monitor", "sentinel --config examples/demo-10s.toml ui --iface lo0", "# terminal 2: the attacks, on your own machine only", "uv run python tools/demo_attacks.py"]],
     ];

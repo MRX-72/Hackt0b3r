@@ -12,7 +12,6 @@ secrets.env
 sentinel.db*
 demo.db*
 docs/pitch/node_modules/
-docs/diagrams/wh.md
 .claude/
 .hypothesis/
 .venv*/

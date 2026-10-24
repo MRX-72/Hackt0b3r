@@ -83,7 +83,7 @@ the alert text written by a local LLM ([setup](#plain-english-summaries-with-a-l
 brew install uv                       # or: curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # 2. get the code
-git clone <repo-url> sentinel && cd sentinel
+git clone https://github.com/MRX-72/Hackt0b3r.git sentinel && cd sentinel
 
 # 3. install the `sentinel` command
 uv tool install .

@@ -16,6 +16,9 @@ dependencies = [
     "pydantic>=2.14.1",
 ]
 
+[project.urls]
+Repository = "https://github.com/MRX-72/Hackt0b3r"
+
 [project.scripts]
 sentinel = "sentinel.cli.main:main"
 
