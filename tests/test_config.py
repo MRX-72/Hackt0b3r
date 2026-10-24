@@ -129,3 +129,25 @@ def test_relative_paths_in_a_config_file_mean_next_to_that_file(
     s = load_settings(conf)
     assert s.database == (tmp_path / "etc" / "data" / "s.db").resolve()
     assert s.secrets_file == Path.home() / "s.env"
+
+
+@pytest.mark.security
+def test_root_ignores_a_config_that_someone_else_could_have_planted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    planted = work / "config.toml"
+    planted.write_text('database = "/etc/cron.d/oops"\\n')
+    monkeypatch.chdir(work)
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setenv("SUDO_UID", str(os.getuid()))
+    assert find_config() == Path("config.toml")  # owned by the invoking user: fine
+    monkeypatch.setenv("SUDO_UID", str(os.getuid() + 1))
+    assert find_config() is None  # owned by somebody else: ignored
+    monkeypatch.setenv("SUDO_UID", str(os.getuid()))
+    planted.chmod(0o666)
+    assert find_config() is None  # writable by everyone: ignored
+    monkeypatch.setattr(os, "geteuid", os.getuid)  # a normal user is unaffected
+    assert find_config() == Path("config.toml")
+    assert find_config(Path("typed-by-the-user.toml")) == Path("typed-by-the-user.toml")

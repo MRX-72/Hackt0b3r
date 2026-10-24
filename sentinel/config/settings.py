@@ -31,6 +31,20 @@ def sentinel_home() -> Path:
     return Path.home() / ".sentinel"
 
 
+def _trusted(path: Path) -> bool:
+    """As root (sudo), only use a config that root or the invoking user owns and nobody else can
+    write: otherwise a config.toml planted in the current directory could point `database` at
+    any path root can write."""
+    if os.geteuid() != 0:
+        return True
+    try:
+        info = path.stat()
+        sudo_uid = int(os.environ.get("SUDO_UID", "0"))
+    except (OSError, ValueError):
+        return False
+    return info.st_uid in (0, sudo_uid) and not info.st_mode & 0o022
+
+
 def find_config(explicit: Path | None = None) -> Path | None:
     """--config, $SENTINEL_CONFIG, ./config.toml, <home>/config.toml; None = built-in defaults."""
     if explicit is not None:
@@ -38,7 +52,7 @@ def find_config(explicit: Path | None = None) -> Path | None:
     candidates = [Path("config.toml"), sentinel_home() / "config.toml"]
     if env := os.environ.get("SENTINEL_CONFIG"):
         candidates.insert(0, Path(env).expanduser())
-    return next((c for c in candidates if c.is_file()), None)
+    return next((c for c in candidates if c.is_file() and _trusted(c)), None)
 
 
 class _Section(BaseModel):
