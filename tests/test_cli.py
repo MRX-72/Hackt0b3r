@@ -462,3 +462,15 @@ def test_ui_refuses_a_missing_capture_file_instead_of_serving_nothing(
 ) -> None:
     assert main(["--config", str(env["config"]), "ui", "--replay", "nope.pcap", "--no-open"]) == 1
     assert "no such capture file: nope.pcap" in capsys.readouterr().err
+
+
+def test_devices_command_lists_what_a_replay_saw(
+    env: dict[str, object], capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert "no devices seen yet" in run_ok(env, capsys, "devices")
+    run_ok(env, capsys, "replay", str(env["pcap"]))
+    out = run_ok(env, capsys, "devices")
+    assert "aa:bb:cc:dd:ee:30" in out and "192.168.2.30" in out and "worst CRITICAL" in out
+    assert "no alerts" in out and "devices" in out.splitlines()[-1]
+    row = json.loads(run_ok(env, capsys, "devices", "--json", "-n", "1").splitlines()[0])
+    assert row["mac"].startswith("aa:bb:cc:dd:ee:") and row["packets"] >= 0

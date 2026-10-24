@@ -24,6 +24,7 @@ from sentinel.contracts.models import (
     AnomalyRecord,
     Channel,
     Delivery,
+    DeviceRecord,
     DoctorCheck,
     Event,
     HistoryQuery,
@@ -233,6 +234,10 @@ class SentinelService:
     def history(self, query: HistoryQuery) -> tuple[int, list[AnomalyRecord]]:
         """The permanent anomaly history, newest first, with the number of matches."""
         return self.storage.anomalies(query)
+
+    def devices(self, limit: int = 30) -> list[DeviceRecord]:
+        """Devices the capture has seen, most recently active first."""
+        return self.storage.devices(limit)
 
     def history_item(self, anomaly_id: int) -> AnomalyRecord | None:
         return self.storage.anomaly(anomaly_id)

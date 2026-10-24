@@ -102,6 +102,8 @@ def _ui_commands(sub: Any, add: Any) -> None:
     ui.add_argument("--port", type=int, default=8787)
     ui.add_argument("--no-open", action="store_true", help="do not open the browser")
     ui.add_argument("-n", "--notify", action="store_true", help="notify about new incidents")
+    dev = add(sub, "devices", help="devices the capture has seen (what the Devices tab shows)")
+    dev.add_argument("-n", "--limit", type=int, default=30)
     hist = add(sub, "history", help="the permanent anomaly history (what the console shows)")
     hist.add_argument("-n", "--limit", type=int, default=30)
     hist.add_argument("--label", choices=["critical", "high", "medium", "low"])
@@ -339,6 +341,21 @@ def _run_ui(args: argparse.Namespace, service: SentinelService, settings: Settin
     )  # fmt: skip
 
 
+def _show_devices(args: argparse.Namespace, service: SentinelService) -> int:
+    devices = service.devices(args.limit)
+    for d in devices:
+        seen = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(d.last_seen))
+        alerts = f"{d.alerts} alerts, worst {d.worst_label}" if d.alerts else "no alerts"
+        human = (
+            f"{terminal_safe(d.name or d.mac):<20} {' '.join(d.ips[:3]):<30} last {seen}  "
+            f"{d.packets} pkts  sent {d.bytes_out} B  received {d.bytes_in} B  {alerts}"
+        )
+        _out(args, human, d.model_dump())
+    if not args.json:
+        print(f"{len(devices)} devices" if devices else "no devices seen yet")
+    return 0
+
+
 def _show_history(args: argparse.Namespace, service: SentinelService) -> int:
     query = HistoryQuery(
         label=args.label.upper() if args.label else None, source=args.source, text=args.text,
@@ -384,6 +401,7 @@ def _dispatch(
         "watch": lambda: _run_stream(args, service, settings),
         "ui": lambda: _run_ui(args, service, settings),
         "history": lambda: _show_history(args, service),
+        "devices": lambda: _show_devices(args, service),
         "status": lambda: _status(args, service),
         "incidents": lambda: _list_incidents(args, service),
         "incident": lambda: _show_incident(args, service),
