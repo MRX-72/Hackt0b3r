@@ -2,20 +2,22 @@
 Last updated: 2026-10-24
 
 ## Stage
-Stage 0 (design docs + skeleton). Gate 0 NOT yet passed.
+Stage 1 (core). Gate 0 closed 2026-10-24 (diagrams validated with termaid only). Gate 1 not reached.
 
 ## Done
-- Spec split into docs/spec/ (00-05). CLAUDE.md already present.
-- 12 diagrams in docs/diagrams/ (termaid-parsed only; official mermaid parser unavailable).
-- FACTS, DECISIONS, BACKLOG, HUMAN_VERIFICATION (+ 2 unrun spikes), NOTES, REQUIREMENTS.csv (75 rows; core set, not every "must" in Parts 3-5), WHAT_WE_ARE_BUILDING.md.
-- Skeleton: pyproject (py3.13), Makefile, empty packages per diagram 05, architecture test (mutation-checked), tools/trace.py.
+- Stage 0 (see git log) plus gap closure: contracts package + JSON Schema export test, security marker group, 90% coverage floor.
+- Component 1/13 storage: done.
 
-## Next
-- Review Gate 0 with human (open: contracts/ JSON-schema export test not yet possible without contracts; security test group empty until components exist; no coverage threshold set).
-- Then Stage 1 component 1 (storage): brief first, failing tests first.
+## In progress
+- Nothing. Next: component 2, flow model and packet parser (brief first, tests first, fuzz).
 
 ## Blockers
 - None.
 
+## Done reports
+| component | commit | requirements | tests added | make check | open issues | labels |
+|---|---|---|---|---|---|---|
+| 1 storage | see git log | R-STO-001/003, R-STO-002 (partial), R-DET-009 (partial), R-PRC-001 (partial) | 22 total in suite (12 storage, 7 contracts, 3 arch) | green, coverage 98% | not yet wired into a pipeline (none exists); migration tested on SQLite 3.54.1 only | SQLite 3.54.1 VERIFIED; behavior under concurrent writers UNKNOWN (single connection by design) |
+
 ## Last make check
-Green on 2026-10-24: ruff format/check, mypy strict, pytest (3 passed), vulture, deptry.
+Green after storage; mutation checks done: removing audit triggers, dropping flow indexes, disabling foreign_keys, inverting prune cutoff each fail a test.

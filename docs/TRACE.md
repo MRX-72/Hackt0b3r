@@ -12,9 +12,9 @@
 | R-SAF-008 | P0 | notify.secrets | NONE |
 | R-SAF-009 | P0 | notify | NONE |
 | R-SAF-010 | P0 | pipeline | NONE |
-| R-STO-001 | P0 | storage | NONE |
-| R-STO-002 | P0 | storage | NONE |
-| R-STO-003 | P0 | storage | NONE |
+| R-STO-001 | P0 | storage | test_storage.py |
+| R-STO-002 | P0 | storage | test_storage.py |
+| R-STO-003 | P0 | storage | test_storage.py |
 | R-CFG-001 | P0 | config | NONE |
 | R-FLW-001 | P0 | sensor.parse | NONE |
 | R-RPL-001 | P0 | sensor.replay | NONE |
@@ -28,7 +28,7 @@
 | R-DET-006 | P0 | detect | NONE |
 | R-DET-007 | P0 | detect | NONE |
 | R-DET-008 | P0 | detect | NONE |
-| R-DET-009 | P0 | contracts | NONE |
+| R-DET-009 | P0 | contracts | test_contracts.py |
 | R-ML-001 | P0 | ml.iforest | NONE |
 | R-ML-002 | P0 | ml.peers | NONE |
 | R-ML-003 | P0 | ml.ensemble | NONE |
@@ -66,7 +66,7 @@
 | R-EVL-002 | P0 | evalharness | NONE |
 | R-EVL-003 | P0 | evalharness | NONE |
 | R-EVL-004 | P0 | training | NONE |
-| R-PRC-001 | P0 | contracts | NONE |
+| R-PRC-001 | P0 | contracts | test_contracts.py |
 | R-PRC-002 | P0 | tests | test_architecture.py |
 | R-PRC-003 | P0 | tooling | NONE |
 | R-PRC-004 | P0 | tooling | NONE |

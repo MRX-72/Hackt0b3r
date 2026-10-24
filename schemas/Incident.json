@@ -1,0 +1,77 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "alerts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Alerts",
+      "type": "array"
+    },
+    "chain": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Chain",
+      "type": "array"
+    },
+    "end_ts": {
+      "title": "End Ts",
+      "type": "number"
+    },
+    "host_mac": {
+      "pattern": "^([0-9a-f]{2}:){5}[0-9a-f]{2}$",
+      "title": "Host Mac",
+      "type": "string"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "score": {
+      "title": "Score",
+      "type": "number"
+    },
+    "start_ts": {
+      "title": "Start Ts",
+      "type": "number"
+    },
+    "status": {
+      "default": "open",
+      "enum": [
+        "open",
+        "correlated",
+        "explained",
+        "notified",
+        "acknowledged",
+        "dismissed",
+        "resolved"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Summary"
+    }
+  },
+  "required": [
+    "id",
+    "host_mac",
+    "start_ts",
+    "end_ts",
+    "alerts",
+    "chain",
+    "score"
+  ],
+  "title": "Incident",
+  "type": "object"
+}

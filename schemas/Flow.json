@@ -1,0 +1,124 @@
+{
+  "additionalProperties": false,
+  "description": "One flow record from the sensor. dns_query is network-derived and hostile.",
+  "properties": {
+    "bytes": {
+      "minimum": 0,
+      "title": "Bytes",
+      "type": "integer"
+    },
+    "dns_qtype": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dns Qtype"
+    },
+    "dns_query": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dns Query"
+    },
+    "dst_ip": {
+      "title": "Dst Ip",
+      "type": "string"
+    },
+    "dst_mac": {
+      "pattern": "^([0-9a-f]{2}:){5}[0-9a-f]{2}$",
+      "title": "Dst Mac",
+      "type": "string"
+    },
+    "dst_port": {
+      "anyOf": [
+        {
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dst Port"
+    },
+    "packets": {
+      "minimum": 0,
+      "title": "Packets",
+      "type": "integer"
+    },
+    "proto": {
+      "enum": [
+        "tcp",
+        "udp",
+        "icmp",
+        "other"
+      ],
+      "title": "Proto",
+      "type": "string"
+    },
+    "src_ip": {
+      "title": "Src Ip",
+      "type": "string"
+    },
+    "src_mac": {
+      "pattern": "^([0-9a-f]{2}:){5}[0-9a-f]{2}$",
+      "title": "Src Mac",
+      "type": "string"
+    },
+    "src_port": {
+      "anyOf": [
+        {
+          "maximum": 65535,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Src Port"
+    },
+    "tcp_flags": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tcp Flags"
+    },
+    "ts": {
+      "title": "Ts",
+      "type": "number"
+    }
+  },
+  "required": [
+    "ts",
+    "src_ip",
+    "dst_ip",
+    "src_mac",
+    "dst_mac",
+    "proto",
+    "bytes",
+    "packets"
+  ],
+  "title": "Flow",
+  "type": "object"
+}

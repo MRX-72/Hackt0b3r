@@ -1,0 +1,40 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "title": "Action",
+      "type": "string"
+    },
+    "actor": {
+      "title": "Actor",
+      "type": "string"
+    },
+    "detail": {
+      "additionalProperties": true,
+      "title": "Detail",
+      "type": "object"
+    },
+    "id": {
+      "title": "Id",
+      "type": "integer"
+    },
+    "target": {
+      "title": "Target",
+      "type": "string"
+    },
+    "ts": {
+      "title": "Ts",
+      "type": "number"
+    }
+  },
+  "required": [
+    "id",
+    "ts",
+    "actor",
+    "action",
+    "target",
+    "detail"
+  ],
+  "title": "AuditEntry",
+  "type": "object"
+}

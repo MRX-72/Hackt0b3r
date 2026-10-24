@@ -9,9 +9,9 @@ R-SAF-007,P0,"No payload storage by default (headers only, snaplen ~96)","P1, P4
 R-SAF-008,P0,"Secrets never in repo, logs or API responses; env/Keychain only",P4 s9,notify.secrets,,todo
 R-SAF-009,P0,No external network calls except opt-in notifications; none in Air-gapped/Replay,P1,notify,,todo
 R-SAF-010,P0,Control characters in network strings escaped in logs,P4 s10,pipeline,,todo
-R-STO-001,P0,"SQLite WAL, numbered SQL migrations, index (host_mac, ts)",P4 s3,storage,,todo
-R-STO-002,P0,"Retention policy for flows, alerts, pcap ring buffer, configurable",P4 s3,storage,,todo
-R-STO-003,P0,Append-only audit log for every state change,P4 s3,storage,,todo
+R-STO-001,P0,"SQLite WAL, numbered SQL migrations, index (host_mac, ts)",P4 s3,storage,test_storage.py::test_open_enables_wal_fk_and_latest_version,done
+R-STO-002,P0,"Retention policy for flows, alerts, pcap ring buffer, configurable",P4 s3,storage,test_storage.py::test_prune_*,partial: flows/alerts/incidents only; pcap ring buffer later
+R-STO-003,P0,Append-only audit log for every state change,P4 s3,storage,test_storage.py::test_audit_is_append_only_*,done
 R-CFG-001,P0,Config validated with pydantic; invalid config fails fast with clear message,P4 s3,config,,todo
 R-FLW-001,P0,"Flow record matches spec s5 fields; DHCP, ARP, mDNS emitted as separate events",P3 s5,sensor.parse,,todo
 R-RPL-001,P0,"Replay mode runs the full pipeline from a pcap with no network, at original or accelerated speed",P3 s17.2,sensor.replay,,todo
@@ -25,7 +25,7 @@ R-DET-005,P0,DNS tunnel detector: entropy/length/TXT rules plus n-gram + LR mode
 R-DET-006,P0,Slow scan missed by single 10s window and caught by multi-timescale config (a test),"P3 s17.4, P2 Gate1",detect,,todo
 R-DET-007,P0,"Negative tests: normal and near-miss traffic (busy host, periodic update check) produce no alert",P6 s6,detect,,todo
 R-DET-008,P0,Rogue DHCP and ARP anomaly detectors; canary tripwire,P3 s8,detect,,todo
-R-DET-009,P0,Alert/incident schemas match spec s9; evidence numeric only,P3 s9,contracts,,todo
+R-DET-009,P0,Alert/incident schemas match spec s9; evidence numeric only,P3 s9,contracts,test_contracts.py,partial: Alert/Incident shapes done
 R-ML-001,P0,Isolation Forest per device with learning period; returns top contributing features,P3 s8.2,ml.iforest,,todo
 R-ML-002,P0,"Peer-group robust z (median/MAD), needs >=3 peers else skip and log",P3 s8.3,ml.peers,,todo
 R-ML-003,P0,Ensemble with calibrated scores and model-agreement signal,P5 s4,ml.ensemble,,todo
@@ -63,10 +63,10 @@ R-EVL-001,P0,"Purple-team eval: per attack detected/time to detect/detector, FP 
 R-EVL-002,P0,Ablation table rules vs rules + each model with CPU/RAM/latency,P5 s9,evalharness,,todo
 R-EVL-003,P0,"Injection suite measures leakage to LLM, notification, UI; target zero on structured path",P5 s9,evalharness,,todo
 R-EVL-004,P0,"Splits by scenario/session, not random rows; no real user traffic for training",P5 s8,training,,todo
-R-PRC-001,P0,contracts/ holds every shared shape; JSON Schemas exported and current-tested,P6 s5,contracts,,todo
-R-PRC-002,P0,Architecture test enforces diagram 05 import direction,P2 quality,tests,,todo
+R-PRC-001,P0,contracts/ holds every shared shape; JSON Schemas exported and current-tested,P6 s5,contracts,test_contracts.py::test_schemas_are_current,partial: Flow/Alert/Incident/AuditEntry; other shapes added with their components
+R-PRC-002,P0,Architecture test enforces diagram 05 import direction,P2 quality,tests,test_architecture.py,done
 R-PRC-003,P0,"make check: format, lint, strict types, tests+coverage, vulture, unused deps, architecture, security group",P2 quality,tooling,,todo
-R-PRC-004,P0,docs/TRACE.md maps requirement->module->test; gate fails on untested P0,P6 s4,tooling,,todo
+R-PRC-004,P0,docs/TRACE.md maps requirement->module->test; gate fails on untested P0,P6 s4,tooling,tools/trace.py,partial: trace generated; gate check on untested P0 not yet enforced
 R-PRC-005,P0,"Performance numbers (packets/s, CPU) measured and reported, not assumed",P4 s3,evalharness,,todo
 R-PRC-006,P0,spikes/ empty or absent at release,P2 Stage0.3,docs,,todo
 R-DET-020,P1,"Detection rule YAML engine with schema errors, test mode, defaults, versioning",P4 s8.1,rules,,todo

@@ -3,7 +3,9 @@ name = "sentinel"
 version = "0.0.0"
 description = "Small-network anomaly detector"
 requires-python = ">=3.13,<3.14"
-dependencies = []
+dependencies = [
+    "pydantic>=2.14.1",
+]
 
 [dependency-groups]
 dev = ["ruff", "mypy", "pytest", "pytest-cov", "vulture", "hypothesis", "deptry"]
@@ -31,7 +33,8 @@ files = ["sentinel", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q --cov=sentinel --cov-report=term-missing:skip-covered"
+addopts = "-q --strict-markers --cov=sentinel --cov-report=term-missing:skip-covered --cov-fail-under=90"
+markers = ["security: security test group; must never be empty"]
 
 [tool.vulture]
 paths = ["sentinel"]

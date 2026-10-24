@@ -12,7 +12,7 @@ erDiagram
   NOTIFICATION_DELIVERY }o--|| INCIDENT : about
   DEVICE { text mac PK  text vendor  text hostname_sanitized  text type_guess  real type_confidence  text type_label_admin  text trust  real first_seen  real last_seen }
   DEVICE_IP { text mac FK  text ip  real first_seen  real last_seen }
-  FLOW { integer id PK  real ts  text src_mac  text dst_mac  text src_ip  text dst_ip  text proto  integer src_port  integer dst_port  integer bytes  integer packets  text tcp_flags }
+  FLOW { integer id PK  real ts  text src_mac  text dst_mac  text src_ip  text dst_ip  text proto  integer src_port  integer dst_port  integer bytes  integer packets  text tcp_flags  text dns_query  text dns_qtype }
   FEATURE_SNAPSHOT { text host_mac FK  real ts  integer window_seconds  text features_json }
   ALERT { text id PK  real ts  text detector  text host_mac FK  real severity  real confidence  text evidence_json  text technique }
   INCIDENT { text id PK  text host_mac  real start_ts  real end_ts  text chain_json  real score  text summary  text status }

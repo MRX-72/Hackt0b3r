@@ -21,3 +21,18 @@ Reason: user instruction; spec requires saying which diagrams could not be valid
 
 ## D-005 Work in a git repo
 Decision: `git init` in /Users/mrx/Hacktober. Personal project, so no PR workflow. `.venv/` ignored.
+
+## D-006 Dependency: pydantic
+Context: contracts need validation (numeric-only evidence, MAC/IP shapes, score ranges) and the spec mandates pydantic for config.
+Decision: runtime dependency `pydantic>=2`. Replaces hand-written validation and JSON Schema export that the standard library lacks.
+
+## D-007 Contracts grow with components
+Decision: `sentinel/contracts/models.py` holds only shapes a built component uses (Flow, Alert, Incident, AuditEntry). Other shapes (window features, device, rules, notifications, socket messages, registry entries) are added in the commit of the component that first needs them, with schema regeneration (`make schemas`).
+Reason: no speculative code; Gate 0 asked for contracts first, and this keeps them used.
+
+## D-008 Storage choices
+Decision: stdlib `sqlite3`, STRICT tables, one connection per `Storage` (caller serialises; asyncio use will wrap it), autocommit connection with explicit `BEGIN IMMEDIATE`. No FKs from flow/alert to device because events can precede inventory. Retention days live in config (later); `prune` takes cutoffs.
+Reason: no ORM needed; atomic migrations need autocommit mode.
+
+## D-009 Gate 0 gap closure
+Decision: coverage floor 90% (`--cov-fail-under`); `make check` runs `pytest -m security` as its own step so the security group cannot silently become empty (pytest exits non-zero when nothing is selected).
