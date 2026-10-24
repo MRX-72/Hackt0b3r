@@ -30,7 +30,7 @@ class DetectionSettings(_Section):
     scan_min_unique_hosts: dict[int, int] = {10: 20, 300: 15, 3600: 50}
     scan_min_failed_ratio: float = 0.6
     # Brute force: many connections to one auth service, mostly completing (each guess is a login).
-    auth_ports: list[int] = [21, 22, 23, 445, 3389, 5900]
+    auth_ports: list[int] = [21, 22, 23, 445, 2222, 3389, 5900]  # 2222: common alternate SSH
     brute_min_attempts: dict[int, int] = {10: 8, 300: 20, 3600: 60}
     brute_min_completed_ratio: float = 0.3
     # Beaconing: this many connection starts to one destination with this little timing jitter.

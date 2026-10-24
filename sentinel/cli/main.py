@@ -73,6 +73,20 @@ def _stream_flags(sp: argparse.ArgumentParser) -> None:
     sp.add_argument("-b", "--brief", action="store_true", help="one line per incident")
 
 
+def _common_options() -> argparse.ArgumentParser:
+    """--config / --json / --color, accepted before or after the command (`watch -t --json`)."""
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--config", type=Path, default=argparse.SUPPRESS, help=argparse.SUPPRESS)
+    common.add_argument(
+        "--json", action="store_true", default=argparse.SUPPRESS, help=argparse.SUPPRESS
+    )
+    common.add_argument(
+        "--color", choices=["auto", "always", "never"], default=argparse.SUPPRESS,
+        help=argparse.SUPPRESS,
+    )  # fmt: skip
+    return common
+
+
 def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="sentinel",
@@ -88,44 +102,48 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true", help="machine-readable output (JSON lines)")
     p.add_argument("--color", choices=["auto", "always", "never"], default="auto")
     sub = p.add_subparsers(dest="command", metavar="command")
+    common = _common_options()
 
-    sub.add_parser("init", help="create config.toml and a private secrets.env here").add_argument(
+    def add(group: Any, name: str, **kwargs: Any) -> argparse.ArgumentParser:
+        return group.add_parser(name, parents=[common], **kwargs)  # type: ignore[no-any-return]
+
+    add(sub, "init", help="create config.toml and a private secrets.env here").add_argument(
         "--dir", type=Path, default=Path(), help="directory to create them in (default: here)"
     )
-    replay = sub.add_parser("replay", help="run pcap/pcapng files through the detection pipeline")
+    replay = add(sub, "replay", help="run pcap/pcapng files through the detection pipeline")
     replay.add_argument("pcaps", type=Path, nargs="+", metavar="PCAP")
     _stream_flags(replay)
-    watch = sub.add_parser("watch", help="capture live traffic with tcpdump (needs sudo)")
+    watch = add(sub, "watch", help="capture live traffic with tcpdump (needs sudo)")
     watch.add_argument("--iface", help="interface (default: [capture] interface)")
     watch.add_argument(
         "--for", dest="duration", type=parse_duration, metavar="TIME",
         help="stop after this long, e.g. 90s, 10m, 2h",
     )  # fmt: skip
     _stream_flags(watch)
-    sub.add_parser("status", help="one-screen summary: database, incidents, notify, LLM")
-    inc = sub.add_parser("incidents", help="list stored incidents (open ones by default)")
+    add(sub, "status", help="one-screen summary: database, incidents, notify, LLM")
+    inc = add(sub, "incidents", help="list stored incidents (open ones by default)")
     inc.add_argument("-n", "--limit", type=int, default=20)
     inc.add_argument(
         "--since", type=parse_duration, metavar="TIME", help="only the last 24h, 90m, ..."
     )
     inc.add_argument("--min-score", type=float, default=0.0, metavar="0-1")
     inc.add_argument("-a", "--all", action="store_true", help="include dismissed and resolved")
-    show = sub.add_parser("incident", help="show one incident with its alert timeline")
+    show = add(sub, "incident", help="show one incident with its alert timeline")
     show.add_argument("incident_id", metavar="ID", help="an incident id or unique prefix")
     for name, text in (("ack", "acknowledge"), ("dismiss", "dismiss as a false alarm"),
                        ("resolve", "mark as resolved")):  # fmt: skip
-        sp = sub.add_parser(name, help=f"{text} one or more incidents")
+        sp = add(sub, name, help=f"{text} one or more incidents")
         sp.add_argument("incident_ids", nargs="+", metavar="ID")
-    notify = sub.add_parser("notify", help="notification utilities")
+    notify = add(sub, "notify", help="notification utilities")
     notify_sub = notify.add_subparsers(dest="notify_command", required=True)
-    test = notify_sub.add_parser("test", help="send a sample incident to one channel")
+    test = add(notify_sub, "test", help="send a sample incident to one channel")
     test.add_argument("channel", choices=CHANNEL_CHOICES)
-    llm = sub.add_parser("llm", help="LLM utilities")
+    llm = add(sub, "llm", help="LLM utilities")
     llm_sub = llm.add_subparsers(dest="llm_command", required=True)
-    llm_sub.add_parser("test", help="list models and summarise a sample incident")
-    config = sub.add_parser("config", help="show the effective settings (secrets are never shown)")
+    add(llm_sub, "test", help="list models and summarise a sample incident")
+    config = add(sub, "config", help="show the effective settings (secrets are never shown)")
     config.add_argument("config_command", choices=["show"])
-    doctor = sub.add_parser("doctor", help="check configuration, credentials, interface and LLM")
+    doctor = add(sub, "doctor", help="check configuration, credentials, interface and LLM")
     doctor.add_argument("--fix", action="store_true", help="repair what is safe (secrets.env mode)")
     return p
 

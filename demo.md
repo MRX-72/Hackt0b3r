@@ -197,12 +197,10 @@ A fake command-and-control server listens on port 8080; the script checks in onc
 times (drift-free schedule). Expected (about 10-15 s after the attack starts):
 
 ```
-[MEDIUM 0.63] inc-02007f000001-...  Device contacts one server at fixed intervals  (T1071.001)
+[CRITICAL 0.90] inc-02007f000001-...  Device contacts one server at fixed intervals  (T1071.001)
 ```
 
-(The score varies a little with how many check-ins had been seen when the alert fired; for the
-DNS tunnel it is `CRITICAL 0.90` when all four signals had appeared and `MEDIUM 0.68` when the
-first evaluation already saw three.)
+(The number varies a little with how many check-ins had been seen when the alert fired.)
 
 ### 4. DNS tunnel
 
@@ -214,7 +212,7 @@ Sends 60 TXT lookups (8 per second) for random 52-character names under `t.badzo
 `127.0.0.1:53`. No DNS server is needed: Sentinel analyses the query packets themselves. Expected:
 
 ```
-[CRITICAL 0.90] inc-02007f000001-...  Unusual DNS requests that may hide data  (T1071.004)
+[CRITICAL 1.00] inc-02007f000001-...  Unusual DNS requests that may hide data  (T1071.004)
 ```
 
 ### 5. Control (must stay silent)

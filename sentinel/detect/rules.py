@@ -121,7 +121,7 @@ class Beaconing:
             }
             regularity = 1 - t.interval_cv / s.beacon_max_interval_cv
             confidence = 0.5 + 0.5 * min(1.0, t.count / (3 * s.beacon_min_events))
-            scores = (0.6 + 0.3 * regularity, confidence)
+            scores = (0.7 + 0.3 * regularity, confidence)
             return [_alert(ctx, self.name, "T1071.001", scores, evidence, target_ip=t.dst_ip)]
         return []
 
@@ -166,6 +166,6 @@ class DnsTunnel:
         }  # fmt: skip
         return [
             _alert(
-                ctx, self.name, "T1071.004", (0.5 + 0.1 * signals, 0.4 + 0.15 * signals), evidence
+                ctx, self.name, "T1071.004", (0.6 + 0.1 * signals, 0.4 + 0.15 * signals), evidence
             )
         ]

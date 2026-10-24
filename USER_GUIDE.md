@@ -140,7 +140,7 @@ visible over 5 minutes or an hour.
 | Detector | ATT&CK | Fires when (defaults) | What the alert says |
 |---|---|---|---|
 | **Port scan** | T1046 | A device touches many different ports (10 s: 20, 5 min: 15, 1 h: 60) *or* many hosts (20 / 15 / 50) and at least 60% of its connection attempts fail. | how many ports/hosts, over which window, % failed, main target |
-| **Brute force** | T1110 | 8 / 20 / 60 connections to one login service (SSH 22, Telnet 23, FTP 21, SMB 445, RDP 3389, VNC 5900) in 10 s / 5 min / 1 h, and at least 30% completed (each guess is a real connection). | which service, how many attempts, target |
+| **Brute force** | T1110 | 8 / 20 / 60 connections to one login service (SSH 22 and the common alternate 2222, Telnet 23, FTP 21, SMB 445, RDP 3389, VNC 5900) in 10 s / 5 min / 1 h, and at least 30% completed (each guess is a real connection). | which service, how many attempts, target |
 | **Beaconing** | T1071.001 | 10+ *accepted* connections to one destination, intervals vary by less than 15%, modest sessions (under 20 KB on average), and the pattern is still going (within 3 intervals). Ignored: DNS/NTP, login services (brute force covers those), servers that 3+ devices talk to (shared services such as mail), and destinations you allow-list. | how often, how many times, destination |
 | **DNS tunnel** | T1071.004 | 10+ DNS lookups in the window **and** at least two of: random-looking names (entropy 3.5), long names (40+ characters), 20+ distinct subdomains of one domain, 30%+ TXT/NULL queries. Ignored: a busiest domain that 3+ devices look up (a real service) or that you list in `dns_ignore_domains`. | number of lookups, average name length |
 
@@ -152,8 +152,11 @@ Things worth knowing:
 - **Incidents.** Alerts about the same device less than 10 minutes apart join one incident. The
   incident's `chain` lists the techniques in the order they appeared, for example
   `T1046 > T1110` (scan, then password guessing). A plausible order raises the score.
-- **Severity labels** in the CLI come from the incident score: `CRITICAL` ≥ 0.85, `HIGH` ≥ 0.70,
-  `MEDIUM` ≥ 0.50, otherwise `LOW`.
+- **Severity labels** (the same in the CLI, Slack, Discord and Telegram) come from the incident
+  score, `severity × (0.6 + 0.4 × confidence)`: `CRITICAL` ≥ 0.80, `HIGH` ≥ 0.65, `MEDIUM` ≥ 0.45,
+  otherwise `LOW`. Strong, unambiguous evidence (a fast scan, a flood of logins, a near-perfectly
+  regular beacon, a clearly random-looking DNS tunnel) is `CRITICAL`; weaker evidence such as a
+  jittery beacon or a barely-over-threshold scan lands lower.
 - **Built-in guards against false alarms.** TCP retransmissions count as one attempt; a server
   resetting a connection it already accepted does not turn that login into a failure; UDP replies
   are not mistaken for new connections; counts use the real packet size even when the capture was
@@ -660,7 +663,7 @@ incident_gap_seconds = 600      # alerts further apart than this start a new inc
 scan_min_unique_ports = { 10 = 20, 300 = 15, 3600 = 60 }
 scan_min_unique_hosts = { 10 = 20, 300 = 15, 3600 = 50 }
 scan_min_failed_ratio = 0.6
-auth_ports = [21, 22, 23, 445, 3389, 5900]
+auth_ports = [21, 22, 23, 445, 2222, 3389, 5900]
 brute_min_attempts = { 10 = 8, 300 = 20, 3600 = 60 }
 brute_min_completed_ratio = 0.3
 beacon_min_events = 10

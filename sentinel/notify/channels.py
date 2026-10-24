@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from sentinel.config.secrets import Secrets
 from sentinel.contracts.models import Channel, Explanation, SanitizedIncident
+from sentinel.contracts.severity import severity_label
 from sentinel.net.http import Request, json_request
 
 # Conservative limits below the documented ones (Discord content 2000, Telegram text 4096).
@@ -13,7 +14,6 @@ _SLACK_MAX = 2900
 _DISCORD_DESC_MAX = 1800
 _DISCORD_TITLE_MAX = 200
 _TELEGRAM_MAX = 3800
-_SEVERITY_LABELS = ((0.85, "critical"), (0.7, "high"), (0.5, "medium"), (0.0, "low"))
 _DISCORD_COLORS = {"critical": 0xB71C1C, "high": 0xE65100, "medium": 0xF9A825, "low": 0x1565C0}
 
 Builder = Callable[[str, "Notification"], Request]
@@ -27,7 +27,7 @@ class Notification:
 
     @property
     def severity_label(self) -> str:
-        return next(label for floor, label in _SEVERITY_LABELS if self.incident.severity >= floor)
+        return severity_label(self.incident.score)
 
     @property
     def targets(self) -> str:

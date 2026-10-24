@@ -13,12 +13,12 @@ from sentinel.contracts.models import (
     RunSummary,
     StatusReport,
 )
+from sentinel.contracts.severity import severity_label as severity_label_lower
 from sentinel.contracts.text import terminal_safe
 
 _DNS_PORT = 53
 _KILO = 1024
 _KILO = 1024
-_SEVERITY_FLOORS = ((0.85, "CRITICAL"), (0.7, "HIGH"), (0.5, "MEDIUM"), (0.0, "LOW"))
 
 
 def _clock(ts: float) -> str:
@@ -55,7 +55,7 @@ def format_event(event: Event) -> str:
 
 
 def severity_label(score: float) -> str:
-    return next(label for floor, label in _SEVERITY_FLOORS if score >= floor)
+    return severity_label_lower(score).upper()
 
 
 _BADGES = {"CRITICAL": "1;97;41", "HIGH": "1;97;41", "MEDIUM": "1;30;43", "LOW": "1;30;46"}

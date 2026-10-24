@@ -2,13 +2,14 @@
 
 from sentinel.contracts.attack import TECHNIQUES
 from sentinel.contracts.models import Alert, Incident
+from sentinel.contracts.severity import alert_score
 
 # Added to the score for each later stage reached in order (discovery -> credentials -> C2).
 _PROGRESSION_BONUS = 0.1
 
 
 def _score(alerts: list[Alert]) -> float:
-    base = max(a.severity * a.confidence for a in alerts)
+    base = max(alert_score(a.severity, a.confidence) for a in alerts)
     stages = [
         TECHNIQUES[a.technique][1]
         for a in sorted(alerts, key=lambda a: a.ts)

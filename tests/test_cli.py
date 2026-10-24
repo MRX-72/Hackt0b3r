@@ -432,3 +432,11 @@ def test_without_colour_the_alert_is_plain_text_and_json_is_never_coloured(
     assert "\x1b[" not in plain and re.search(r"\[CRITICAL \d\.\d\d\] inc-", plain)
     as_json = run_ok(env, capsys, "--color", "always", "--json", "replay", str(env["pcap"]), "-t")
     assert "\x1b[" not in as_json
+
+
+def test_common_options_work_after_the_command_too(
+    env: dict[str, object], capsys: pytest.CaptureFixture[str]
+) -> None:
+    out = run_ok(env, capsys, "replay", str(env["pcap"]), "--json", "--color", "never")
+    assert json.loads(out.splitlines()[-1])["summary"]["alerts"] >= 1
+    assert run_ok(env, capsys, "status", "--json").startswith("{")

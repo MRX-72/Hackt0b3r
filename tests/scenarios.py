@@ -76,10 +76,10 @@ def slow_scan(start: float, probes_per_minute: float, minutes: float) -> list[Pa
     return port_scan(start, ports, per_second=probes_per_minute / 60)
 
 
-def brute_force(start: float, attempts: int, interval: float = 1.0) -> list[Packet]:
+def brute_force(start: float, attempts: int, interval: float = 1.0, port: int = 22) -> list[Packet]:
     out: list[Packet] = []
     for i in range(attempts):
-        out += handshake(start + i * interval, ATTACKER, VICTIM, 41000 + i, 22, data=120)
+        out += handshake(start + i * interval, ATTACKER, VICTIM, 41000 + i, port, data=120)
     return out
 
 
