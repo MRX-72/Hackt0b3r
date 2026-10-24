@@ -13,6 +13,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from sentinel.api.service import SentinelService, ServiceError, init_workspace
+from sentinel.cli.dashboard import Dashboard
 from sentinel.cli.render import (
     dim,
     format_brief,
@@ -71,6 +72,10 @@ def _stream_flags(sp: argparse.ArgumentParser) -> None:
     sp.add_argument("--proto", choices=PROTO_CHOICES, help="traffic view only: one protocol")
     sp.add_argument("-n", "--notify", action="store_true", help="notify about new incidents")
     sp.add_argument("-b", "--brief", action="store_true", help="one line per incident")
+    sp.add_argument(
+        "-d", "--dash", action="store_true",
+        help="full-screen live view: recent traffic window with CRITICAL alerts pinned on top",
+    )  # fmt: skip
 
 
 def _common_options() -> argparse.ArgumentParser:
@@ -162,8 +167,46 @@ def _event_json(event: Event) -> dict[str, Any]:
     return {"type": type(event).__name__, **event.model_dump()}
 
 
+def _run_dashboard(
+    args: argparse.Namespace, service: SentinelService, settings: Settings, show: bool
+) -> int:
+    live = args.command == "watch"
+    iface = args.iface or settings.capture.interface if live else ""
+    title = f"watch {iface}" if live else "replay " + ", ".join(p.name for p in args.pcaps)
+    summaries = []
+    with Dashboard(title, color=_color(args), show_traffic=show) as dash:
+
+        def on_event(event: Event) -> None:
+            dash.add_event(event, show=matches(event, args.host, args.port, args.proto))
+
+        common: dict[str, Any] = {
+            "on_event": on_event, "on_report": dash.add_report, "notify": args.notify,
+        }  # fmt: skip
+        try:
+            if live:
+                summaries.append(service.watch(iface, duration_seconds=args.duration, **common))
+            else:
+                summaries.extend(service.replay(pcap, **common) for pcap in args.pcaps)
+        except KeyboardInterrupt:
+            pass  # q or Ctrl-C: leave straight away
+        dash.finish_and_wait()
+    for line in dash.pinned_summary():
+        print(line)
+    for summary in summaries:
+        print(format_summary(summary))
+    return 0
+
+
 def _run_stream(args: argparse.Namespace, service: SentinelService, settings: Settings) -> int:
     show = settings.cli.show_traffic if args.traffic is None else args.traffic
+    if args.dash:
+        if sys.stdout.isatty() and not args.json:
+            return _run_dashboard(
+                args, service, settings, show if args.traffic is not None else True
+            )
+        print(
+            "warning: --dash needs an interactive terminal; using the plain view", file=sys.stderr
+        )
     color = _color(args)
     if args.notify and not (settings.notify.enabled and settings.notify.channels):
         print(

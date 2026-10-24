@@ -26,8 +26,9 @@ For a live presentation use `tools/demo_attacks.py`. It narrates each attack on 
 other console shows the monitor catching it.
 
 ```bash
-# console 1: the monitor (brief lines show only incidents; swap -b for -t to also show traffic)
-uv run sentinel --config demo-10s.toml watch --iface lo0 -b
+# console 1: the monitor. -d = full-screen view with CRITICAL alerts pinned on top of the
+# sliding traffic window (q quits, c clears the pins); -b instead prints one line per incident
+uv run sentinel --config demo-10s.toml watch --iface lo0 -d
 
 # console 2: the attacks
 uv run python tools/demo_attacks.py            # press Enter between attacks, to talk

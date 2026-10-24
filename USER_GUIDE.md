@@ -9,6 +9,7 @@ on Slack, Discord or Telegram. This guide covers everything you can do with the 
 - [Five-minute tour (no network needed)](#five-minute-tour-no-network-needed)
 - [How detection works](#how-detection-works)
 - [Command reference](#command-reference)
+- [Live dashboard](#live-dashboard--d)
 - [Watching traffic](#watching-traffic)
 - [Notifications: Slack, Discord, Telegram](#notifications-slack-discord-telegram)
 - [Plain-English summaries with a local LLM](#plain-english-summaries-with-a-local-llm)
@@ -355,6 +356,42 @@ capture interface exists (a warning only: just `watch` needs it) and, if the LLM
 the server answers and lists your model. Credentials are optional, so "not set" is reported as OK.
 Exit `1` if a hard check fails. `doctor` still works when `secrets.env` has the wrong permissions
 (other commands refuse to run then); `--fix` runs `chmod 600` for you.
+
+---
+
+## Live dashboard (`-d`)
+
+```bash
+uv run sentinel watch --iface lo0 -d          # live
+uv run sentinel replay capture.pcap -d        # the same view for a recorded capture
+```
+
+A full-screen view that always fits your terminal (it re-reads the window size, so resizing just
+works):
+
+```
+ SENTINEL | watch lo0 | 01:12 | events 4183 | CRIT 2 HIGH 0 MED 1 LOW 0 | q quit  c clear pins
+ PINNED: CRITICAL ALERTS (2)  newest on top, kept until cleared
+  CRITICAL 1.00  23:43:20  Unusual DNS requests that may hide data  (T1046 > T1071.004)  inc-...
+  CRITICAL 0.99  23:42:51  Device is probing many network ports  (T1046)  inc-...
+ RECENT TRAFFIC (sliding window)
+ 23:43:20.101 127.0.0.1:55012 -> 127.0.0.1:53 udp - 118B  dns? ...
+ ...
+```
+
+- **Pinned area (top):** every CRITICAL incident is pinned the moment it is reported (within about
+  50 ms), newest first. When an incident grows (a scan followed by password guessing) its pin
+  updates in place and moves to the top. Pins never scroll away; if there are more than fit, the
+  rest are summarised as `+N older critical alerts` so the traffic window keeps its share.
+- **Traffic window (below):** the most recent packets, sliding as new ones arrive, filling whatever
+  height is left. Alerts of any severity also appear in it, inline. `-T` hides the traffic and
+  shows only alerts. `-H`, `-p` and `--proto` filter what is shown, as usual.
+- **Keys:** `q` quits (the same as Ctrl-C), `c` clears the pins. When a replay (or a `--for` run)
+  ends, the screen stays with `FINISHED` in the header until you press `q`.
+- **After you quit** the normal screen gets your pinned alerts and the run summary, so nothing is
+  lost.
+- It needs an interactive terminal at least 40 columns by 8 rows. Piped or `--json` output falls
+  back to the plain view with a warning.
 
 ---
 
