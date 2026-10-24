@@ -1,0 +1,35 @@
+{
+  "additionalProperties": false,
+  "description": "Outcome of one notification attempt. detail never contains URLs or tokens.",
+  "properties": {
+    "channel": {
+      "enum": [
+        "slack",
+        "discord",
+        "telegram"
+      ],
+      "title": "Channel",
+      "type": "string"
+    },
+    "detail": {
+      "title": "Detail",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "sent",
+        "failed",
+        "skipped"
+      ],
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "channel",
+    "status",
+    "detail"
+  ],
+  "title": "Delivery",
+  "type": "object"
+}

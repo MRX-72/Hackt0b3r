@@ -1,0 +1,116 @@
+{
+  "$defs": {
+    "SanitizedStep": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "detector": {
+          "title": "Detector",
+          "type": "string"
+        },
+        "evidence": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Evidence",
+          "type": "object"
+        },
+        "severity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Severity",
+          "type": "number"
+        },
+        "technique": {
+          "title": "Technique",
+          "type": "string"
+        },
+        "technique_name": {
+          "title": "Technique Name",
+          "type": "string"
+        },
+        "ts": {
+          "title": "Ts",
+          "type": "number"
+        }
+      },
+      "required": [
+        "detector",
+        "technique",
+        "technique_name",
+        "ts",
+        "severity",
+        "confidence",
+        "evidence"
+      ],
+      "title": "SanitizedStep",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The only incident shape LLMs, notifiers and UIs may receive. See explain.sanitize.",
+  "properties": {
+    "confidence": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "end_ts": {
+      "title": "End Ts",
+      "type": "number"
+    },
+    "host_ip": {
+      "title": "Host Ip",
+      "type": "string"
+    },
+    "host_mac": {
+      "pattern": "^([0-9a-f]{2}:){5}[0-9a-f]{2}$",
+      "title": "Host Mac",
+      "type": "string"
+    },
+    "incident_id": {
+      "title": "Incident Id",
+      "type": "string"
+    },
+    "score": {
+      "title": "Score",
+      "type": "number"
+    },
+    "severity": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Severity",
+      "type": "number"
+    },
+    "start_ts": {
+      "title": "Start Ts",
+      "type": "number"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/SanitizedStep"
+      },
+      "title": "Steps",
+      "type": "array"
+    }
+  },
+  "required": [
+    "incident_id",
+    "host_ip",
+    "host_mac",
+    "severity",
+    "confidence",
+    "score",
+    "start_ts",
+    "end_ts",
+    "steps"
+  ],
+  "title": "SanitizedIncident",
+  "type": "object"
+}

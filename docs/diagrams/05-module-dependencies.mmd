@@ -24,8 +24,10 @@ flowchart TB
   detect --> ml
   correlate --> contracts
   correlate --> config
+  net --> contracts
   explain --> contracts
   explain --> config
+  explain --> net
   models --> contracts
   models --> config
   nlp --> contracts
@@ -47,6 +49,7 @@ flowchart TB
   notify --> contracts
   notify --> config
   notify --> explain
+  notify --> net
   daemon --> contracts
   daemon --> config
   daemon --> sensor
@@ -66,6 +69,7 @@ flowchart TB
   pipeline --> explain
   pipeline --> modes
   pipeline --> notify
+  pipeline --> net
   pipeline --> nlp
   pipeline --> models
   pipeline --> rules

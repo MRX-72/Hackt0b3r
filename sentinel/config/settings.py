@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from sentinel.contracts.models import Channel
+
 # Window state is kept in fixed time buckets; every configured window is a whole number of them.
 BUCKET_SECONDS = 10
 
@@ -19,6 +21,8 @@ class DetectionSettings(_Section):
     windows: list[int] = [10, 300, 3600]
     # After an alert, the same detector stays quiet for this host this long (alert fatigue).
     cooldown_seconds: int = 300
+    # Alerts on one host closer together than this join one incident.
+    incident_gap_seconds: int = 600
     # Port/host scans: distinct targets in a window, mostly failing. Slow scans (a few probes a
     # minute) only reach the 5 min and 1 h thresholds.
     scan_min_unique_ports: dict[int, int] = {10: 20, 300: 15, 3600: 60}
@@ -63,7 +67,7 @@ class DetectionSettings(_Section):
 
 class NotifySettings(_Section):
     enabled: bool = False
-    channels: list[Literal["slack", "discord", "telegram"]] = []
+    channels: list[Channel] = []
     min_severity: float = Field(0.6, ge=0.0, le=1.0)
     retries: int = Field(2, ge=0, le=5)
     timeout_seconds: float = 10.0

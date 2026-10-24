@@ -151,3 +151,53 @@ class DestinationTiming(_Frozen):
     mean_interval_seconds: float
     interval_cv: float
     mean_bytes: float
+
+
+ActionId = Literal[
+    "investigate_device", "disconnect_device", "reset_credentials", "review_dns", "monitor"
+]
+
+
+class SanitizedStep(_Frozen):
+    detector: str
+    technique: str
+    technique_name: str
+    ts: float
+    severity: Unit
+    confidence: Unit
+    evidence: dict[str, float]
+
+
+class SanitizedIncident(_Frozen):
+    """The only incident shape LLMs, notifiers and UIs may receive. See explain.sanitize."""
+
+    incident_id: str
+    host_ip: IpAddr
+    host_mac: Mac
+    severity: Unit
+    confidence: Unit
+    score: float
+    start_ts: float
+    end_ts: float
+    steps: list[SanitizedStep]
+
+
+class Explanation(_Frozen):
+    headline: str
+    what_happened: str
+    likely_cause: str
+    action_id: ActionId
+    suggested_action: str
+    confidence_note: str
+    source: Literal["template", "llm"]
+
+
+Channel = Literal["slack", "discord", "telegram"]
+
+
+class Delivery(_Frozen):
+    """Outcome of one notification attempt. detail never contains URLs or tokens."""
+
+    channel: Channel
+    status: Literal["sent", "failed", "skipped"]
+    detail: str
