@@ -74,7 +74,9 @@ anything.
 ## Install
 
 **Requirements:** macOS (the tested platform; live capture uses the built-in `tcpdump`) and
-[uv](https://docs.astral.sh/uv/). uv downloads the right Python (3.13) for you. Nothing else.
+[uv](https://docs.astral.sh/uv/). uv downloads the right Python (3.13) for you. Nothing else is
+required. **Optional:** [Ollama](https://ollama.com) and a model of your choice, only if you want
+the alert text written by a local LLM ([setup](#plain-english-summaries-with-a-local-llm-optional)).
 
 ```bash
 # 1. get uv (skip if you have it)
@@ -264,19 +266,54 @@ breaker. Details: [USER_GUIDE.md](USER_GUIDE.md).
 
 ## Plain-English summaries with a local LLM (optional)
 
-Off by default; the built-in templates already explain every alert. To use your own model, run
-[Ollama](https://ollama.com) or llama.cpp's `llama-server`, then in `config.toml`:
+Sentinel does **not** ship a model and does not install one for you. Without an LLM it still works
+fully: the built-in templates explain every alert. If you want the wording written by a model, you
+install a model runner and a model yourself, then point Sentinel at it. Everything stays on your
+machine.
+
+**Step 1. Install Ollama and pull any model** (Ollama is the easiest runner):
+
+```bash
+brew install ollama            # or download from https://ollama.com
+ollama serve                   # leave this running (or open the Ollama app, which does the same)
+ollama pull gemma4:e2b         # any model works; small ones (1B to 8B) are fast enough
+ollama list                    # shows the exact model name to use below
+```
+
+Any model Ollama can run is fine (for example `llama3.2`, `qwen2.5`, `gemma`). Bigger models write
+nicer text but make each alert wait longer; a small model answers in a few seconds.
+
+**Step 2. Tell Sentinel about it** in `~/.sentinel/config.toml`:
 
 ```toml
 [llm]
 enabled = true
-runtime = "ollama"                   # or "openai" for llama-server / any OpenAI-compatible server
+runtime = "ollama"                   # "ollama", or "openai" for llama.cpp's llama-server / any OpenAI-compatible server
 base_url = "http://127.0.0.1:11434"  # llama-server: http://127.0.0.1:8080
-model = "llama3.2"                   # whatever you pulled
+model = "gemma4:e2b"                 # exactly the name `ollama list` prints
+timeout_seconds = 120                # raise it for big models or the first request after a cold start
 ```
 
-`sentinel llm test` checks it and prints `source: llm` when the model answered (`source: template (fallback: ...)` tells you why it did not). Runtimes that cannot force JSON output, such as Ollama's MLX runner, are handled automatically. The model only rewrites the explanation from sanitised fields; its
-output is fact-checked against the evidence and replaced by the template if it invents anything.
+**Step 3. Check it:**
+
+```bash
+sentinel llm test
+```
+
+`source: llm` means the model answered. `source: template (fallback: ...)` means Sentinel used the
+built-in text and tells you why (server not running, wrong model name, a timeout). Nothing breaks
+when the model is down: alerts keep flowing with templates. Run `sentinel doctor` to see whether the
+server and model are reachable.
+
+Using llama.cpp instead of Ollama: start `llama-server -m your-model.gguf`, then set
+`runtime = "openai"`, `base_url = "http://127.0.0.1:8080"` and any `model` name; if you started it
+with `--api-key KEY`, put `LLM_API_KEY=KEY` in `~/.sentinel/secrets.env`.
+
+How it is used: the model only rewrites the explanation from sanitised fields and never decides
+anything. Its output is fact-checked against the evidence and replaced by the template if it
+invents a number, address or technique. Each alert waits for the model (a few seconds for a small
+one). Runtimes that cannot force JSON output, such as Ollama's MLX runner, are handled
+automatically.
 
 ## Configuration and data
 
