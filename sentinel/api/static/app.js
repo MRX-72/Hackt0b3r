@@ -112,7 +112,7 @@
       const pos = (slot) => { const a = -Math.PI / 2 + (slot / SLOTS) * Math.PI * 2; return [cx + Math.cos(a) * radius, cy + Math.sin(a) * radius, a]; };
       for (const n of this.nodes.values()) {  // spokes first, so nodes sit on top
         const [x, y] = pos(n.slot), heat = Math.min(1, n.heat / 40);
-        g.strokeStyle = heat > 0.02 ? `rgba(91,141,184,${0.28 + 0.6 * heat})` : "#1b2127";
+        g.strokeStyle = heat > 0.02 ? `rgba(91,141,184,${0.28 + 0.6 * heat})` : "#14181c";
         g.lineWidth = 1 + 2 * heat; g.beginPath(); g.moveTo(cx, cy); g.lineTo(x, y); g.stroke();
       }
       g.lineWidth = 1;
@@ -121,22 +121,22 @@
       portList.forEach(([port, p], i) => {  // service ports of this machine, evenly spaced on a ring
         const a = -Math.PI / 2 + (i / PORT_RING) * Math.PI * 2, x = cx + Math.cos(a) * 54, y = cy + Math.sin(a) * 54;
         const on = Math.min(1, p.heat / 20);
-        g.strokeStyle = "#1b2127"; g.beginPath(); g.moveTo(cx, cy); g.lineTo(x, y); g.stroke();
-        g.fillStyle = "#0d1114"; g.fillRect(x - 5, y - 5, 10, 10);
+        g.strokeStyle = "#14181c"; g.beginPath(); g.moveTo(cx, cy); g.lineTo(x, y); g.stroke();
+        g.fillStyle = "#08090b"; g.fillRect(x - 5, y - 5, 10, 10);
         g.strokeStyle = on > 0.05 ? "#5b8db8" : "#3b4652"; g.strokeRect(x - 4.5, y - 4.5, 9, 9);
         if (on > 0.05) { g.fillStyle = "#5b8db8"; g.globalAlpha = 0.4 + 0.6 * on; g.fillRect(x - 2.5, y - 2.5, 5, 5); g.globalAlpha = 1; }
         g.fillStyle = on > 0.05 ? "#9fb4c7" : "#5d6772"; g.textAlign = Math.cos(a) > 0.3 ? "left" : Math.cos(a) < -0.3 ? "right" : "center";
         const lx = x + Math.cos(a) * 11, ly = y + Math.sin(a) * 11 + (Math.abs(Math.cos(a)) <= 0.3 ? Math.sin(a) * 4 : 0);
         g.fillText(":" + port, lx, ly);
       });
-      g.fillStyle = bad ? "#2a1819" : "#12171c"; g.strokeStyle = bad ? "#c4403f" : "#4b5864";
+      g.fillStyle = bad ? "#2a1819" : "#0d1013"; g.strokeStyle = bad ? "#c4403f" : "#4b5864";
       g.fillRect(cx - 10, cy - 10, 20, 20); g.strokeRect(cx - 9.5, cy - 9.5, 19, 19);
       g.fillStyle = bad ? "#c4403f" : "#9aa7b4"; g.fillRect(cx - 3, cy - 3, 6, 6);
       g.textAlign = "center"; g.fillStyle = bad ? "#c4403f" : "#7b8794";
       g.fillText("THIS HOST", cx, cy + (portList.length ? 20 : 26));
       for (const n of this.nodes.values()) {
         const [x, y, a] = pos(n.slot), bad2 = this.flagged(n.macs), live = Date.now() - n.last < 1500;
-        g.fillStyle = bad2 ? "#2a1819" : "#12171c"; g.strokeStyle = bad2 ? "#c4403f" : live ? "#7f95aa" : "#3b4652";
+        g.fillStyle = bad2 ? "#2a1819" : "#0d1013"; g.strokeStyle = bad2 ? "#c4403f" : live ? "#7f95aa" : "#3b4652";
         g.fillRect(x - 7, y - 7, 14, 14); g.strokeRect(x - 6.5, y - 6.5, 13, 13);
         g.fillStyle = bad2 ? "#c4403f" : "#9aa7b4";
         const right = Math.cos(a) > 0.35, left = Math.cos(a) < -0.35;
