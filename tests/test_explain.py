@@ -227,3 +227,34 @@ def test_build_client_honours_enabled_and_runtime() -> None:
     assert isinstance(
         build_client(LlmSettings(enabled=True, runtime="openai", model="m")), OpenAICompatClient
     )
+
+
+def test_template_text_uses_evidence_window_and_target() -> None:
+    inc = make(
+        evidence={"window_seconds": 10.0, "unique_dst_ports": 200.0, "unique_dst_ips": 1.0,
+                  "failed_ratio": 0.97},
+    )  # fmt: skip
+    inc = inc.model_copy(
+        update={"steps": [inc.steps[0].model_copy(update={"target_ip": "192.168.2.20"})]}
+    )
+    text = explain_template(inc).what_happened
+    assert text == (
+        "192.168.2.30 tried 200 different ports on 192.168.2.20 within 10 seconds, "
+        "and 97% of the attempts failed."
+    )
+    brute = make(
+        "bruteforce", "T1110", {"dst_port": 22.0, "attempts": 40.0, "window_seconds": 300.0}
+    )
+    assert "SSH (port 22)" in explain_template(brute).what_happened
+    assert "within 5 minutes" in explain_template(brute).what_happened
+
+
+def test_faithfulness_allows_the_target_ip_but_no_other() -> None:
+    inc = make()
+    inc = inc.model_copy(
+        update={"steps": [inc.steps[0].model_copy(update={"target_ip": "192.168.2.20"})]}
+    )
+    ok = LlmOutput.model_validate_json(llm_json(what_happened="It probed 192.168.2.20."))
+    assert verify(ok, inc) is None
+    bad = LlmOutput.model_validate_json(llm_json(what_happened="It probed 192.168.2.21."))
+    assert verify(bad, inc) is not None

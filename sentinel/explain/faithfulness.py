@@ -53,7 +53,8 @@ def verify(out: LlmOutput, incident: SanitizedIncident) -> str | None:
     text = " ".join([out.headline, out.what_happened, out.likely_cause, out.confidence_note])
     if _FORBIDDEN.search(text):
         return "markup, link, mention or control character"
-    if any(ip != str(incident.host_ip) for ip in _IPV4.findall(text)):
+    known_ips = {str(incident.host_ip)} | {str(s.target_ip) for s in incident.steps if s.target_ip}
+    if any(ip not in known_ips for ip in _IPV4.findall(text)):
         return "unknown IP address"
     if any(m.lower() != incident.host_mac for m in _MAC.findall(text)):
         return "unknown MAC address"

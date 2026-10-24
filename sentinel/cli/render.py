@@ -7,12 +7,14 @@ from sentinel.contracts.models import (
     DhcpEvent,
     Event,
     Flow,
+    IncidentDetail,
     IncidentReport,
     MdnsEvent,
     RunSummary,
 )
 from sentinel.contracts.text import terminal_safe
 
+_DNS_PORT = 53
 _SEVERITY_FLOORS = ((0.85, "CRITICAL"), (0.7, "HIGH"), (0.5, "MEDIUM"), (0.0, "LOW"))
 
 
@@ -82,3 +84,44 @@ def format_summary(s: RunSummary) -> str:
     if s.llm_used or s.llm_rejected or s.llm_errors:
         text += f" llm_used={s.llm_used} llm_rejected={s.llm_rejected} llm_errors={s.llm_errors}"
     return text
+
+
+def matches(event: Event, host: str | None, port: int | None, proto: str | None) -> bool:
+    """Traffic-view filter. proto: tcp/udp/icmp/other/dns/arp/dhcp/mdns."""
+    if isinstance(event, Flow):
+        kind = (
+            {event.proto, "dns"}
+            if event.dns_query or _DNS_PORT in (event.src_port, event.dst_port)
+            else {event.proto}
+        )
+        ips, ports = {event.src_ip, event.dst_ip}, {event.src_port, event.dst_port}
+    elif isinstance(event, ArpEvent):
+        kind, ips, ports = {"arp"}, {event.sender_ip, event.target_ip}, set()
+    elif isinstance(event, DhcpEvent):
+        kind, ips, ports = {"dhcp"}, {event.src_ip}, {67, 68}
+    else:
+        kind, ips, ports = {"mdns"}, {event.src_ip}, {5353}
+    return (
+        (host is None or host in ips)
+        and (port is None or port in ports)
+        and (proto is None or proto in kind)
+    )
+
+
+def format_detail(detail: IncidentDetail) -> str:
+    inc = detail.incident
+    lines = [
+        f"{inc.id}  [{severity_label(inc.score)} {inc.score:.2f}]  status={inc.status}",
+        f"  device: {inc.host_mac}   chain: {' > '.join(inc.chain)}",
+        f"  {terminal_safe(inc.summary or '(no summary)')}",
+        "  timeline:",
+    ]
+    for a in detail.alerts:
+        evidence = ", ".join(f"{k}={v:g}" for k, v in sorted(a.evidence.items()))
+        target = f" -> {a.target_ip}" if a.target_ip else ""
+        lines.append(
+            f"    {_clock(a.ts)}  {a.detector:<10} {a.technique:<10} sev={a.severity:.2f} "
+            f"conf={a.confidence:.2f} from {a.host_ip}{target}"
+        )
+        lines.append(f"      {terminal_safe(evidence, 300)}")
+    return "\n".join(lines)

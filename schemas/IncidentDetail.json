@@ -1,0 +1,175 @@
+{
+  "$defs": {
+    "Alert": {
+      "additionalProperties": false,
+      "description": "evidence holds numeric features only: no network-derived strings.",
+      "properties": {
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "detector": {
+          "title": "Detector",
+          "type": "string"
+        },
+        "evidence": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Evidence",
+          "type": "object"
+        },
+        "host_ip": {
+          "title": "Host Ip",
+          "type": "string"
+        },
+        "host_mac": {
+          "pattern": "^([0-9a-f]{2}:){5}[0-9a-f]{2}$",
+          "title": "Host Mac",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "severity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Severity",
+          "type": "number"
+        },
+        "target_ip": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Ip"
+        },
+        "technique": {
+          "title": "Technique",
+          "type": "string"
+        },
+        "ts": {
+          "title": "Ts",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "ts",
+        "detector",
+        "host_mac",
+        "host_ip",
+        "severity",
+        "confidence",
+        "evidence",
+        "technique"
+      ],
+      "title": "Alert",
+      "type": "object"
+    },
+    "Incident": {
+      "additionalProperties": false,
+      "properties": {
+        "alerts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Alerts",
+          "type": "array"
+        },
+        "chain": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Chain",
+          "type": "array"
+        },
+        "end_ts": {
+          "title": "End Ts",
+          "type": "number"
+        },
+        "host_mac": {
+          "pattern": "^([0-9a-f]{2}:){5}[0-9a-f]{2}$",
+          "title": "Host Mac",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "score": {
+          "title": "Score",
+          "type": "number"
+        },
+        "start_ts": {
+          "title": "Start Ts",
+          "type": "number"
+        },
+        "status": {
+          "default": "open",
+          "enum": [
+            "open",
+            "correlated",
+            "explained",
+            "notified",
+            "acknowledged",
+            "dismissed",
+            "resolved"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Summary"
+        }
+      },
+      "required": [
+        "id",
+        "host_mac",
+        "start_ts",
+        "end_ts",
+        "alerts",
+        "chain",
+        "score"
+      ],
+      "title": "Incident",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "alerts": {
+      "items": {
+        "$ref": "#/$defs/Alert"
+      },
+      "title": "Alerts",
+      "type": "array"
+    },
+    "incident": {
+      "$ref": "#/$defs/Incident"
+    }
+  },
+  "required": [
+    "incident",
+    "alerts"
+  ],
+  "title": "IncidentDetail",
+  "type": "object"
+}

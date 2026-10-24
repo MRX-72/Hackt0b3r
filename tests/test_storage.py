@@ -161,3 +161,28 @@ def test_inserting_the_same_alert_twice_is_idempotent(db: Storage) -> None:
     db.insert_alert(alert("a1", 5.0))
     db.insert_alert(alert("a1", 5.0))
     assert len(db.alerts_since(0)) == 1
+
+
+def test_upgrading_a_v1_database_keeps_alerts_and_adds_target_column(tmp_path: Path) -> None:
+    path = tmp_path / "old.db"
+    conn = sqlite3.connect(path, isolation_level=None)
+    migrate(conn, load_migrations()[:1])
+    conn.execute(
+        "INSERT INTO alert VALUES"
+        " ('old', 1.0, 'portscan', ?, '192.168.2.3', 0.9, 0.8, '{}', 'T1046')",
+        (A,),
+    )
+    conn.close()
+    upgraded = Storage(path)
+    [got] = upgraded.alerts_since(0)
+    assert (got.id, got.target_ip) == ("old", None)
+    upgraded.insert_alert(alert("new", 2.0).model_copy(update={"target_ip": "192.168.2.2"}))
+    assert [a.target_ip for a in upgraded.alerts_since(0)] == [None, "192.168.2.2"]
+    upgraded.close()
+
+
+def test_alerts_of_incident_are_ordered_by_time(db: Storage) -> None:
+    db.insert_alert(alert("late", 9.0))
+    db.insert_alert(alert("early", 1.0))
+    db.save_incident(incident(["late", "early"]))
+    assert [a.id for a in db.alerts_of_incident("i1")] == ["early", "late"]

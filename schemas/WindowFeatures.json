@@ -87,6 +87,17 @@
       "title": "Share Web",
       "type": "number"
     },
+    "top_target_ip": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Top Target Ip"
+    },
     "unique_dst_ips": {
       "title": "Unique Dst Ips",
       "type": "integer"
@@ -108,6 +119,7 @@
     "conns_started",
     "attempts",
     "failed_ratio",
+    "top_target_ip",
     "unique_dst_ips",
     "unique_dst_ports",
     "novel_dsts",

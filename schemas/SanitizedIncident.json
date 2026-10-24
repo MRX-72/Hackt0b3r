@@ -26,6 +26,18 @@
           "title": "Severity",
           "type": "number"
         },
+        "target_ip": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Ip"
+        },
         "technique": {
           "title": "Technique",
           "type": "string"

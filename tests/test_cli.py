@@ -1,16 +1,21 @@
 import json
+import os
 import re
+import sys
 from pathlib import Path
 
 import pytest
 
 from sentinel.api.service import SentinelService
+from sentinel.cli import main as cli_main
 from sentinel.cli.main import main
 from sentinel.config.secrets import Secrets
 from sentinel.config.settings import Settings
+from sentinel.contracts.models import IncidentReport
 from sentinel.net.http import Request, Response
 from tests import frames as f
 from tests import scenarios as sc
+from tools.make_demo_pcap import main as make
 
 
 class Net:
@@ -174,3 +179,82 @@ def test_hostile_dns_names_are_escaped_in_the_traffic_view(
     assert main(["--config", str(config), "replay", str(pcap), "--show-traffic"]) == 0
     out = capsys.readouterr().out
     assert "\x1b" not in out and "\\x1b" in out
+
+
+def test_traffic_filters_narrow_the_view(
+    env: dict[str, object], capsys: pytest.CaptureFixture[str]
+) -> None:
+    cli(env, "replay", str(env["pcap"]), "--show-traffic", "--host", "192.168.2.30", "--port", "22")
+    lines = [ln for ln in capsys.readouterr().out.splitlines() if " -> " in ln]
+    assert lines and all("192.168.2.30" in ln and ":22" in ln for ln in lines)
+    cli(env, "replay", str(env["pcap"]), "--show-traffic", "--proto", "dns")
+    lines = [ln for ln in capsys.readouterr().out.splitlines() if " -> " in ln]
+    assert lines and all(":53" in ln for ln in lines)
+    cli(env, "replay", str(env["pcap"]), "--show-traffic", "--proto", "arp")
+    assert " -> " not in capsys.readouterr().out
+
+
+def test_incident_show_prints_timeline_with_target(
+    env: dict[str, object], capsys: pytest.CaptureFixture[str]
+) -> None:
+    cli(env, "replay", str(env["pcap"]))
+    capsys.readouterr()
+    assert cli(env, "incident", "inc-aabbccddee30-110") == 0
+    out = capsys.readouterr().out
+    assert "timeline:" in out and "portscan" in out and "-> 192.168.2.20" in out
+    assert "unique_dst_ports=200" in out
+    assert cli(env, "incident", "nope") == 1
+    assert "no incident" in capsys.readouterr().err
+
+
+def test_config_show_never_prints_secrets(
+    env: dict[str, object], capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cli(env, "config", "show") == 0
+    out = capsys.readouterr().out
+    data = json.loads(out)
+    assert data["credentials_present"] == {
+        "slack": True, "discord": False, "telegram": False, "llm_api_key": False,
+    }  # fmt: skip
+    assert "SECRET" not in out and "hooks.slack" not in out
+
+
+def test_no_command_prints_help_and_version_works(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main([]) == 0
+    assert "examples:" in capsys.readouterr().out
+    with pytest.raises(SystemExit) as exc:
+        main(["--version"])
+    assert exc.value.code == 0 and capsys.readouterr().out.startswith("sentinel 0.1.0")
+
+
+def test_notify_flag_warns_when_notifications_are_not_configured(
+    env: dict[str, object], capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    config = Path(str(env["config"]))
+    config.write_text(
+        config.read_text().replace("enabled = true\nchannels", "enabled = false\nchannels")
+    )
+    assert cli(env, "replay", str(env["pcap"]), "--notify") == 0
+    assert "--notify has no effect" in capsys.readouterr().err
+
+
+def test_demo_pcap_tool_produces_all_four_attacks(tmp_path: Path) -> None:
+    make(tmp_path / "demo.pcap")
+    reports: list[IncidentReport] = []
+    service = SentinelService(Settings(database=tmp_path / "s.db"), Secrets())
+    service.replay(tmp_path / "demo.pcap", on_report=reports.append)
+    service.close()
+    chains = {tuple(r.incident.chain) for r in reports}
+    assert ("T1046", "T1110") in chains and ("T1071.001", "T1071.004") in chains
+
+
+def test_closed_output_pipe_is_not_an_error(
+    env: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(*_: object) -> None:
+        raise BrokenPipeError
+
+    monkeypatch.setattr(cli_main, "_out", broken)
+    monkeypatch.setattr(os, "dup2", lambda *_: 0)
+    monkeypatch.setattr(sys, "stdout", type("S", (), {"fileno": lambda self: 1})())
+    assert cli(env, "replay", str(env["pcap"]), "--show-traffic") == 0

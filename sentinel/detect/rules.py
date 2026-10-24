@@ -5,14 +5,15 @@ from sentinel.contracts.models import Alert, WindowFeatures
 from sentinel.features.windows import HostContext
 
 
-def _alert(
+def _alert(  # noqa: PLR0913 - one call shape for every detector keeps them uniform
     ctx: HostContext, detector: str, technique: str, scores: tuple[float, float],
-    evidence: dict[str, float],
+    evidence: dict[str, float], *, target_ip: str | None = None,
 ) -> Alert:  # fmt: skip
     return Alert(
         id=f"{detector}-{ctx.host_mac}-{int(ctx.now)}", ts=ctx.now, detector=detector,
         host_mac=ctx.host_mac, host_ip=ctx.host_ip, severity=min(1.0, scores[0]),
         confidence=min(1.0, scores[1]), evidence=evidence, technique=technique,
+        target_ip=target_ip,
     )  # fmt: skip
 
 
@@ -40,7 +41,8 @@ class PortScan:
             "unique_dst_ips": float(f.unique_dst_ips), "attempts": float(f.attempts),
             "failed_ratio": f.failed_ratio,
         }  # fmt: skip
-        return [_alert(ctx, self.name, "T1046", (0.4 + 0.3 * excess, f.failed_ratio), evidence)]
+        scores = (0.4 + 0.3 * excess, f.failed_ratio)
+        return [_alert(ctx, self.name, "T1046", scores, evidence, target_ip=f.top_target_ip)]
 
 
 class BruteForce:
@@ -50,28 +52,33 @@ class BruteForce:
         self._s = s
 
     def on_window(self, ctx: HostContext) -> list[Alert]:
-        best: tuple[float, int, int, int, int] | None = None  # excess, window, port, attempts, done
+        best: tuple[float, int, str, int, int, int] | None = None  # excess, window, ip, port, n, ok
         for window, services in sorted(ctx.services.items()):
-            for (_, port), (attempts, done) in services.items():
+            for (ip, port), (attempts, done) in services.items():
                 excess = attempts / self._s.brute_min_attempts[window]
                 if (
                     port in self._s.auth_ports and excess >= 1
                     and done / attempts >= self._s.brute_min_completed_ratio
                     and (best is None or (best[1] == window and excess > best[0]))
                 ):  # fmt: skip
-                    best = (excess, window, port, attempts, done)
+                    best = (excess, window, ip, port, attempts, done)
             if best is not None:
                 break  # shortest window that fires
         if best is None:
             return []
-        excess, window, port, attempts, done = best
+        excess, window, ip, port, attempts, done = best
         evidence = {
             "window_seconds": float(window), "dst_port": float(port), "attempts": float(attempts),
             "completed": float(done),
         }  # fmt: skip
         return [
             _alert(
-                ctx, self.name, "T1110", (0.4 + 0.3 * excess, 0.6 + 0.4 * done / attempts), evidence
+                ctx,
+                self.name,
+                "T1110",
+                (0.4 + 0.3 * excess, 0.6 + 0.4 * done / attempts),
+                evidence,
+                target_ip=ip,
             )
         ]
 
@@ -102,10 +109,15 @@ class Beaconing:
                 confidence = 0.5 + 0.5 * min(1.0, t.count / (3 * s.beacon_min_events))
                 out.append(
                     _alert(
-                        ctx, self.name, "T1071.001", (0.6 + 0.3 * regularity, confidence), evidence
+                        ctx,
+                        self.name,
+                        "T1071.001",
+                        (0.6 + 0.3 * regularity, confidence),
+                        evidence,
+                        target_ip=t.dst_ip,
                     )
                 )
-        return out[:1]  # one alert per host per tick; the evidence names the strongest below
+        return out[:1]  # one alert per host per tick
 
 
 class DnsTunnel:

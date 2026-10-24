@@ -240,10 +240,12 @@ class WindowEngine:
             classes.update(b.packets_by_class)
         packets = sum(classes.values())
         done_count = sum(a.state == 1 for a in attempts)
+        targets_seen = Counter(a.dst_ip for a in attempts)
         features = WindowFeatures(
             host_mac=host.mac, host_ip=host.ip, window_seconds=window, end_ts=now,
             conns_started=sum(b.conns for b in buckets), attempts=len(attempts),
             failed_ratio=(len(attempts) - done_count) / len(attempts) if attempts else 0.0,
+            top_target_ip=targets_seen.most_common(1)[0][0] if targets_seen else None,
             unique_dst_ips=len({t[0] for t in targets}),
             unique_dst_ports=len({t[1] for t in targets}),
             novel_dsts=sum(b.novel for b in buckets),

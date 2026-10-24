@@ -252,3 +252,17 @@ def test_manual_test_ignores_enabled_flag_and_dedupe() -> None:
     net = Net()
     n, _, _ = notifier(net, enabled=False)
     assert n.test("slack", incident(), explain_template(incident())).status == "sent"
+
+
+def test_every_channel_shows_the_target() -> None:
+    inc = incident()
+    inc = inc.model_copy(
+        update={"steps": [inc.steps[0].model_copy(update={"target_ip": "192.168.2.20"})]}
+    )
+    n = Notification(inc, explain_template(inc))
+    for req in (
+        slack_request("https://h", n, 5),
+        discord_request("https://d", n, 5),
+        telegram_request("1:t", "42", n, 5),
+    ):
+        assert "192.168.2.20" in (req.body or b"").decode()

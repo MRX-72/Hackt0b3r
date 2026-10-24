@@ -17,6 +17,7 @@ from sentinel.contracts.models import (
     DoctorCheck,
     Event,
     Incident,
+    IncidentDetail,
     IncidentReport,
     LlmTestResult,
     RunSummary,
@@ -43,6 +44,8 @@ class ServiceError(Exception):
 def _errors() -> Iterator[None]:
     try:
         yield
+    except BrokenPipeError:
+        raise  # the reader of our output went away (`| head`): not a service failure
     except (LlmError, CaptureError, SecretsError, OSError) as exc:
         raise ServiceError(str(exc)) from exc
 
@@ -129,6 +132,14 @@ class SentinelService:
 
     def incidents(self, limit: int = 20) -> list[Incident]:
         return self.storage.recent_incidents(limit)
+
+    def incident(self, incident_id: str) -> IncidentDetail:
+        incident = self.storage.get_incident(incident_id)
+        if incident is None:
+            raise ServiceError(f"no incident with id {incident_id!r}; see `sentinel incidents`")
+        return IncidentDetail(
+            incident=incident, alerts=self.storage.alerts_of_incident(incident_id)
+        )
 
     def notify_test(self, channel: Channel) -> Delivery:
         incident, alerts = _sample_incident()

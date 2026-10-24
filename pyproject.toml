@@ -1,6 +1,6 @@
 [project]
 name = "sentinel"
-version = "0.0.0"
+version = "0.1.0"
 description = "Small-network anomaly detector"
 requires-python = ">=3.13,<3.14"
 dependencies = [

@@ -54,6 +54,7 @@ class Alert(_Frozen):
     confidence: Unit
     evidence: dict[str, float]
     technique: str
+    target_ip: IpAddr | None = None  # the main victim/destination, when there is one
 
 
 class Incident(_Frozen):
@@ -123,6 +124,7 @@ class WindowFeatures(_Frozen):
     conns_started: int
     attempts: int
     failed_ratio: float
+    top_target_ip: IpAddr | None
     unique_dst_ips: int
     unique_dst_ports: int
     novel_dsts: int
@@ -167,6 +169,7 @@ class SanitizedStep(_Frozen):
     severity: Unit
     confidence: Unit
     evidence: dict[str, float]
+    target_ip: IpAddr | None = None
 
 
 class SanitizedIncident(_Frozen):
@@ -223,6 +226,11 @@ class RunSummary(_Frozen):
     llm_used: int
     llm_rejected: int
     llm_errors: int
+
+
+class IncidentDetail(_Frozen):
+    incident: Incident
+    alerts: list[Alert]
 
 
 class DoctorCheck(_Frozen):

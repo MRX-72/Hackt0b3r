@@ -30,6 +30,11 @@ class Notification:
         return next(label for floor, label in _SEVERITY_LABELS if self.incident.severity >= floor)
 
     @property
+    def targets(self) -> str:
+        found = dict.fromkeys(str(s.target_ip) for s in self.incident.steps if s.target_ip)
+        return ", ".join(found) or "n/a"
+
+    @property
     def techniques(self) -> str:
         names = {s.technique: s.technique_name for s in self.incident.steps}
         return ", ".join(f"{t} {n}" for t, n in names.items())
@@ -55,7 +60,7 @@ def slack_escape(text: str) -> str:
 def slack_request(webhook_url: str, n: Notification, timeout: float) -> Request:
     head = f"[{n.severity_label.upper()}] {slack_escape(n.explanation.headline)}"
     body = "\n".join(slack_escape(line) for line in n.lines())[:_SLACK_MAX]
-    meta = f"Device {n.incident.host_ip} | {slack_escape(n.techniques)}"
+    meta = f"Device {n.incident.host_ip} | Target {n.targets} | {slack_escape(n.techniques)}"
     payload = {
         "text": head,
         "blocks": [
@@ -80,6 +85,7 @@ def discord_request(webhook_url: str, n: Notification, timeout: float) -> Reques
                 "color": _DISCORD_COLORS[n.severity_label],
                 "fields": [
                     {"name": "Device", "value": str(n.incident.host_ip), "inline": True},
+                    {"name": "Target", "value": n.targets[:200], "inline": True},
                     {"name": "ATT&CK", "value": n.techniques[:900] or "n/a", "inline": True},
                 ],
             }
@@ -93,7 +99,10 @@ def telegram_request(token: str, chat_id: str, n: Notification, timeout: float) 
         f"<b>[{n.severity_label.upper()}] {html.escape(n.explanation.headline, quote=False)}</b>"
     ]
     lines += [html.escape(line, quote=False) for line in n.lines()]
-    lines.append(f"Device {n.incident.host_ip} | {html.escape(n.techniques, quote=False)}")
+    lines.append(
+        f"Device {n.incident.host_ip} | Target {n.targets} | "
+        f"{html.escape(n.techniques, quote=False)}"
+    )
     payload = {"chat_id": chat_id, "text": "\n".join(lines)[:_TELEGRAM_MAX], "parse_mode": "HTML"}
     return json_request(
         "POST", f"https://api.telegram.org/bot{token}/sendMessage", payload, timeout=timeout

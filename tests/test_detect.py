@@ -136,3 +136,16 @@ def test_attack_ending_on_a_tick_boundary_is_still_seen_by_the_10s_window() -> N
     packets = sc.port_scan(100.0, range(1, 201)) + sc.normal_browsing(125, 30, sc.USER)
     alerts = by(detect(packets), "portscan")
     assert alerts[0].evidence["window_seconds"] == 10.0 and alerts[0].ts == 110.0
+
+
+def test_alerts_name_their_target_host() -> None:
+    scan = by(detect(sc.port_scan(100.0, range(1, 201))), "portscan")[0]
+    brute = by(detect(sc.brute_force(0, 40)), "bruteforce")[0]
+    beacon = by(detect(sc.beacon(0, 20, 30.0)), "beaconing")[0]
+    tunnel = by(detect(sc.dns_tunnel(0, 60)), "dns_tunnel")[0]
+    assert (scan.target_ip, brute.target_ip, beacon.target_ip) == (
+        sc.VICTIM[1],
+        sc.VICTIM[1],
+        sc.C2[1],
+    )
+    assert tunnel.target_ip is None

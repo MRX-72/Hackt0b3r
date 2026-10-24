@@ -23,7 +23,7 @@ def sanitize_incident(incident: Incident, alerts: list[Alert]) -> SanitizedIncid
         SanitizedStep(
             detector=safe_identifier(a.detector, 32) or "unknown", technique=a.technique,
             technique_name=TECHNIQUES[a.technique][0], ts=a.ts, severity=a.severity,
-            confidence=a.confidence,
+            confidence=a.confidence, target_ip=a.target_ip,
             evidence={
                 k: v for k, v in a.evidence.items() if _EVIDENCE_KEY.match(k) and math.isfinite(v)
             },

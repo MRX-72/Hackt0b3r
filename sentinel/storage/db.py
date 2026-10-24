@@ -94,21 +94,20 @@ class Storage:
     def insert_alert(self, a: Alert) -> None:
         self.conn.execute(
             "INSERT INTO alert (id, ts, detector, host_mac, host_ip, severity, confidence,"
-            " evidence_json, technique) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            " evidence_json, technique, target_ip) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             " ON CONFLICT(id) DO NOTHING",  # replaying a capture twice is idempotent
             (a.id, a.ts, a.detector, a.host_mac, a.host_ip, a.severity, a.confidence,
-             json.dumps(a.evidence), a.technique),
+             json.dumps(a.evidence), a.technique, a.target_ip),
         )  # fmt: skip
+
+    @staticmethod
+    def _alert(row: sqlite3.Row) -> Alert:
+        fields = {k: row[k] for k in row.keys() if k != "evidence_json"}  # noqa: SIM118
+        return Alert.model_validate({**fields, "evidence": json.loads(row["evidence_json"])})
 
     def alerts_since(self, ts: float) -> list[Alert]:
         rows = self.conn.execute("SELECT * FROM alert WHERE ts >= ? ORDER BY ts, id", (ts,))
-        return [
-            Alert.model_validate(
-                {**{k: r[k] for k in r.keys() if k != "evidence_json"},  # noqa: SIM118
-                 "evidence": json.loads(r["evidence_json"])}
-            )
-            for r in rows
-        ]  # fmt: skip
+        return [self._alert(r) for r in rows]
 
     def save_incident(self, i: Incident) -> None:
         with self._tx():
@@ -152,6 +151,14 @@ class Storage:
             "INSERT INTO audit_log (ts, actor, action, target, detail_json) VALUES (?, ?, ?, ?, ?)",
             (self._clock(), actor, action, target, json.dumps(detail or {})),
         )
+
+    def alerts_of_incident(self, incident_id: str) -> list[Alert]:
+        rows = self.conn.execute(
+            "SELECT a.* FROM incident_alert l JOIN alert a ON a.id = l.alert_id"
+            " WHERE l.incident_id = ? ORDER BY a.ts, a.id",
+            (incident_id,),
+        )
+        return [self._alert(r) for r in rows]
 
     def recent_incidents(self, limit: int) -> list[Incident]:
         rows = self.conn.execute("SELECT id FROM incident ORDER BY end_ts DESC LIMIT ?", (limit,))
