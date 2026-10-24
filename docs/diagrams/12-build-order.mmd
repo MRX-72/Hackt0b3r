@@ -7,5 +7,6 @@ flowchart LR
     c9 --> c10[10 enforcement validator + pf renderer] --> c11[11 daemon + socket] --> c12[12 model registry + explain] --> c13[13 API skeleton]
   end
   c13 --> g1{Gate 1}
-  g1 --> s1[CLI] --> s2[inventory] --> s3[modes] --> s4[notify] --> s5[GUI] --> s6[packets view] --> s7[rule engine] --> s8[embeddings] --> s9[ask] --> s10[more models] --> s11[enforce apply] --> s12[purple team + eval]
-  s12 --> g2{Gate 2} --> polish[Stage 3 polish]
+  g1 --> s1[CLI] --> s2[inventory] --> s3[modes] --> s4[notify] --> s6[packets view: CLI] --> s7[rule engine] --> s8[embeddings] --> s9[ask] --> s10[more models] --> s11[enforce apply] --> s12[purple team + eval]
+  s12 --> s5[GUI last, a client of the API: D-013]
+  s5 --> g2{Gate 2} --> polish[Stage 3 polish]

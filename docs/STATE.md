@@ -9,6 +9,9 @@ Stage 1 (core). Gate 0 closed 2026-10-24 (diagrams validated with termaid only).
 - Component 1/13 storage: done.
 - Component 2/13 flow model + parser: done.
 
+## Scope change
+CLI only for now; GUI is built last as a pure client of the API (D-013).
+
 ## In progress
 - Nothing. Next: component 3, replay source (pcap -> parser -> storage via the real pipeline path). Needs a Scapy-or-struct pcap fixture generator with labels.
 

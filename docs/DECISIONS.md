@@ -48,3 +48,13 @@ Decision: the daemon component must default snaplen to cover DNS (proposal: 384)
 
 ## D-012 Parser input is Ethernet frames only
 Decision: `FrameParser` takes Ethernet frames. Link-type handling (pcap header, `bridge100` is expected to be EN10MB, ASSUMED) belongs to replay/capture, which reject other link types loudly.
+
+## D-013 CLI first, GUI last (user decision, 2026-10-24)
+Context: user wants only a CLI for now; the GUI is built at the very end.
+Decision: Stage 2 item 5 (GUI) moves after item 12 and before Stage 3 polish. Until then every user-facing capability is reachable through the CLI (including packets view as `sentinel packets live|show`, `capture export`, modes, enforce proposals, notify test, `ask`). Design rules so a GUI can be embedded later without refactoring:
+1. All behavior lives behind one service surface in `api/` (typed request/response models from `contracts/`, no formatting, no printing). REST/WebSocket are thin adapters over it; the CLI is a client of that surface and only formats output (human text or `--json`).
+2. `cli/` never imports core logic (already enforced by diagram 05: cli -> contracts, config only), so the GUI is just another client of the same surface.
+3. Every list/detail response is a contract model with stable JSON Schema in `schemas/`; a GUI binds to those.
+4. A live event stream (incidents, alerts, status, drop counters) exists in the API from the start, because the CLI needs `--follow` and the GUI needs the same feed.
+5. No presentation strings in core: severity labels, colors and wording are produced by the client; untrusted strings stay data (the GUI will render with textContent per spec).
+Reason: keeps the GUI a pure client; P0 acceptance items about the GUI (R-GUI-001, GUI parts of R-PKT-001) are deferred, not dropped.

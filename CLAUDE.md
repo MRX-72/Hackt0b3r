@@ -49,6 +49,10 @@ Your standard is correctness and evidence, not confidence. You are valued for be
 - When uncertain, say what you would check and how. When wrong, say so, fix it, move on.
 - Progress lives in files (`STATE.md`, gate documents), not chat essays.
 
+## Scope
+
+CLI first, GUI last (D-013). Keep core logic behind the `api/` service surface; `cli/` is a thin formatting client, so a GUI can be added later as another client.
+
 ## Commands
 
 `make bootstrap` | `make check` | `make test` | `make trace`

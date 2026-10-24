@@ -55,8 +55,8 @@ R-INV-001,P0,"Device inventory keyed by MAC, OUI vendor offline, new-device aler
 R-INV-002,P0,Device type guess with confidence; admin label overrides; behavior-change alert,P3 s7,inventory,,todo
 R-MDE-001,P0,"Modes Learning, Standard, Strict, Replay, Air-gapped as config bundles; audited switching","P4 s7, s13.8",modes,,todo
 R-NOT-001,P0,"One channel (Discord or Slack) with severity routing, test button, sanitization, failure never blocks detection",P4 s12,notify,,todo
-R-GUI-001,P0,"GUI Overview, Incidents, Devices, Modes, Purple-team; textContent only, strict CSP, vendored assets, no CDN",P4 s5,web,,todo
-R-PKT-001,P0,"Packets view lite: live list, host/port filter, incident click-through, pcap export","P4 s12, s13.5",packets,,todo
+R-GUI-001,P0,"GUI Overview, Incidents, Devices, Modes, Purple-team; textContent only, strict CSP, vendored assets, no CDN",P4 s5,web,,deferred to end (D-013)
+R-PKT-001,P0,"Packets view lite: live list, host/port filter, incident click-through, pcap export [CLI form first: sentinel packets live|show, capture export; GUI view deferred]","P4 s12, s13.5",packets,,todo
 R-NLP-001,P0,Embedding dedupe and similar past incidents,P5 s12,nlp.embed,,todo
 R-NLP-002,P0,"`sentinel ask` with read-only allowlist, arg validation, refuses unrelated, cannot enforce; >=90% on labeled set (report real number)","P5 s6, s13.7",nlp.ask,,todo
 R-EVL-001,P0,"Purple-team eval: per attack detected/time to detect/detector, FP per hour, 3 configs (single window, multi-timescale, full), budget reduction",P3 s15,evalharness,,todo
