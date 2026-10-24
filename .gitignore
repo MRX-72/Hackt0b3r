@@ -18,3 +18,4 @@ docs/diagrams/wh.md
 .venv*/
 dist/
 *.egg-info/
+docs/pitch/node_modules/

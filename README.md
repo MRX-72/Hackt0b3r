@@ -342,7 +342,7 @@ make build         # wheel + sdist in dist/
 `make check` takes about two minutes. Layout: `sentinel/` (code; `api/` is the service surface used
 by both the CLI and the web console), `tests/`, `tools/` (demo and attack scripts), `examples/`
 (demo config), `schemas/` (JSON schemas of the data contracts), `spikes/` (hardware checks to run
-on the gateway), `docs/` (spec, decisions, diagrams, state, ablation).
+on the gateway), `docs/` (spec, decisions, diagrams, state, ablation, and `docs/pitch/`: the pitch deck plus `build_deck.js` that regenerates it).
 
 More documentation: [USER_GUIDE.md](USER_GUIDE.md) (every command in depth),
 [demo.md](demo.md) (reproduce each attack), [docs/STATE.md](docs/STATE.md) (project status),
