@@ -1,4 +1,6 @@
 import json
+import threading
+import time
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -175,3 +177,29 @@ def test_flows_are_not_stored_by_default_and_retention_prunes_old_data(tmp_path:
     assert len(svc.storage.alerts_since(0)) == 1
     pruned = pipeline.prune(now=1000.0 + 31 * 86400)
     assert pruned["alerts"] == 1 and svc.storage.alerts_since(0) == []
+
+
+def test_live_watch_reports_an_attack_on_a_quiet_link_without_waiting_for_more_packets(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The heartbeat evaluates detectors even though capture goes silent after the scan."""
+    reported = threading.Event()
+    frames = sorted(sc.port_scan(100.0, range(1, 201)), key=lambda p: p[0])
+
+    def silent_after_scan(
+        argv: list[str], duration_seconds: float | None = None, stop: threading.Event | None = None
+    ) -> Iterator[tuple[float, bytes]]:
+        yield from frames
+        reported.wait(8)  # no more packets until the report shows up (or we give up)
+
+    monkeypatch.setattr("sentinel.api.service.capture_live", silent_after_scan)
+    svc = service(tmp_path, FakeWorld())
+    reports: list[IncidentReport] = []
+    started = time.monotonic()
+
+    def on_report(report: IncidentReport) -> None:
+        reports.append(report)
+        reported.set()
+
+    svc.watch("lo0", on_report=on_report)
+    assert reports and time.monotonic() - started < 6

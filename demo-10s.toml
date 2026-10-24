@@ -1,0 +1,13 @@
+# Used by demo.md: only the 10-second window is enabled, notifications are off.
+database = "demo.db"
+secrets_file = "secrets.env"
+
+[notify]
+enabled = false
+
+[detection]
+windows = [10]                                     # the 10-second window only
+scan_min_unique_ports = { 10 = 20 }
+scan_min_unique_hosts = { 10 = 20 }
+brute_min_attempts = { 10 = 8 }
+auth_ports = [21, 22, 23, 445, 2222, 3389, 5900]   # 2222 = the fake SSH service (ports < 1024 need root)

@@ -1,5 +1,6 @@
 import io
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -161,3 +162,12 @@ def test_a_capture_command_that_dies_reports_its_own_error_text() -> None:
     cmd = [sys.executable, "-c", "import sys; sys.stderr.write('permission denied'); sys.exit(1)"]
     with pytest.raises(CaptureError, match="permission denied"):
         list(capture_live(cmd))
+
+
+def test_capture_live_stops_when_asked_even_on_a_silent_link() -> None:
+    stop = threading.Event()
+    threading.Timer(0.5, stop.set).start()
+    started = time.monotonic()
+    sleeper = [sys.executable, "-c", "import time; time.sleep(30)"]
+    assert list(capture_live(sleeper, stop=stop)) == []
+    assert time.monotonic() - started < 10

@@ -10,3 +10,4 @@ __pycache__/
 .venv-needle/
 secrets.env
 sentinel.db*
+demo.db*

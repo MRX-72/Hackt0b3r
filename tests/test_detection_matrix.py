@@ -6,6 +6,9 @@ from collections.abc import Callable
 import pytest
 
 from sentinel.config.settings import DetectionSettings
+from sentinel.contracts.models import Alert
+from sentinel.detect.engine import DetectionEngine
+from sentinel.sensor.parse import FrameParser
 from tests import scenarios as sc
 from tests.test_detect import detect
 
@@ -158,3 +161,41 @@ def test_random_benign_networks_never_alert(seed: int) -> None:
         )
     packets += sc.hashed_cdn_dns(0, 15, clients[:4], seconds=1200)
     assert detect(packets) == []
+
+
+def detect_live(packets: list[sc.Packet]) -> list[Alert]:
+    """Like a live run: evaluation only on 10 s ticks plus one idle heartbeat afterwards."""
+    engine, parser = (
+        DetectionEngine(DetectionSettings(windows=[10], **TEN_SECOND_ONLY)),
+        FrameParser(),
+    )
+    alerts: list[Alert] = []
+    last = 0.0
+    for ts, frame in sorted(packets, key=lambda p: p[0]):
+        for event in parser.parse(frame, ts):
+            alerts += engine.process(event, ts)
+        last = ts
+    return alerts + engine.advance(last + 10)
+
+
+TEN_SECOND_ONLY = {
+    "scan_min_unique_ports": {10: 20},
+    "scan_min_unique_hosts": {10: 20},
+    "brute_min_attempts": {10: 8},
+}
+BURSTS: list[tuple[str, Callable[[float], list[sc.Packet]], str]] = [
+    ("port scan", lambda t: sc.port_scan(t, range(1, 401), per_second=400), "portscan"),
+    ("brute force", lambda t: sc.brute_force(t, 30, interval=0.4), "bruteforce"),
+    ("beacon, 1 per second", lambda t: sc.beacon(t, 14, 1.0, jitter=0.002), "beaconing"),
+    ("dns tunnel", lambda t: sc.dns_tunnel(t, 60, per_second=8), "dns_tunnel"),
+]
+
+
+@pytest.mark.parametrize("phase", [i * 0.9 for i in range(12)])
+@pytest.mark.parametrize(("name", "make", "detector"), BURSTS, ids=[b[0] for b in BURSTS])
+def test_short_bursts_are_caught_whatever_the_phase_of_the_10s_grid(
+    name: str, make: Callable[[float], list[sc.Packet]], detector: str, phase: float
+) -> None:
+    """Live ticks fall every 10 s; an attack must not slip between two of them."""
+    alerts = detect_live(make(1000.0 + phase))
+    assert [a.detector for a in alerts] == [detector], f"{name} at phase {phase}"

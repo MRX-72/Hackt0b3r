@@ -5,6 +5,7 @@ tunnelling, explains them in plain English (templates or a local LLM), and alert
 Discord or Telegram.
 
 - **How to use it: [USER_GUIDE.md](USER_GUIDE.md)** (install, CLI reference, notifications, LLM, live capture).
+- **Reproduce the four attacks on your own machine: [demo.md](demo.md).**
 - Spec: `SENTINEL_PROJECT.md` (split in `docs/spec/`). Status and open items: `docs/STATE.md`.
 
 ```bash

@@ -2,6 +2,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+from sentinel.contracts.models import Flow
+from sentinel.sensor.parse import FrameParser
+from tests import frames as f
+from tools.localhost_attacks import dns_query
+
 SCRIPT = Path(__file__).resolve().parent.parent / "tools/localhost_scan.py"
 
 
@@ -25,3 +30,20 @@ def test_the_scan_script_probes_loopback_and_sees_its_own_listener() -> None:
     result = run("--ports", "20300-20319", "--open", "20305")
     assert result.returncode == 0 and "probed 20 ports" in result.stdout
     assert "1 open, 19 closed" in result.stdout
+
+
+def test_attack_script_refuses_non_loopback_targets() -> None:
+    script = SCRIPT.parent / "localhost_attacks.py"
+    for attack in ("scan", "brute", "beacon", "dns", "web"):
+        result = subprocess.run(  # noqa: S603
+            [sys.executable, str(script), attack, "--host", "192.168.2.1"],
+            capture_output=True, text=True, timeout=30, check=False,
+        )  # fmt: skip
+        assert result.returncode == 2 and "refusing" in result.stderr, attack
+
+
+def test_the_dns_attack_builds_queries_sentinel_parses_as_tunnel_candidates() -> None:
+    name = "a" * 52 + ".t.badzone.test"
+    frame = f.eth(f.ipv4(17, f.udp(40000, 53, dns_query(name, 16))))
+    [flow] = FrameParser().parse(frame, 1.0)
+    assert isinstance(flow, Flow) and (flow.dns_query, flow.dns_qtype) == (name, "TXT")

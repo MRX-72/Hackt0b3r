@@ -2,7 +2,7 @@
 
 import ipaddress
 
-from sentinel.config.settings import DetectionSettings
+from sentinel.config.settings import BUCKET_SECONDS, DetectionSettings
 from sentinel.contracts.models import Alert, WindowFeatures
 from sentinel.features.windows import HostContext, split_name
 
@@ -105,7 +105,8 @@ class Beaconing:
                 or t.mean_interval_seconds < s.beacon_min_interval_seconds
                 or t.interval_cv > s.beacon_max_interval_cv
                 or t.mean_bytes > s.beacon_max_mean_bytes
-                or t.seconds_since_last > s.beacon_active_intervals * t.mean_interval_seconds
+                or t.seconds_since_last
+                > max(s.beacon_active_intervals * t.mean_interval_seconds, BUCKET_SECONDS)
                 or t.completed_ratio < s.beacon_min_completed_ratio
                 or t.popularity >= s.beacon_popular_hosts
                 or self._is_known_good(t.dst_ip)

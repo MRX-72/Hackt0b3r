@@ -547,6 +547,9 @@ enough to run without a model.
 
 ## Try it on your own machine (loopback)
 
+For the full four-attack walkthrough (port scan, brute force, beaconing, DNS tunnel, with the
+10-second window only and notifications off) see **[demo.md](demo.md)**; the short version:
+
 You can watch Sentinel catch a real port scan without any other device. The script below scans
 **your own** loopback interface (it refuses every other address), and Sentinel captures `lo0`:
 
@@ -777,8 +780,10 @@ Be aware of these before relying on Sentinel:
 - **Judgement calls remain.** One device polling an unshared server on a fixed schedule, or one
   device resolving 20+ long hashed names under a CDN domain within five minutes, is flagged because
   it is indistinguishable from the real thing without your input; use the allow-lists.
-- **Detection runs when the next packet arrives**, so after an attack on a completely silent link
-  the alert waits for the next frame (on a LAN, ARP/mDNS chatter makes that seconds).
+- **Alert timing:** detectors run on a 10-second grid of capture time. A live `watch` also ticks
+  once a second on the wall clock, so an attack followed by silence is still reported at the next
+  grid point; expect a delay of up to about 10 seconds after a threshold is crossed. `replay`
+  evaluates at the end of the file.
 - **Retention:** packet rows are not stored by default (`store_flows`); alerts and incidents are
   pruned automatically only during `watch`. Delete `sentinel.db` to reset after replays.
 - **Never tested against real hardware or real services:** live capture, Slack/Discord/Telegram

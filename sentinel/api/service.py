@@ -3,7 +3,9 @@
 Returns contract models only; formatting and printing belong to the clients.
 """
 
+import queue
 import socket
+import threading
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -35,6 +37,7 @@ from sentinel.pipeline.run import Pipeline
 from sentinel.sensor.replay import CaptureError, capture_live, read_pcap, tcpdump_argv
 from sentinel.storage.db import Storage
 
+_IDLE_TICK_SECONDS = 1.0  # live mode runs the detectors at least this often
 _PRUNE_EVERY_SECONDS = 3600.0  # live capture applies the retention settings this often
 OnEvent = Callable[[Event], None]
 OnReport = Callable[[IncidentReport], None]
@@ -123,20 +126,49 @@ class SentinelService:
         self, interface: str, *, on_event: OnEvent | None = None, on_report: OnReport | None = None,
         notify: bool = False, duration_seconds: float | None = None,
     ) -> RunSummary:  # fmt: skip
-        """Capture live with tcpdump (needs root) until interrupted or the capture ends."""
+        """Capture live with tcpdump until interrupted, `duration_seconds`, or the capture ends.
+
+        Capture runs in a thread; the main loop also ticks the detectors once a second so an
+        attack on a quiet link is reported without waiting for the next packet.
+        """
         cap = self._settings.capture
         pipeline = self._pipeline(on_event, on_report, notify)
+        stop = threading.Event()
+        incoming: queue.Queue[tuple[float, bytes] | CaptureError | None] = queue.Queue()
+        argv = tcpdump_argv(interface, cap.snaplen, cap.bpf)
+
+        def pump() -> None:
+            try:
+                for item in capture_live(argv, duration_seconds, stop):
+                    incoming.put(item)
+            except CaptureError as exc:
+                incoming.put(exc)
+            finally:
+                incoming.put(None)
+
+        reader = threading.Thread(target=pump, daemon=True)
+        reader.start()
+        last_prune = 0.0
         try:
-            with _errors():
-                last_prune = 0.0
-                argv = tcpdump_argv(interface, cap.snaplen, cap.bpf)
-                for ts, frame in capture_live(argv, duration_seconds):
-                    pipeline.ingest(ts, frame)
-                    if ts - last_prune > _PRUNE_EVERY_SECONDS:
-                        pipeline.prune(time.time())
-                        last_prune = ts
+            while True:
+                try:
+                    item = incoming.get(timeout=_IDLE_TICK_SECONDS)
+                except queue.Empty:
+                    pipeline.tick(time.time())
+                    continue
+                if item is None:
+                    break
+                if isinstance(item, CaptureError):
+                    raise ServiceError(str(item)) from item
+                pipeline.ingest(*item)
+                if item[0] - last_prune > _PRUNE_EVERY_SECONDS:
+                    pipeline.prune(time.time())
+                    last_prune = item[0]
         except KeyboardInterrupt:
             pass
+        finally:
+            stop.set()
+            reader.join(timeout=5)
         return pipeline.finish()
 
     def incidents(

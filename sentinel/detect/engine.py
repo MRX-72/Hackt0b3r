@@ -36,6 +36,17 @@ class DetectionEngine:
         self._latest = max(self._latest, ts)
         return alerts
 
+    def advance(self, now: float) -> list[Alert]:
+        """Wall-clock heartbeat for live capture: run the evaluation a quiet link would postpone.
+
+        Evaluates at the boundary the event stream last reached, so alert times stay capture times.
+        """
+        if self._next_tick is None or now < self._next_tick:
+            return []
+        alerts = self._evaluate(self._next_tick)
+        self._next_tick = (now // BUCKET_SECONDS + 1) * BUCKET_SECONDS
+        return alerts
+
     def flush(self) -> list[Alert]:
         """Evaluate once at the latest event time (end of a replay)."""
         return self._evaluate(self._latest) if self._next_tick is not None else []

@@ -86,6 +86,9 @@ Decision: detection is NOT "flawless", so per the user's condition no new detect
 ## D-020 Flows are not stored by default
 Decision: `[storage] store_flows = false`. Detection runs in memory; storing every packet cost disk and privacy for no current consumer. Retention (`flow_retention_days`, `alert_retention_days`) is applied hourly during `watch` only, because pruning by capture time would delete replayed historic captures.
 
+## D-022 Live watch heartbeat, stoppable capture, phase-tested bursts
+Found by the four-attack localhost test: a beacon was missed when the 10 s evaluation grid fell badly (the "still active" check was shorter than the grid) and live evaluation waited for the next packet. Fixes: beacon staleness is `max(3 intervals, 10 s)`; `watch` reads capture in a thread and ticks detectors every second (`DetectionEngine.advance`); `capture_live` honours a stop event and duration without packets. `test_short_bursts_are_caught_whatever_the_phase_of_the_10s_grid` sweeps 12 grid phases for each attack.
+
 ## D-021 Loopback and raw-IP captures (found by the first real localhost test)
 Context: `tcpdump -i lo0` is link type NULL, which the Ethernet-only reader rejected.
 Decision: loopback (0, 108) and raw-IP (12, 101) captures are wrapped in a synthetic Ethernet frame with stand-in MACs derived from the IPs (`02:00` + 4 address bytes). Same-host traffic on lo0 is therefore one device. DNS/mDNS names are read by a small name walker (dpkt refuses whole messages containing NSEC/HTTPS/RRSIG records). Payloads cut short by snaplen are counted as `truncated_payloads`, not `payload_errors`. `capture_live --for` now uses a timer so it stops on a silent link, and a failing capture command reports its own error text.

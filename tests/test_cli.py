@@ -389,7 +389,7 @@ def test_watch_passes_the_duration_to_the_capture(
     seen: dict[str, object] = {}
 
     def fake_capture(
-        argv: list[str], duration_seconds: float | None = None
+        argv: list[str], duration_seconds: float | None = None, stop: object = None
     ) -> Iterator[tuple[float, bytes]]:
         seen.update(argv=argv, duration=duration_seconds)
         return iter(frames)

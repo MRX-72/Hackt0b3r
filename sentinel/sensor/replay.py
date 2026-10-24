@@ -2,12 +2,14 @@
 
 import subprocess
 import threading
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import IO
 
 import dpkt
 
+_WATCHDOG_POLL_SECONDS = 0.2  # how quickly a stop request or deadline is noticed
 PCAPNG_MAGIC = b"\x0a\x0d\x0d\x0a"
 LINKTYPE_ETHERNET = dpkt.pcap.DLT_EN10MB
 # Link types that carry a bare IP packet after a fixed header (loopback, raw IP). Frames from
@@ -76,25 +78,31 @@ def tcpdump_argv(interface: str, snaplen: int, bpf: str = "") -> list[str]:
 
 
 def capture_live(
-    argv: list[str], duration_seconds: float | None = None
+    argv: list[str],
+    duration_seconds: float | None = None,
+    stop: threading.Event | None = None,
 ) -> Iterator[tuple[float, bytes]]:
     """Run a capture command that writes pcap to stdout and yield its frames until it exits.
 
-    With `duration_seconds` a timer stops the command even when no packets arrive. A command
-    that dies before producing a capture (no permission, bad interface) raises CaptureError
-    carrying its own error text.
+    The command is also stopped, even on a silent link, once `duration_seconds` pass or
+    `stop` is set. One that dies before producing a capture (no permission, bad interface)
+    raises CaptureError carrying its own error text.
     """
     with subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as proc:  # noqa: S603
         assert proc.stdout is not None and proc.stderr is not None  # noqa: S101 - PIPEs requested
-        stopped = threading.Event()
+        stopped, done = threading.Event(), threading.Event()
+        deadline = time.monotonic() + duration_seconds if duration_seconds else None
 
-        def stop() -> None:
-            stopped.set()
-            proc.terminate()
+        def watchdog() -> None:
+            while not done.wait(_WATCHDOG_POLL_SECONDS):
+                if (stop is not None and stop.is_set()) or (
+                    deadline is not None and time.monotonic() >= deadline
+                ):
+                    stopped.set()
+                    proc.terminate()
+                    return
 
-        timer = threading.Timer(duration_seconds, stop) if duration_seconds else None
-        if timer:
-            timer.start()
+        threading.Thread(target=watchdog, daemon=True).start()
         try:
             yield from read_frames(proc.stdout)
         except CaptureError as exc:
@@ -105,8 +113,7 @@ def capture_live(
             reason = proc.stderr.read().decode(errors="replace").strip()[:300]
             raise CaptureError(f"capture command failed: {reason or exc}") from None
         finally:
-            if timer:
-                timer.cancel()
+            done.set()
             proc.terminate()
         code = proc.wait()
         if code not in (0, -15):

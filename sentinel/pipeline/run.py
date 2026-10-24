@@ -51,6 +51,11 @@ class Pipeline:
             for alert in self._engine.process(event, ts):
                 self._handle(alert)
 
+    def tick(self, now: float) -> None:
+        """Live idle heartbeat: evaluate detectors even though no packet has arrived."""
+        for alert in self._engine.advance(now):
+            self._handle(alert)
+
     def finish(self) -> RunSummary:
         for alert in self._engine.flush():
             self._handle(alert)
