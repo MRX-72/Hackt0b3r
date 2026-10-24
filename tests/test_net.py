@@ -45,3 +45,44 @@ def test_connection_errors_do_not_leak_the_url() -> None:
 def test_only_http_schemes_are_allowed(url: str) -> None:
     with pytest.raises(TransportError):
         urllib_transport(Request("GET", url))
+
+
+@pytest.mark.security
+def test_a_redirect_is_never_followed_so_headers_cannot_leak_to_another_host() -> None:
+    seen: dict[str, str | None] = {}
+
+    class Target(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            seen["auth"] = self.headers.get("Authorization")
+            self.send_response(200)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, *_: object) -> None:
+            pass
+
+    target = HTTPServer(("127.0.0.1", 0), Target)
+    port = target.server_address[1]
+
+    class Redirector(BaseHTTPRequestHandler):
+        def do_POST(self) -> None:
+            self.rfile.read(int(self.headers["Content-Length"]))
+            self.send_response(302)
+            self.send_header("Location", f"http://localhost:{port}/x")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, *_: object) -> None:
+            pass
+
+    redirector = HTTPServer(("127.0.0.1", 0), Redirector)
+    for server in (target, redirector):
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{redirector.server_address[1]}/"
+        response = urllib_transport(Request("POST", url, b"{}", {"Authorization": "Bearer KEY"}))
+    finally:
+        for server in (target, redirector):
+            server.shutdown()
+            server.server_close()
+    assert response.status == 302 and seen == {}  # the second host was never contacted

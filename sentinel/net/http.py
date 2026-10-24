@@ -42,6 +42,16 @@ def json_request(
     return Request(method, url, body, base | (headers or {}), timeout)
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """A redirect would re-send our headers (an LLM API key) to whatever host it names."""
+
+    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect)
+
+
 def urllib_transport(request: Request) -> Response:
     if not request.url.startswith(("http://", "https://")):
         raise TransportError("only http and https URLs are allowed")
@@ -49,7 +59,7 @@ def urllib_transport(request: Request) -> Response:
         request.url, data=request.body, headers=request.headers, method=request.method
     )
     try:
-        with urllib.request.urlopen(req, timeout=request.timeout) as resp:  # noqa: S310
+        with _OPENER.open(req, timeout=request.timeout) as resp:
             return Response(resp.status, resp.read())
     except urllib.error.HTTPError as exc:
         return Response(exc.code, exc.read())
