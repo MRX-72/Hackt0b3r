@@ -5,11 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from sentinel.api.service import SentinelService
+from sentinel.api.service import SentinelService, ServiceError
 from sentinel.config.secrets import Secrets
 from sentinel.config.settings import Settings
 from sentinel.contracts.models import AnomalyRecord, HistoryQuery
-from sentinel.storage.db import Storage
+from sentinel.storage.db import Storage, load_migrations, migrate
 from tests import scenarios as sc
 from tests.test_ui import record
 
@@ -98,3 +98,54 @@ def test_live_runs_are_marked_live_and_survive_a_restart(
     total, rows = reopened.history(HistoryQuery(source="live"))
     reopened.close()
     assert total == 1 and isinstance(rows[0], AnomalyRecord) and rows[0].label == "CRITICAL"
+
+
+def test_the_same_alert_is_never_logged_twice(tmp_path: Path) -> None:
+    store = Storage(tmp_path / "a.db")
+    first = store.log_anomaly(record(ts=5.0))
+    assert store.log_anomaly(record(ts=5.0, logged_at=9.0)) == first  # a second process, same alert
+    assert store.log_anomaly(record(ts=5.0, source="replay")) != first  # a replay is separate
+    assert store.log_anomaly(record(ts=5.0, target_ip="10.0.0.9")) != first
+    assert store.anomalies(HistoryQuery())[0] == 3
+    store.close()
+
+
+def test_upgrading_removes_existing_duplicates_and_keeps_the_oldest(tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_path / "old.db", isolation_level=None)
+    conn.row_factory = sqlite3.Row
+    migrate(conn, load_migrations()[:4])  # a database from before the unique index
+    cols = ("ts, logged_at, source, detector, technique, severity, confidence, label, score,"
+            " host_mac, host_ip, headline, what_happened, likely_cause, action, chain_json,"
+            " incident_id, evidence_json")  # fmt: skip
+    for logged in (1.0, 2.0, 3.0):
+        conn.execute(
+            f"INSERT INTO anomaly_log ({cols}) VALUES (7.0, ?, 'live', 'portscan', 'T1046', 0.9,"  # noqa: S608
+            " 0.9, 'CRITICAL', 0.9, 'aa:bb:cc:dd:ee:30', '10.0.0.1', 'h', 'w', 'c', 'a', '[]',"
+            " 'i', '{}')",
+            (logged,),
+        )
+    migrate(conn, load_migrations())
+    assert [(r["id"], r["logged_at"]) for r in conn.execute("SELECT * FROM anomaly_log")] == [
+        (1, 1.0)
+    ]
+
+
+def test_only_one_live_capture_may_feed_a_database(tmp_path: Path) -> None:
+    db = tmp_path / "s.db"
+    first = SentinelService(Settings(), Secrets(), database=db)
+    second = SentinelService(Settings(), Secrets(), database=db)
+    first.acquire_capture()
+    first.acquire_capture()  # re-entrant for the holder
+    with pytest.raises(ServiceError, match="already capturing"):
+        second.acquire_capture()
+    first.close()
+    second.acquire_capture()  # released
+    second.close()
+
+
+def test_a_planted_symlink_cannot_hijack_the_capture_lock(tmp_path: Path) -> None:
+    (tmp_path / "s.db.lock").symlink_to(tmp_path / "victim")
+    service = SentinelService(Settings(), Secrets(), database=tmp_path / "s.db")
+    with pytest.raises(ServiceError, match="cannot create the capture lock"):
+        service.acquire_capture()
+    assert not (tmp_path / "victim").exists()

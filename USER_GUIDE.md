@@ -845,6 +845,7 @@ JSON Schemas for every payload are in `schemas/` (`IncidentReport.json`, `RunSum
 | `doctor`: `interface bridge100 … not found` | Only a warning (replay does not need it). For `watch`, Internet Sharing is off or uses another name: run `ifconfig` and set `[capture] interface`. |
 | `sqlite3.OperationalError: attempt to write a readonly database` | A root-owned database left by an older version's `sudo` run. `sudo chown -R $USER ~/.sentinel`. |
 | Slow scan not detected | Make sure `windows` still includes 300 and 3600, and that the probes are failing (closed ports). |
+| `another Sentinel is already capturing into ...` | Only one live capture may feed a database (two would log every alert twice). Stop the other one: `pkill -f sentinel`. |
 | A legitimate device keeps alerting | Raise the relevant thresholds in `[detection]`. |
 
 ---

@@ -267,9 +267,10 @@ class Storage:
         )
 
     def log_anomaly(self, record: AnomalyRecord) -> int:
-        """Append to the permanent history; returns the new row id."""
+        """Append to the permanent history; returns the row id (the old one if already logged)."""
         cursor = self.conn.execute(
-            "INSERT INTO anomaly_log (ts, logged_at, source, detector, technique, severity,"
+            "INSERT OR IGNORE INTO anomaly_log (ts, logged_at, source, detector, technique,"
+            " severity,"
             " confidence, label, score, host_mac, host_ip, target_ip, headline, what_happened,"
             " likely_cause, action, chain_json, incident_id, evidence_json)"
             " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -279,8 +280,15 @@ class Storage:
              record.likely_cause, record.action, json.dumps(record.chain), record.incident_id,
              json.dumps(record.evidence)),
         )  # fmt: skip
-        assert cursor.lastrowid is not None  # noqa: S101 - an INSERT always has a row id
-        return cursor.lastrowid
+        if cursor.rowcount:
+            assert cursor.lastrowid is not None  # noqa: S101 - an INSERT always has a row id
+            return cursor.lastrowid
+        row = self.conn.execute(
+            "SELECT id FROM anomaly_log WHERE source = ? AND detector = ? AND host_mac = ?"
+            " AND ts = ? AND COALESCE(target_ip, '') = ?",
+            (record.source, record.detector, record.host_mac, record.ts, record.target_ip or ""),
+        ).fetchone()
+        return int(row["id"])
 
     @staticmethod
     def _anomaly(row: sqlite3.Row) -> AnomalyRecord:

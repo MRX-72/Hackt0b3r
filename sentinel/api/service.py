@@ -3,6 +3,8 @@
 Returns contract models only; formatting and printing belong to the clients.
 """
 
+import fcntl
+import os
 import queue
 import socket
 import threading
@@ -86,6 +88,7 @@ class SentinelService:
         self._settings, self._secrets, self._transport = settings, secrets, transport
         self._database = database or settings.database
         self._storage: Storage | None = None
+        self._capture_lock: int | None = None
 
     @property
     def database(self) -> Path:
@@ -97,7 +100,34 @@ class SentinelService:
             self._storage = Storage(self._database)
         return self._storage
 
+    def acquire_capture(self) -> None:
+        """Only one live capture may feed a database: two would log every alert twice.
+
+        Holds an advisory lock on `<database>.lock` until close() or process exit.
+        """
+        if self._capture_lock is not None:
+            return
+        self._database.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        path = self._database.with_name(self._database.name + ".lock")
+        # O_NOFOLLOW: under sudo, never create or open through a link planted in the user's folder.
+        try:
+            fd = os.open(path, os.O_RDONLY | os.O_CREAT | os.O_NOFOLLOW, 0o644)
+        except OSError as exc:
+            raise ServiceError(f"cannot create the capture lock {path}: {exc}") from exc
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            os.close(fd)
+            raise ServiceError(
+                f"another Sentinel is already capturing into {self._database}; "
+                "stop it first (for example: pkill -f 'sentinel')"
+            ) from exc
+        self._capture_lock = fd
+
     def close(self) -> None:
+        if self._capture_lock is not None:
+            os.close(self._capture_lock)
+            self._capture_lock = None
         if self._storage is not None:
             self._storage.close()
             self._storage = None
@@ -151,6 +181,7 @@ class SentinelService:
         Capture runs in a thread; the main loop also ticks the detectors once a second so an
         attack on a quiet link is reported without waiting for the next packet.
         """
+        self.acquire_capture()
         cap = self._settings.capture
         pipeline = self._pipeline(on_event, on_report, notify)
         stop = halt if halt is not None else threading.Event()
