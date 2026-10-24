@@ -6,6 +6,7 @@ a strict Content-Security-Policy, and never builds HTML from network-derived str
 textContent).
 """
 
+import contextlib
 import csv
 import hmac
 import io
@@ -14,6 +15,7 @@ import os
 import queue
 import re
 import secrets
+import sys
 import threading
 import time
 import webbrowser
@@ -190,7 +192,24 @@ class UiServer:
                 return morsel is not None and hmac.compare_digest(morsel.value, outer._token)
 
             # ---- routing ----
-            def do_GET(self) -> None:  # noqa: PLR0911 - one early return per refusal or route
+            def do_GET(self) -> None:
+                self._guarded(self._get)
+
+            def do_POST(self) -> None:
+                self._guarded(self._post)
+
+            def _guarded(self, handle: Callable[[], None]) -> None:
+                """A failing route (say an unusable database) answers 500, with no traceback."""
+                try:
+                    handle()
+                except OSError:
+                    pass  # the browser went away mid-reply
+                except Exception as exc:
+                    sys.stderr.write(f"console error: {type(exc).__name__}\n")
+                    with contextlib.suppress(OSError):
+                        self._json({"error": "internal error"}, HTTPStatus.INTERNAL_SERVER_ERROR)
+
+            def _get(self) -> None:  # noqa: PLR0911 - one early return per refusal or route
                 if self.headers.get("Host", "") not in allowed or not self._origin_ok():
                     return self._deny()  # DNS-rebinding and cross-site guard
                 url = urlsplit(self.path)
@@ -225,7 +244,7 @@ class UiServer:
                     return self._device(url.path.rsplit("/", 1)[1])
                 self._send(HTTPStatus.NOT_FOUND, "text/plain; charset=utf-8", b"not found\n")
 
-            def do_POST(self) -> None:
+            def _post(self) -> None:
                 if (
                     self.headers.get("Host", "") not in allowed
                     or not self._origin_ok()

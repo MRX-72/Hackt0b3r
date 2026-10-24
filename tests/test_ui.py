@@ -508,3 +508,21 @@ def test_the_theme_script_is_served_to_a_logged_in_page(server: tuple[UiServer, 
     res = get(ui, "/static/theme.js")
     assert res.status == 200 and b"sentinel-theme" in res.read()
     assert get(ui, "/static/theme.js", cookie=False).status == 403
+
+
+@pytest.mark.security
+def test_a_route_that_fails_answers_500_without_a_traceback_and_the_server_lives_on(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    db = tmp_path / "broken.db"
+    db.symlink_to(tmp_path / "nowhere")  # Storage refuses a dangling symlink
+    ui = UiServer(db, Hub("off", str(db)), "tok", "127.0.0.1", 0)
+    ui.start()
+    try:
+        res = get(ui, "/api/devices")
+        assert res.status == 500 and json.loads(res.read()) == {"error": "internal error"}
+        assert get(ui, "/static/app.css").status == 200  # still serving
+    finally:
+        ui.stop()
+    err = capsys.readouterr().err
+    assert "Traceback" not in err and "StorageError" in err  # one short line, no stack
