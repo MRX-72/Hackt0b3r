@@ -133,7 +133,7 @@ def test_relative_paths_in_a_config_file_mean_next_to_that_file(
 
 @pytest.mark.security
 def test_root_ignores_a_config_that_someone_else_could_have_planted(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     work = tmp_path / "work"
     work.mkdir()
@@ -144,7 +144,10 @@ def test_root_ignores_a_config_that_someone_else_could_have_planted(
     monkeypatch.setenv("SUDO_UID", str(os.getuid()))
     assert find_config() == Path("config.toml")  # owned by the invoking user: fine
     monkeypatch.setenv("SUDO_UID", str(os.getuid() + 1))
-    assert find_config() is None  # owned by somebody else: ignored
+    assert find_config() is None  # owned by somebody else: ignored ...
+    assert (
+        "warning: ignoring config.toml" in capsys.readouterr().err
+    )  # ... and the operator is told
     monkeypatch.setenv("SUDO_UID", str(os.getuid()))
     planted.chmod(0o666)
     assert find_config() is None  # writable by everyone: ignored

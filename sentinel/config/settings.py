@@ -3,6 +3,7 @@
 import ipaddress
 import os
 import pwd
+import sys
 import tomllib
 from pathlib import Path
 from typing import Literal
@@ -52,7 +53,17 @@ def find_config(explicit: Path | None = None) -> Path | None:
     candidates = [Path("config.toml"), sentinel_home() / "config.toml"]
     if env := os.environ.get("SENTINEL_CONFIG"):
         candidates.insert(0, Path(env).expanduser())
-    return next((c for c in candidates if c.is_file() and _trusted(c)), None)
+    for candidate in candidates:
+        if not candidate.is_file():
+            continue
+        if _trusted(candidate):
+            return candidate
+        print(  # silent skipping would leave the operator believing their settings are in force
+            f"warning: ignoring {candidate}: as root, only a config owned by root or by you and "
+            "not writable by others is used",
+            file=sys.stderr,
+        )
+    return None
 
 
 class _Section(BaseModel):
