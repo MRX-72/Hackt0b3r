@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from sentinel.api.hub import MAX_BATCH, Hub
+from sentinel.api.hub import MAX_BATCH, MAX_PENDING, Hub
 from sentinel.api.service import SentinelService
 from sentinel.api.ui import (
     COOKIE,
@@ -454,3 +454,15 @@ def test_the_number_of_open_event_streams_is_capped_and_slots_are_freed(
     else:
         pytest.fail("the slot was never freed")
     second.close()
+
+
+@pytest.mark.security
+def test_a_flood_of_events_cannot_grow_the_hub_without_bound() -> None:
+    hub = Hub("live lo0", "db")
+    client = hub.subscribe()  # a stalled flush thread would otherwise let this list grow forever
+    for i in range(MAX_PENDING + 300):
+        hub.add_event(flow(i))
+    hub.flush()
+    _, data = parse_sse(client.get_nowait())
+    assert data["n"] == MAX_PENDING
+    assert hub.hello()["dropped"] == 300 and hub.hello()["events"] == MAX_PENDING + 300

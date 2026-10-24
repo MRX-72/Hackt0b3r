@@ -18,6 +18,7 @@ from sentinel.contracts.models import (
 from sentinel.contracts.severity import severity_label
 from sentinel.contracts.text import terminal_safe
 
+MAX_PENDING = 5000  # events held between flushes; past this they are dropped and counted
 MAX_BATCH = 150  # packets sent to the browser per flush; a heavier flush is sampled evenly
 FLUSH_SECONDS = 0.1
 STATUS_SECONDS = 1.0
@@ -73,6 +74,7 @@ class Hub:
         self._recent: deque[dict[str, Any]] = deque(maxlen=_RECENT_ALERTS)
         self._counts: dict[str, int] = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
         self._events = 0
+        self._dropped = 0
         self._since_status = 0
         self._last_status = time.monotonic()
         self._started = time.monotonic()
@@ -87,6 +89,9 @@ class Hub:
             self._events += 1
             self._since_status += 1
             self._last_event = time.monotonic()
+            if len(self._pending) >= MAX_PENDING:  # capture never blocks and memory stays bounded
+                self._dropped += 1
+                return
             self._pending.append(_compact(event))
 
     def add_report(self, report: IncidentReport) -> None:
@@ -125,7 +130,8 @@ class Hub:
     def _status(self) -> dict[str, Any]:
         return {
             "type": "status", "capture": self._capture, "state": self._state,
-            "database": self._database, "events": self._events, "pps": round(self._pps),
+            "database": self._database, "events": self._events, "dropped": self._dropped,
+            "pps": round(self._pps),
             "counts": dict(self._counts), "uptime": int(time.monotonic() - self._started),
         }  # fmt: skip
 
