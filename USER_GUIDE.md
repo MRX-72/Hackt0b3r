@@ -547,7 +547,7 @@ enough to run without a model.
 
 ## Try it on your own machine (loopback)
 
-For the full four-attack walkthrough (port scan, brute force, beaconing, DNS tunnel, with the
+For a narrated presenter script see `python tools/demo_attacks.py` (described in demo.md). For the full four-attack walkthrough (port scan, brute force, beaconing, DNS tunnel, with the
 10-second window only and notifications off) see **[demo.md](demo.md)**; the short version:
 
 You can watch Sentinel catch a real port scan without any other device. The script below scans

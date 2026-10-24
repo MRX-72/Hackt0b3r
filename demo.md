@@ -8,6 +8,7 @@ four attacks Sentinel knows (port scan, brute force, beaconing, DNS tunnelling) 
 > Safety: every attack script targets `127.0.0.1` only and refuses any other address. Do not point
 > them (or adapt them) at machines you do not own.
 
+- [Presenter script (two consoles)](#presenter-script-two-consoles)
 - [Results from the reference run](#results-from-the-reference-run)
 - [Before you start](#before-you-start)
 - [Fastest way: one command](#fastest-way-one-command)
@@ -15,6 +16,30 @@ four attacks Sentinel knows (port scan, brute force, beaconing, DNS tunnelling) 
 - [How each attack trips the 10-second window](#how-each-attack-trips-the-10-second-window)
 - [Reading the numbers](#reading-the-numbers)
 - [Troubleshooting](#troubleshooting)
+
+---
+
+## Presenter script (two consoles)
+
+For a live presentation use `tools/demo_attacks.py`. It narrates each attack on screen
+(`Performing PORT SCAN on 127.0.0.1`, a progress bar, what Sentinel should report) while your
+other console shows the monitor catching it.
+
+```bash
+# console 1: the monitor (brief lines show only incidents; swap -b for -t to also show traffic)
+uv run sentinel --config demo-10s.toml watch --iface lo0 -b
+
+# console 2: the attacks
+uv run python tools/demo_attacks.py            # press Enter between attacks, to talk
+uv run python tools/demo_attacks.py --auto     # hands-off, 12 s between attacks
+uv run python tools/demo_attacks.py --only scan,dns     # just some of them
+```
+
+Order: port scan, SSH brute force, beaconing, DNS tunnel, then the control. In the reference run
+the monitor printed four lines, one per attack, as the same device's incident grew:
+`T1046` then `T1046 > T1110` then `... > T1071.001` then `... > T1071.004`; the control added
+nothing. Options: `--settle N` (seconds between attacks), `--countdown N` (before the first),
+`--scale 0.1` (tiny rehearsal run; too small to trigger detection). Loopback only.
 
 ---
 

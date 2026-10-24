@@ -49,15 +49,27 @@ def serve(port: int, handler: Callable[[socket.socket], object]) -> socket.socke
     return server
 
 
+QUIET = False  # the presenter script sets this to keep its own output clean
+
+
 def start() -> None:
-    print(f"ATTACK_START {time.time():.3f}", flush=True)
+    if not QUIET:
+        print(f"ATTACK_START {time.time():.3f}", flush=True)
 
 
-def scan(args: argparse.Namespace) -> None:
+def progress(args: argparse.Namespace, done: int, total: int) -> None:
+    """Tell a caller (tools/demo_attacks.py) how far along the attack is, if it asked."""
+    hook = getattr(args, "report", None)
+    if hook is not None:
+        hook(done, total)
+
+
+def scan(args: argparse.Namespace) -> str:
     listener = serve(args.port + 80, lambda c: c.close())  # one open port inside the range
     start()
     opened = closed = 0
-    for port in range(args.port, args.port + 400):
+    for done, port in enumerate(range(args.port, args.port + 400), 1):
+        progress(args, done, 400)
         with socket.socket() as probe:
             probe.settimeout(0.5)
             if probe.connect_ex((LOOPBACK, port)) == 0:
@@ -65,10 +77,10 @@ def scan(args: argparse.Namespace) -> None:
             else:
                 closed += 1
     listener.close()
-    print(f"probed 400 ports: {opened} open, {closed} closed")
+    return f"probed 400 ports: {opened} open, {closed} closed"
 
 
-def brute(args: argparse.Namespace) -> None:
+def brute(args: argparse.Namespace) -> str:
     def fake_ssh(conn: socket.socket) -> None:
         with conn:
             conn.sendall(b"SSH-2.0-FakeSSH\r\n")
@@ -78,16 +90,17 @@ def brute(args: argparse.Namespace) -> None:
     server = serve(args.port, fake_ssh)
     start()
     for i in range(args.count):
+        progress(args, i + 1, args.count)
         with socket.create_connection((LOOPBACK, args.port), timeout=2) as sock:
             sock.recv(64)
             sock.sendall(f"root:not-the-password-{i}\r\n".encode())
             sock.recv(64)
         time.sleep(args.interval)
     server.close()
-    print(f"made {args.count} failed logins to 127.0.0.1:{args.port}")
+    return f"made {args.count} failed logins to 127.0.0.1:{args.port}"
 
 
-def beacon(args: argparse.Namespace) -> None:
+def beacon(args: argparse.Namespace) -> str:
     def fake_c2(conn: socket.socket) -> None:
         with conn:
             conn.recv(256)
@@ -98,11 +111,12 @@ def beacon(args: argparse.Namespace) -> None:
     begin = time.monotonic()
     for i in range(args.count):
         time.sleep(max(0.0, begin + i * args.interval - time.monotonic()))  # no drift
+        progress(args, i + 1, args.count)
         with socket.create_connection((LOOPBACK, args.port), timeout=2) as sock:
             sock.sendall(b"GET /tick HTTP/1.1\r\nHost: c2.invalid\r\n\r\n")
             sock.recv(128)
     server.close()
-    print(f"sent {args.count} check-ins, one every {args.interval}s, to 127.0.0.1:{args.port}")
+    return f"sent {args.count} check-ins, one every {args.interval}s, to 127.0.0.1:{args.port}"
 
 
 def dns_query(name: str, qtype: int) -> bytes:
@@ -115,29 +129,31 @@ def dns_query(name: str, qtype: int) -> bytes:
     )
 
 
-def dns(args: argparse.Namespace) -> None:
+def dns(args: argparse.Namespace) -> str:
     rnd = random.Random(7)
     start()
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        for _ in range(args.count):
+        for i in range(args.count):
+            progress(args, i + 1, args.count)
             label = "".join(rnd.choice(ALPHABET) for _ in range(52))
             # Nothing listens on port 53 here; the query packets are what Sentinel sees.
             sock.sendto(dns_query(f"{label}.t.badzone.test", 16), (LOOPBACK, 53))
             time.sleep(1 / args.rate)
-    print(f"sent {args.count} TXT lookups of 52-character random names to 127.0.0.1:53")
+    return f"sent {args.count} TXT lookups of 52-character random names to 127.0.0.1:53"
 
 
-def web(args: argparse.Namespace) -> None:
+def web(args: argparse.Namespace) -> str:
     server = serve(
         args.port, lambda c: (c.recv(256), c.sendall(b"HTTP/1.0 200 OK\r\n\r\nhello"), c.close())
     )
     rnd = random.Random(3)
     start()
-    for _ in range(args.count):
+    for i in range(args.count):
+        progress(args, i + 1, args.count)
         urllib.request.urlopen(f"http://{LOOPBACK}:{args.port}/", timeout=2).read()
         time.sleep(rnd.uniform(0.1, 0.5))
     server.close()
-    print(f"made {args.count} ordinary web requests to 127.0.0.1:{args.port}")
+    return f"made {args.count} ordinary web requests to 127.0.0.1:{args.port}"
 
 
 def main(argv: list[str]) -> int:
@@ -159,7 +175,7 @@ def main(argv: list[str]) -> int:
     if not is_loopback(args.host):
         print(f"refusing {args.host}: only loopback addresses are allowed", file=sys.stderr)
         return 2
-    args.fn(args)
+    print(args.fn(args))
     return 0
 
 
