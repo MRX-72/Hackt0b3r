@@ -511,3 +511,19 @@ def test_init_never_exposes_the_secrets_file_even_for_a_moment_or_through_a_link
     (other / "secrets.env").symlink_to(victim)
     assert main(["init", "--dir", str(other)]) == 0  # an existing entry is left alone
     assert not victim.exists()
+
+
+@pytest.mark.security
+def test_a_malformed_credential_does_not_stop_doctor_or_config_show(
+    env: dict[str, object], capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    secrets = tmp_path / "secrets.env"
+    secrets.write_text("TELEGRAM_BOT_TOKEN=not-a-token-TOPSECRET\n")
+    secrets.chmod(0o600)
+    assert cli(env, "doctor") == 1  # reports the problem instead of crashing
+    out = capsys.readouterr()
+    assert "TELEGRAM_BOT_TOKEN" in out.out and "TOPSECRET" not in out.out + out.err
+    assert "Traceback" not in out.err
+    assert cli(env, "config", "show") == 0  # still works while the file is broken
+    assert cli(env, "replay", str(env["pcap"])) == 1  # real work refuses, with a clear message
+    assert "TELEGRAM_BOT_TOKEN" in capsys.readouterr().err

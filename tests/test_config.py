@@ -170,8 +170,9 @@ def test_credentials_of_the_wrong_shape_are_refused_without_echoing_them(
     f = tmp_path / "s.env"
     f.write_text(f"{key}={bad}\n")
     f.chmod(0o600)
-    with pytest.raises(ValidationError) as err:
+    with pytest.raises(SecretsError) as err:
         load_secrets(f, {})
+    assert key in str(err.value)  # says which setting is wrong
     assert "TOPSECRET" not in str(err.value) and "TOPSECRET" not in repr(err.value)
 
 

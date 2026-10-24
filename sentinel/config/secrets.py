@@ -5,7 +5,7 @@ import re
 from collections.abc import Mapping
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, SecretStr, field_validator
+from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError, field_validator
 
 KEYS = (
     "SLACK_WEBHOOK_URL",
@@ -80,4 +80,13 @@ def _read_file(path: Path) -> dict[str, str]:
 def load_secrets(path: Path, environ: Mapping[str, str] | None = None) -> Secrets:
     env = os.environ if environ is None else environ
     merged = _read_file(path) | {k: env[k] for k in KEYS if env.get(k)}
-    return Secrets.model_validate({k.lower(): v for k, v in merged.items() if v})
+    try:
+        return Secrets.model_validate({k.lower(): v for k, v in merged.items() if v})
+    except (
+        ValidationError
+    ) as exc:  # becomes the same error as a bad file mode: doctor can report it
+        problems = "; ".join(
+            f"{str(e['loc'][0]).upper()}: {e['msg'].removeprefix('Value error, ')}"
+            for e in exc.errors()
+        )
+        raise SecretsError(f"{path}: {problems}") from None
