@@ -19,3 +19,4 @@ docs/diagrams/wh.md
 dist/
 *.egg-info/
 docs/pitch/node_modules/
+demo.pcap

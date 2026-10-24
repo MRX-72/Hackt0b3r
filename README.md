@@ -377,6 +377,7 @@ make bootstrap     # uv sync
 make check         # format, lint, strict types, tests (90% coverage floor), security tests, dead code, deps
 make install       # uv tool install --force .
 make build         # wheel + sdist in dist/
+make demo          # practice capture with one of each attack, replayed in the terminal
 ```
 
 `make check` takes about two minutes. Layout: `sentinel/` (code; `api/` is the service surface used

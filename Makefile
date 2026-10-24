@@ -1,4 +1,4 @@
-.PHONY: bootstrap install check test trace schemas build
+.PHONY: bootstrap install check test trace schemas build demo
 bootstrap:
 	uv sync --python 3.13
 
@@ -7,6 +7,10 @@ install:
 
 build:
 	uv build
+
+demo:
+	uv run python tools/make_demo_pcap.py demo.pcap
+	uv run sentinel replay demo.pcap --brief
 
 check:
 	uv run ruff format --check .
