@@ -16,6 +16,8 @@ def _canonical_ip(value: str) -> str:
 
 
 IpAddr = Annotated[str, AfterValidator(_canonical_ip)]
+Proto = Literal["tcp", "udp", "icmp", "other"]
+DhcpMsgType = Literal["discover", "offer", "request", "decline", "ack", "nak", "release", "inform"]
 
 
 class _Frozen(BaseModel):
@@ -30,7 +32,7 @@ class Flow(_Frozen):
     dst_ip: IpAddr
     src_mac: Mac
     dst_mac: Mac
-    proto: Literal["tcp", "udp", "icmp", "other"]
+    proto: Proto
     src_port: Port | None = None
     dst_port: Port | None = None
     bytes: int = Field(ge=0)
@@ -75,3 +77,37 @@ class AuditEntry(_Frozen):
     action: str
     target: str
     detail: dict[str, Any]
+
+
+class ArpEvent(_Frozen):
+    ts: float
+    op: Literal["request", "reply"]
+    eth_src_mac: Mac
+    sender_mac: Mac
+    sender_ip: IpAddr
+    target_mac: Mac
+    target_ip: IpAddr
+
+
+class DhcpEvent(_Frozen):
+    """hostname is network-derived and hostile."""
+
+    ts: float
+    msg_type: DhcpMsgType
+    src_mac: Mac
+    src_ip: IpAddr
+    client_mac: Mac
+    offered_ip: IpAddr | None = None
+    hostname: str | None = None
+
+
+class MdnsEvent(_Frozen):
+    """name is network-derived and hostile."""
+
+    ts: float
+    src_mac: Mac
+    src_ip: IpAddr
+    name: str
+
+
+Event = Flow | ArpEvent | DhcpEvent | MdnsEvent

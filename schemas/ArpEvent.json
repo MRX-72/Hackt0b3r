@@ -1,0 +1,51 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "eth_src_mac": {
+      "pattern": "^([0-9a-f]{2}:){5}[0-9a-f]{2}$",
+      "title": "Eth Src Mac",
+      "type": "string"
+    },
+    "op": {
+      "enum": [
+        "request",
+        "reply"
+      ],
+      "title": "Op",
+      "type": "string"
+    },
+    "sender_ip": {
+      "title": "Sender Ip",
+      "type": "string"
+    },
+    "sender_mac": {
+      "pattern": "^([0-9a-f]{2}:){5}[0-9a-f]{2}$",
+      "title": "Sender Mac",
+      "type": "string"
+    },
+    "target_ip": {
+      "title": "Target Ip",
+      "type": "string"
+    },
+    "target_mac": {
+      "pattern": "^([0-9a-f]{2}:){5}[0-9a-f]{2}$",
+      "title": "Target Mac",
+      "type": "string"
+    },
+    "ts": {
+      "title": "Ts",
+      "type": "number"
+    }
+  },
+  "required": [
+    "ts",
+    "op",
+    "eth_src_mac",
+    "sender_mac",
+    "sender_ip",
+    "target_mac",
+    "target_ip"
+  ],
+  "title": "ArpEvent",
+  "type": "object"
+}

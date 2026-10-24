@@ -5,9 +5,25 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from sentinel.contracts.models import Alert, AuditEntry, Flow, Incident
+from sentinel.contracts.models import (
+    Alert,
+    ArpEvent,
+    AuditEntry,
+    DhcpEvent,
+    Flow,
+    Incident,
+    MdnsEvent,
+)
 
-MODELS: tuple[type[BaseModel], ...] = (Flow, Alert, Incident, AuditEntry)
+MODELS: tuple[type[BaseModel], ...] = (
+    Flow,
+    ArpEvent,
+    DhcpEvent,
+    MdnsEvent,
+    Alert,
+    Incident,
+    AuditEntry,
+)
 SCHEMA_DIR = Path(__file__).resolve().parents[2] / "schemas"
 
 

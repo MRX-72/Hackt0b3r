@@ -4,6 +4,7 @@ version = "0.0.0"
 description = "Small-network anomaly detector"
 requires-python = ">=3.13,<3.14"
 dependencies = [
+    "dpkt>=1.9.8",
     "pydantic>=2.14.1",
 ]
 
@@ -30,6 +31,10 @@ select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "C4", "PL", "RUF"]
 [tool.mypy]
 strict = true
 files = ["sentinel", "tests"]
+
+[[tool.mypy.overrides]]
+module = "dpkt.*"
+ignore_missing_imports = true  # dpkt ships no stubs
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

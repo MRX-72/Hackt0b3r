@@ -7,7 +7,7 @@
 | R-SAF-003 | P0 | explain.sanitize | NONE |
 | R-SAF-004 | P0 | explain.sanitize | NONE |
 | R-SAF-005 | P0 | bus | NONE |
-| R-SAF-006 | P0 | sensor.parse | NONE |
+| R-SAF-006 | P0 | sensor.parse | test_parser.py |
 | R-SAF-007 | P0 | sensor | NONE |
 | R-SAF-008 | P0 | notify.secrets | NONE |
 | R-SAF-009 | P0 | notify | NONE |
@@ -16,7 +16,7 @@
 | R-STO-002 | P0 | storage | test_storage.py |
 | R-STO-003 | P0 | storage | test_storage.py |
 | R-CFG-001 | P0 | config | NONE |
-| R-FLW-001 | P0 | sensor.parse | NONE |
+| R-FLW-001 | P0 | sensor.parse | test_parser.py |
 | R-RPL-001 | P0 | sensor.replay | NONE |
 | R-FEA-001 | P0 | features | NONE |
 | R-FEA-002 | P0 | features | NONE |

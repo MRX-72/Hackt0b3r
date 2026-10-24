@@ -4,8 +4,8 @@ R-SAF-002,P0,No LLM makes a detection or enforcement decision,P1 NN2,explain,,to
 R-SAF-003,P0,"Network-derived strings never reach LLM, notification or UI unsanitized; UI renders inert text","P1 NN3, P4 s5",explain.sanitize,,todo
 R-SAF-004,P0,"Poisoned hostname/DNS name/free text does not change LLM output, notifications or UI","P3 s17.7, P4 s13.6, P5 s13.6",explain.sanitize,,todo
 R-SAF-005,P0,Capture never blocks; bus drops low-priority events and counts drops,"P1 NN5, P4 s2",bus,,todo
-R-SAF-006,P0,Parser never crashes on malformed packets; parse errors counted; fuzz-tested,P4 s2,sensor.parse,,todo
-R-SAF-007,P0,"No payload storage by default (headers only, snaplen ~96)","P1, P4 s6",sensor,,todo
+R-SAF-006,P0,Parser never crashes on malformed packets; parse errors counted; fuzz-tested,P4 s2,sensor.parse,"test_parser.py::test_fuzz_*, test_every_prefix_*",done for parser; daemon-level crash resilience later
+R-SAF-007,P0,"No payload storage by default (headers only, snaplen ~96)","P1, P4 s6",sensor,(snaplen is capture config),"open: see D-011, snaplen decision in daemon component"
 R-SAF-008,P0,"Secrets never in repo, logs or API responses; env/Keychain only",P4 s9,notify.secrets,,todo
 R-SAF-009,P0,No external network calls except opt-in notifications; none in Air-gapped/Replay,P1,notify,,todo
 R-SAF-010,P0,Control characters in network strings escaped in logs,P4 s10,pipeline,,todo
@@ -13,7 +13,7 @@ R-STO-001,P0,"SQLite WAL, numbered SQL migrations, index (host_mac, ts)",P4 s3,s
 R-STO-002,P0,"Retention policy for flows, alerts, pcap ring buffer, configurable",P4 s3,storage,test_storage.py::test_prune_*,partial: flows/alerts/incidents only; pcap ring buffer later
 R-STO-003,P0,Append-only audit log for every state change,P4 s3,storage,test_storage.py::test_audit_is_append_only_*,done
 R-CFG-001,P0,Config validated with pydantic; invalid config fails fast with clear message,P4 s3,config,,todo
-R-FLW-001,P0,"Flow record matches spec s5 fields; DHCP, ARP, mDNS emitted as separate events",P3 s5,sensor.parse,,todo
+R-FLW-001,P0,"Flow record matches spec s5 fields; DHCP, ARP, mDNS emitted as separate events",P3 s5,sensor.parse,test_parser.py,done: flow + ARP/DHCP/mDNS events
 R-RPL-001,P0,"Replay mode runs the full pipeline from a pcap with no network, at original or accelerated speed",P3 s17.2,sensor.replay,,todo
 R-FEA-001,P0,"Rolling windows at 10s, 5m, 1h per host with features from spec s6",P3 s6,features,,todo
 R-FEA-002,P0,Feature snapshots persisted every 10 s,P3 s6,features,,todo

@@ -1,0 +1,71 @@
+{
+  "additionalProperties": false,
+  "description": "hostname is network-derived and hostile.",
+  "properties": {
+    "client_mac": {
+      "pattern": "^([0-9a-f]{2}:){5}[0-9a-f]{2}$",
+      "title": "Client Mac",
+      "type": "string"
+    },
+    "hostname": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Hostname"
+    },
+    "msg_type": {
+      "enum": [
+        "discover",
+        "offer",
+        "request",
+        "decline",
+        "ack",
+        "nak",
+        "release",
+        "inform"
+      ],
+      "title": "Msg Type",
+      "type": "string"
+    },
+    "offered_ip": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Offered Ip"
+    },
+    "src_ip": {
+      "title": "Src Ip",
+      "type": "string"
+    },
+    "src_mac": {
+      "pattern": "^([0-9a-f]{2}:){5}[0-9a-f]{2}$",
+      "title": "Src Mac",
+      "type": "string"
+    },
+    "ts": {
+      "title": "Ts",
+      "type": "number"
+    }
+  },
+  "required": [
+    "ts",
+    "msg_type",
+    "src_mac",
+    "src_ip",
+    "client_mac"
+  ],
+  "title": "DhcpEvent",
+  "type": "object"
+}

@@ -36,3 +36,15 @@ Reason: no ORM needed; atomic migrations need autocommit mode.
 
 ## D-009 Gate 0 gap closure
 Decision: coverage floor 90% (`--cov-fail-under`); `make check` runs `pytest -m security` as its own step so the security group cannot silently become empty (pytest exits non-zero when nothing is selected).
+
+## D-010 Dependency: dpkt
+Context: parser needs Ethernet/IP/TCP/UDP/ICMP/ARP/DHCP/DNS decoding; hand-rolled DNS name compression and DHCP options are error-prone.
+Decision: dpkt 1.9.8 (pure Python, wheel resolves on 3.13), mypy `ignore_missing_imports` for it (no stubs). It raises IndexError on malformed DHCP options and UnicodeDecodeError on non-UTF-8 DNS names, so the parser catches `(UnpackError, struct.error, ValueError, IndexError)`; fuzzing (80k extra examples run ad hoc, 1k in the suite) found no other exception types.
+Reason: smaller and better-tested than our own decoder; Scapy is far heavier and slower.
+
+## D-011 Snaplen conflicts with DNS tunnel detection
+Context: spec suggests snaplen ~96, but a 255-byte DNS name needs about 340 bytes of frame; truncated DNS fails to parse (counted in `payload_errors`) and the long names are exactly the tunnel signal.
+Decision: the daemon component must default snaplen to cover DNS (proposal: 384) and document that payload bytes up to that length can be written to the ring buffer, or capture DNS with a separate larger-snaplen filter. Not decided yet; revisit in component 11. LABEL: ASSUMED that 384 is acceptable privacy-wise; needs the human's call.
+
+## D-012 Parser input is Ethernet frames only
+Decision: `FrameParser` takes Ethernet frames. Link-type handling (pcap header, `bridge100` is expected to be EN10MB, ASSUMED) belongs to replay/capture, which reject other link types loudly.

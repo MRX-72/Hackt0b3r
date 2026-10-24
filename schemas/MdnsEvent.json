@@ -1,0 +1,31 @@
+{
+  "additionalProperties": false,
+  "description": "name is network-derived and hostile.",
+  "properties": {
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "src_ip": {
+      "title": "Src Ip",
+      "type": "string"
+    },
+    "src_mac": {
+      "pattern": "^([0-9a-f]{2}:){5}[0-9a-f]{2}$",
+      "title": "Src Mac",
+      "type": "string"
+    },
+    "ts": {
+      "title": "Ts",
+      "type": "number"
+    }
+  },
+  "required": [
+    "ts",
+    "src_mac",
+    "src_ip",
+    "name"
+  ],
+  "title": "MdnsEvent",
+  "type": "object"
+}
