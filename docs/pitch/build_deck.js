@@ -593,30 +593,7 @@ async function build() {
     });
   }
 
-  // ------------------------------------------------------------------ 16 status + roadmap
-  {
-    const s = content(
-      "Where it stands: what is proven, what is not yet, what is next",
-      "Be direct about this slide. Proven: 392 automated tests at 94% coverage including a security group, the four attacks live on loopback, the ablation results on synthetic data, the console checked in a real browser. " +
-        "Not yet verified: a real gateway on bridge100, real delivery to Slack, Discord and Telegram, a real local LLM, and the false-alarm rate on a real network; each has a numbered item on the human-verification checklist. " +
-        "Roadmap: an autoencoder, per-device peer baselines, blocking with human approval, and a background service."
-    );
-    kicker(s, "15", "HONEST STATUS");
-    const cols = [
-      ["PROVEN", T.ok, ["392 automated tests, 94% coverage", "Security test group, strict types, dead-code scan", "4 / 4 live attacks on loopback, control quiet", "Both models measured against the rules alone", "Console checked in a real browser", "Installs from a fresh clone"]],
-      ["NOT YET VERIFIED", T.med, ["Real gateway capture on bridge100", "Real Slack, Discord, Telegram delivery", "A real local LLM (Ollama, llama.cpp)", "False-alarm rate on a real network", "sudo file-ownership handback on hardware"]],
-      ["NEXT", T.tcp, ["Autoencoder for novel traffic", "Per-device peer baselines", "Blocking, with human approval", "A background service (launchd)", "Linux support"]],
-    ];
-    cols.forEach(([h, c, items], i) => {
-      const x = 0.6 + i * 4.1;
-      rect(s, x, 1.8, 3.95, 4.8, T.panel, T.line, "col");
-      rect(s, x, 1.8, 3.95, 0.07, c, null, "col-top");
-      mono(s, h, { x: x + 0.25, y: 2.05, w: 3.4, h: 0.3, fontSize: 12, bold: true, color: c, charSpacing: 3 });
-      s_items(s, items, x + 0.25, 2.55, 3.5, c);
-    });
-  }
-
-  // ------------------------------------------------------------------ 17 close
+  // ------------------------------------------------------------------ 16 close
   {
     const s = pres.addSlide({ masterName: "TITLE" });
     s.addNotes("Close on the promise and the call to action: try it in five minutes with no network. Offer to run the live attack demo now. Questions.");
@@ -633,13 +610,6 @@ async function build() {
   const out = process.argv[2] || path.join(__dirname, "Sentinel_Pitch.pptx");
   await pres.writeFile({ fileName: out });
   console.log("wrote", out);
-}
-
-function s_items(s, items, x, y, w, color) {
-  items.forEach((t, i) => {
-    rect(s, x, y + i * 0.69 + 0.1, 0.1, 0.1, color, null, "dot");
-    text(s, t, { x: x + 0.28, y: y + i * 0.69, w: w - 0.3, h: 0.62, fontSize: 13.5, color: T.text, valign: "top" });
-  });
 }
 
 build();
