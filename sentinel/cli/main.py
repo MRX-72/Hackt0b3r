@@ -102,6 +102,10 @@ def _ui_commands(sub: Any, add: Any) -> None:
     ui.add_argument("--port", type=int, default=8787)
     ui.add_argument("--no-open", action="store_true", help="do not open the browser")
     ui.add_argument("-n", "--notify", action="store_true", help="notify about new incidents")
+    deliv = add(sub, "deliveries", help="stored notification attempts (the Notifications tab)")
+    deliv.add_argument("-n", "--limit", type=int, default=30)
+    deliv.add_argument("--channel", choices=CHANNEL_CHOICES)
+    deliv.add_argument("--status", choices=["sent", "failed", "skipped"])
     dev = add(sub, "devices", help="devices the capture has seen (what the Devices tab shows)")
     dev.add_argument("-n", "--limit", type=int, default=30)
     hist = add(sub, "history", help="the permanent anomaly history (what the console shows)")
@@ -341,6 +345,21 @@ def _run_ui(args: argparse.Namespace, service: SentinelService, settings: Settin
     )  # fmt: skip
 
 
+def _show_deliveries(args: argparse.Namespace, service: SentinelService) -> int:
+    total, rows = service.deliveries(channel=args.channel, status=args.status, limit=args.limit)
+    for r in rows:
+        when = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(r.ts))
+        why = f"  ({terminal_safe(r.error)})" if r.error else ""
+        human = (
+            f"{when}  {r.channel:<9} {r.status:<8} {r.label or '-':<8} "
+            f"{terminal_safe(r.headline or '(incident removed)')}{why}"
+        )
+        _out(args, human, r.model_dump())
+    if not args.json:
+        print(f"{len(rows)} of {total} notification attempts" if rows else "no notifications yet")
+    return 0
+
+
 def _show_devices(args: argparse.Namespace, service: SentinelService) -> int:
     devices = service.devices(args.limit)
     for d in devices:
@@ -402,6 +421,7 @@ def _dispatch(
         "ui": lambda: _run_ui(args, service, settings),
         "history": lambda: _show_history(args, service),
         "devices": lambda: _show_devices(args, service),
+        "deliveries": lambda: _show_deliveries(args, service),
         "status": lambda: _status(args, service),
         "incidents": lambda: _list_incidents(args, service),
         "incident": lambda: _show_incident(args, service),

@@ -134,6 +134,7 @@ stored too, tagged `replay` and dated 1970 (the practice capture's clock); filte
 | `ui` | local web console |
 | `history` | the permanent anomaly history |
 | `devices` | the devices the capture has seen, with traffic and alert totals |
+| `deliveries` | stored notification attempts; `--channel`, `--status` filter them |
 | `incidents` / `incident ID` | list incidents / show one with its timeline |
 | `ack` / `dismiss` / `resolve` `ID...` | change incident status (a unique id prefix is enough) |
 | `notify test CHANNEL` | send one marked sample message to `slack`, `discord` or `telegram` |

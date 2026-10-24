@@ -474,3 +474,17 @@ def test_devices_command_lists_what_a_replay_saw(
     assert "no alerts" in out and "devices" in out.splitlines()[-1]
     row = json.loads(run_ok(env, capsys, "devices", "--json", "-n", "1").splitlines()[0])
     assert row["mac"].startswith("aa:bb:cc:dd:ee:") and row["packets"] >= 0
+
+
+def test_deliveries_command_lists_notification_attempts_with_filters(
+    env: dict[str, object], capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert "no notifications yet" in run_ok(env, capsys, "deliveries")
+    run_ok(env, capsys, "replay", str(env["pcap"]), "-n")
+    out = run_ok(env, capsys, "deliveries")
+    assert "slack" in out and "sent" in out and "CRITICAL" in out
+    assert "Device shows suspicious activity" in out and "1 of 1" in out
+    assert "no notifications yet" in run_ok(env, capsys, "deliveries", "--status", "failed")
+    assert "no notifications yet" in run_ok(env, capsys, "deliveries", "--channel", "telegram")
+    row = json.loads(run_ok(env, capsys, "deliveries", "--json").splitlines()[0])
+    assert (row["channel"], row["status"], row["label"]) == ("slack", "sent", "CRITICAL")
