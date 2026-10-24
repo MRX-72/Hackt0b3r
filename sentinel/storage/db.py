@@ -94,6 +94,23 @@ FROM device d LEFT JOIN (
 """
 
 
+def _make_private(path: Path) -> None:
+    """The history holds addresses, DNS names and evidence: owner-only, never the umask default.
+
+    A new database is created 0600 (SQLite gives its -wal and -shm files the same mode); an
+    existing one that this user owns is tightened. Never creates through a planted symlink.
+    """
+    try:
+        os.close(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600))
+    except FileExistsError:
+        try:
+            info = path.stat()
+        except FileNotFoundError:
+            raise StorageError(f"{path} is a dangling symlink; not creating through it") from None
+        if info.st_uid == os.geteuid() and info.st_mode & 0o077:
+            path.chmod(0o600)
+
+
 def _give_away(path: Path, uid: int, gid: int) -> None:
     """chown one of our own files (or the folder we created) without being steered elsewhere.
 
@@ -125,6 +142,7 @@ class Storage:
         self._made_folder = not path.parent.exists()
         path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         self._path = path
+        _make_private(path)
         # One thread uses a Storage at a time; the capture thread may be joined and closed by main.
         self.conn = sqlite3.connect(path, isolation_level=None, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row

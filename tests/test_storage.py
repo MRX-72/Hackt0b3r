@@ -273,3 +273,30 @@ def test_a_planted_hard_link_or_foreign_owned_file_is_not_handed_over(
     owned.clear()
     _give_away(other, os.getuid() + 1, 20)  # owned by someone else entirely: left alone
     assert owned == []
+
+
+@pytest.mark.security
+def test_the_database_and_its_sidecar_files_are_owner_only(tmp_path: Path) -> None:
+    path = tmp_path / "private.db"
+    store = Storage(path)
+    store.log_anomaly(anomaly())  # makes the -wal and -shm files exist
+    modes = {p.name: p.stat().st_mode & 0o777 for p in tmp_path.glob("private.db*")}
+    store.close()
+    assert modes and set(modes.values()) == {0o600}, modes
+
+
+@pytest.mark.security
+def test_an_existing_loose_database_is_tightened_and_a_symlink_is_not_created_through(
+    tmp_path: Path,
+) -> None:
+    loose = tmp_path / "loose.db"
+    sqlite3.connect(loose).close()
+    loose.chmod(0o644)
+    Storage(loose).close()
+    assert loose.stat().st_mode & 0o777 == 0o600
+    victim = tmp_path / "victim"
+    link = tmp_path / "link.db"
+    link.symlink_to(victim)  # dangling: creating "through" it would create the victim
+    with pytest.raises(StorageError, match="dangling symlink"):
+        Storage(link)
+    assert not victim.exists() or victim.stat().st_size == 0
