@@ -418,3 +418,39 @@ def test_a_client_that_stalls_mid_request_is_dropped(
         sock.close()
     finally:
         ui.stop()
+
+
+@pytest.mark.security
+def test_the_number_of_open_event_streams_is_capped_and_slots_are_freed(
+    server: tuple[UiServer, Hub], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ui, _ = server
+    monkeypatch.setattr("sentinel.api.ui.MAX_STREAMS", 2)
+    request = (
+        f"GET /api/stream HTTP/1.1\r\nHost: 127.0.0.1:{ui.port}\r\nCookie: {COOKIE}=tok\r\n\r\n"
+    )
+
+    def open_stream() -> socket.socket:
+        sock = socket.create_connection(("127.0.0.1", ui.port), timeout=5)
+        sock.sendall(request.encode())
+        return sock
+
+    first, second = open_stream(), open_stream()
+    read_until(first, b"event: hello")
+    read_until(second, b"event: hello")
+    third = open_stream()
+    assert b"503" in third.recv(200).split(b"\r\n")[0]
+    third.close()
+    first.close()  # a closed stream frees its slot once the server notices (next write)
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline:
+        server[1].tick_status()
+        again = open_stream()
+        head = again.recv(200).split(b"\r\n")[0]
+        again.close()
+        if b"200" in head:
+            break
+        time.sleep(0.3)
+    else:
+        pytest.fail("the slot was never freed")
+    second.close()

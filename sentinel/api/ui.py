@@ -47,9 +47,9 @@ COOKIE = "sentinel"
 MAC_RE = re.compile(MAC_PATTERN)
 MAX_BODY = 16_384  # a delete request is at most 500 small integers
 KEEPALIVE_SECONDS = 15.0
-REQUEST_TIMEOUT_SECONDS = (
-    30.0  # a client that stalls mid-request is dropped, not given a thread forever
-)
+# A client that stalls mid-request is dropped, not given a thread forever.
+REQUEST_TIMEOUT_SECONDS = 30.0
+MAX_STREAMS = 16  # live event streams at once; each holds a thread and a queue
 CSP = (
     "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
     "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
@@ -134,6 +134,8 @@ class UiServer:
         self._database, self._hub, self._token = database, hub, token
         self._config_info, self._doctor, self._notify_test = config_info, doctor, notify_test
         self._doctor_cache: tuple[float, list[dict[str, Any]]] = (0.0, [])
+        self._streams = 0
+        self._streams_lock = threading.Lock()
         self._stop = threading.Event()
         allowed: set[str] = set()  # filled once the real port is known (port 0 = any free port)
         outer = self
@@ -389,6 +391,18 @@ class UiServer:
                 self._json(record.model_dump(mode="json"))
 
             def _stream(self) -> None:
+                with outer._streams_lock:
+                    if outer._streams >= MAX_STREAMS:
+                        busy = HTTPStatus.SERVICE_UNAVAILABLE
+                        return self._send(busy, "text/plain; charset=utf-8", b"too many streams\n")
+                    outer._streams += 1
+                try:
+                    self._serve_stream()
+                finally:
+                    with outer._streams_lock:
+                        outer._streams -= 1
+
+            def _serve_stream(self) -> None:
                 client = outer._hub.subscribe()
                 self._headers(HTTPStatus.OK, "text/event-stream")
                 self.send_header("Connection", "close")
