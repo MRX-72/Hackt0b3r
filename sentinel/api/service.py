@@ -194,7 +194,10 @@ class SentinelService:
         pipeline = self._pipeline(on_event, on_report, notify)
         stop = halt if halt is not None else threading.Event()
         incoming: queue.Queue[tuple[float, bytes] | CaptureError | None] = queue.Queue()
-        argv = tcpdump_argv(interface, cap.snaplen, cap.bpf)
+        try:
+            argv = tcpdump_argv(interface, cap.snaplen, cap.bpf)
+        except CaptureError as exc:
+            raise ServiceError(str(exc)) from exc
 
         def pump() -> None:
             try:

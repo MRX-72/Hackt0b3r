@@ -1,5 +1,6 @@
 """Frames from pcap/pcapng streams and from a live tcpdump pipe, as Ethernet frames."""
 
+import re
 import subprocess
 import threading
 import time
@@ -71,8 +72,19 @@ def read_pcap(path: Path) -> Iterator[tuple[float, bytes]]:
         yield from read_frames(stream)
 
 
+_INTERFACE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,31}$")
+
+
 def tcpdump_argv(interface: str, snaplen: int, bpf: str = "") -> list[str]:
-    """Interim live source (needs root); sentineld replaces it. No shell is involved."""
+    """Interim live source (needs root); sentineld replaces it. No shell is involved.
+
+    The interface and filter come from the command line or config.toml and end up as tcpdump
+    arguments, so anything that tcpdump could read as an option (a leading "-") is refused.
+    """
+    if not _INTERFACE_NAME.match(interface):
+        raise CaptureError(f"not a valid interface name: {interface!r}")
+    if bpf.lstrip().startswith("-"):
+        raise CaptureError("a capture filter cannot start with '-'")
     argv = ["tcpdump", "-i", interface, "-n", "-U", "-s", str(snaplen), "-w", "-"]
     return [*argv, bpf] if bpf else argv
 

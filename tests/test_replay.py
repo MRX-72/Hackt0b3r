@@ -171,3 +171,21 @@ def test_capture_live_stops_when_asked_even_on_a_silent_link() -> None:
     sleeper = [sys.executable, "-c", "import time; time.sleep(30)"]
     assert list(capture_live(sleeper, stop=stop)) == []
     assert time.monotonic() - started < 10
+
+
+@pytest.mark.security
+@pytest.mark.parametrize(
+    "iface", ["-w", "--version", "-z", "en0 -z cmd", "../etc", "", "a" * 40, "en0;rm"]
+)
+def test_an_interface_name_tcpdump_could_read_as_an_option_is_refused(iface: str) -> None:
+    with pytest.raises(CaptureError, match="interface"):
+        tcpdump_argv(iface, 384)
+
+
+@pytest.mark.security
+def test_a_capture_filter_cannot_smuggle_in_an_option() -> None:
+    with pytest.raises(CaptureError, match="filter"):
+        tcpdump_argv("en0", 384, " -z /tmp/evil")
+    for iface in ("en0", "bridge100", "lo0", "utun3", "en0.100", "any"):
+        argv = tcpdump_argv(iface, 384, "tcp port 22")
+        assert argv[argv.index("-i") + 1] == iface and argv[-1] == "tcp port 22"
