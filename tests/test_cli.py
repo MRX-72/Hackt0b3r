@@ -527,3 +527,16 @@ def test_a_malformed_credential_does_not_stop_doctor_or_config_show(
     assert cli(env, "config", "show") == 0  # still works while the file is broken
     assert cli(env, "replay", str(env["pcap"])) == 1  # real work refuses, with a clear message
     assert "TELEGRAM_BOT_TOKEN" in capsys.readouterr().err
+
+
+def test_an_unusable_database_is_reported_not_dumped_as_a_traceback(
+    env: dict[str, object], capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    (tmp_path / "s.db").symlink_to(tmp_path / "nowhere")  # dangling: refused
+    assert cli(env, "history") == 1
+    err = capsys.readouterr().err
+    assert "database cannot be used" in err and "dangling symlink" in err and "Traceback" not in err
+    (tmp_path / "s.db").unlink()
+    (tmp_path / "s.db").write_bytes(b"this is not a database" * 50)  # garbage file
+    assert cli(env, "history") == 1
+    assert "database cannot be used" in capsys.readouterr().err

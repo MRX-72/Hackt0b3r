@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import re
+import sqlite3
 import sys
 import time
 from collections.abc import Callable
@@ -30,6 +31,7 @@ from sentinel.config.secrets import Secrets, SecretsError, load_secrets
 from sentinel.config.settings import Settings, find_config, load_settings, sentinel_home
 from sentinel.contracts.models import Event, HistoryQuery, IncidentReport
 from sentinel.contracts.text import terminal_safe
+from sentinel.storage.db import StorageError
 
 ServiceFactory = Callable[[Settings, Secrets], SentinelService]
 CHANNEL_CHOICES = ("slack", "discord", "telegram")
@@ -470,8 +472,13 @@ def main(argv: list[str] | None = None, build_service: ServiceFactory = default_
     service = build_service(settings, secrets)
     try:
         return _dispatch(args, service, settings, secrets)
-    except ServiceError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+    except (ServiceError, StorageError, sqlite3.Error) as exc:
+        what = (
+            str(exc)
+            if isinstance(exc, ServiceError)
+            else (f"the database cannot be used ({type(exc).__name__}: {exc})")
+        )  # a bad database path or file: say so, no traceback
+        print(f"error: {what}", file=sys.stderr)
         return 1
     except BrokenPipeError:
         # Output was piped to something that closed early (`| head`). Silence the flush at exit.
