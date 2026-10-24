@@ -43,6 +43,11 @@ own headline (port probing, repeated logins, fixed-interval contact, unusual DNS
 added nothing. Options: `--settle N` (seconds between attacks), `--countdown N` (before the first),
 `--scale 0.1` (tiny rehearsal run; too small to trigger detection). Loopback only.
 
+In the `-d` view every CRITICAL alert stacks as its own pinned line (a scan, logins, a beacon and a
+DNS tunnel from the one device are four lines, and the `CRIT` counter goes 1, 2, 3, 4). Running the
+same attack again within `cooldown_seconds` raises no new alert; `demo-10s.toml` sets it to 15 s so
+repeats show up as new pinned lines.
+
 ---
 
 ## Results from the reference run

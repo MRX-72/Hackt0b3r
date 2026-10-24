@@ -203,3 +203,21 @@ def test_live_watch_reports_an_attack_on_a_quiet_link_without_waiting_for_more_p
 
     svc.watch("lo0", on_report=on_report)
     assert reports and time.monotonic() - started < 6
+
+
+def test_every_alert_gets_its_own_report_even_inside_one_incident(tmp_path: Path) -> None:
+    """Scan, then password guessing, then a DNS tunnel from one device: three reports."""
+    packets = (
+        sc.port_scan(100.0, range(1, 201)) + sc.brute_force(300.0, 40) + sc.dns_tunnel(500.0, 60)
+    )
+    path = tmp_path / "chain.pcap"
+    sc.write_pcap(path, packets)
+    svc = service(tmp_path, FakeWorld())
+    reports: list[IncidentReport] = []
+    summary = svc.replay(path, on_report=reports.append)
+    assert summary.alerts == len(reports) == 3 and summary.incidents == 2
+    assert [r.explanation.headline for r in reports][:2] == [
+        "Device is probing many network ports",
+        "Repeated login attempts against a service",
+    ]
+    assert len({r.explanation.headline for r in reports}) == 3

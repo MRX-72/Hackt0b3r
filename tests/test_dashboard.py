@@ -82,16 +82,34 @@ def test_critical_alerts_are_pinned_newest_first_and_stay_pinned_through_heavy_t
     assert "PINNED: CRITICAL ALERTS (2)" in frame[1]
 
 
-def test_an_updated_incident_moves_to_the_top_and_replaces_its_text() -> None:
+def test_every_critical_alert_stacks_even_within_one_incident_and_the_counter_follows() -> None:
+    """A scan, then logins, then a tunnel from one device are three criticals, not one."""
     d = dash()
-    d.add_report(report("inc-a", 0.99, "Port scan"))
-    d.add_report(report("inc-b", 0.99, "Other"))
-    d.add_report(report("inc-a", 1.0, "Repeated logins", chain=("T1046", "T1110")))
-    pins = [
-        line for line in d.frame() if "inc-" in line and "CRITICAL" in line and "ALERT" not in line
-    ]
-    assert "Repeated logins" in pins[0] and "T1046 > T1110" in pins[0] and "Other" in pins[1]
-    assert len(pins) == 2  # replaced, not duplicated
+    d.add_report(report("inc-a", 0.99, "Port scan", end_ts=100.0))
+    assert "CRIT 1 " in d.frame()[0]
+    d.add_report(report("inc-a", 1.0, "Repeated logins", chain=("T1046", "T1110"), end_ts=110.0))
+    d.add_report(
+        report("inc-a", 1.0, "Unusual DNS", chain=("T1046", "T1110", "T1071.004"), end_ts=120.0)
+    )
+    frame = d.frame()
+    pins = [line for line in frame if line.startswith(" CRITICAL")]
+    assert [
+        next(h for h in ("Unusual DNS", "Repeated logins", "Port scan") if h in line)
+        for line in pins
+    ] == [
+        "Unusual DNS",
+        "Repeated logins",
+        "Port scan",
+    ]  # all three visible, newest first
+    assert "PINNED: CRITICAL ALERTS (3)" in frame[1] and "CRIT 3 " in frame[0]
+
+
+def test_the_pin_list_is_bounded_but_keeps_the_newest() -> None:
+    d = dash(100, 30)
+    for i in range(700):
+        d.add_report(report(f"inc-{i}", 0.99, f"Problem {i}", end_ts=float(i)))
+    assert len(d.pinned_summary()) == 500 and "Problem 699" in d.pinned_summary()[0]
+    assert "CRIT 700 " in d.frame()[0]  # the counter still counts all of them
 
 
 def test_only_critical_incidents_are_pinned_but_every_alert_appears_in_the_stream() -> None:
@@ -113,7 +131,7 @@ def test_many_pins_are_summarised_so_the_traffic_window_keeps_its_share() -> Non
     assert len(frame) == 14
     assert any("older critical alerts" in line for line in frame)
     assert "Problem 8" in "\n".join(frame) and sum("RECENT TRAFFIC" in line for line in frame) == 1
-    assert sum(" -> " in line for line in frame) >= 5
+    assert sum(" -> " in line for line in frame) >= 4  # criticals take priority, traffic keeps 4
 
 
 def test_the_traffic_window_slides_and_grows_with_the_terminal() -> None:

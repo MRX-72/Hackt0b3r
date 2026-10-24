@@ -30,6 +30,8 @@ _FRAME_SECONDS = 0.05  # a new alert is on screen within this long
 _IDLE_REDRAW_SECONDS = 0.5  # also redraws on its own, so a resized window repaints
 _BUFFER_LINES = 2000
 _PINNED = "CRITICAL"
+_MAX_PINS = 500  # a run with more criticals than this keeps the newest
+_MIN_TRAFFIC_LINES = 4  # pins may take everything except this much of the traffic window
 _BADGE = {"CRITICAL": "1;97;41", "HIGH": "1;97;41", "MEDIUM": "1;30;43", "LOW": "1;30;46"}
 _TEXT = {"CRITICAL": "1;31", "HIGH": "1;31", "MEDIUM": "33", "LOW": "36"}
 _ALT_SCREEN_ON, _ALT_SCREEN_OFF = "\x1b[?1049h\x1b[?25l", "\x1b[?25h\x1b[?1049l"
@@ -78,8 +80,8 @@ class Dashboard:
     def __post_init__(self) -> None:
         self._lock = threading.RLock()
         self._lines: deque[_Line] = deque(maxlen=_BUFFER_LINES)
-        self._pins: dict[str, _Pin] = {}
-        self._labels: dict[str, str] = {}
+        self._pins: deque[_Pin] = deque(maxlen=_MAX_PINS)
+        self._counts: dict[str, int] = {}
         self._events = 0
         self._seq = 0
         self._started = time.monotonic()
@@ -103,21 +105,19 @@ class Dashboard:
             self._dirty = True
 
     def add_report(self, report: IncidentReport) -> None:
-        """An alert: always listed in the stream; CRITICAL ones are pinned to the top."""
+        """One alert: always listed in the stream; each CRITICAL one gets its own pinned line."""
         inc, exp = report.incident, report.explanation
         label = severity_label(inc.score)
         headline = terminal_safe(exp.headline)
         with self._lock:
-            self._labels[inc.id] = label
+            self._counts[label] = self._counts.get(label, 0) + 1
             chain = " > ".join(inc.chain)
             alert = f"ALERT [{label} {inc.score:.2f}] {headline} ({chain})"
             self._lines.append(_Line(alert, "alert", label))
             if label == _PINNED:
                 self._seq += 1
                 clock = time.strftime("%H:%M:%S", time.localtime(inc.end_ts))
-                self._pins[inc.id] = _Pin(
-                    inc.id, label, inc.score, headline, chain, clock, self._seq
-                )
+                self._pins.append(_Pin(inc.id, label, inc.score, headline, chain, clock, self._seq))
             self._dirty = True
 
     def clear_pins(self) -> None:
@@ -141,9 +141,7 @@ class Dashboard:
         return body[:rows]
 
     def _header(self, cols: int) -> list[str]:
-        counts: dict[str, int] = {}
-        for label in self._labels.values():
-            counts[label] = counts.get(label, 0) + 1
+        counts = self._counts
         elapsed = int(time.monotonic() - self._started)
         state = "FINISHED  q to exit" if self._finished else "q quit  c clear pins"
         text = (
@@ -157,13 +155,13 @@ class Dashboard:
     def _budget(self, rows: int) -> tuple[int, int]:
         """(pinned lines, traffic lines) for a window of `rows` lines."""
         free = rows - 3  # header + two section titles
-        pinned = max(1, min(len(self._pins) or 1, free // 2))
+        pinned = max(1, min(len(self._pins) or 1, free - _MIN_TRAFFIC_LINES))
         return pinned, free - pinned
 
     def _pinned(self, cols: int, rows: int) -> list[str]:
         slots, _ = self._budget(rows)
-        pins = sorted(self._pins.values(), key=lambda p: p.seq, reverse=True)  # newest first
-        title = f" PINNED: CRITICAL ALERTS ({len(pins)})  newest on top, kept until cleared"
+        pins = sorted(self._pins, key=lambda p: p.seq, reverse=True)  # newest first
+        title = f" PINNED: CRITICAL ALERTS ({len(pins)})  every one stays; newest on top"
         out = [self._style(_fit(title, cols), "1;31")]
         if not pins:
             return [*out, self._style(_fit("   none yet", cols), "2")]
@@ -199,7 +197,7 @@ class Dashboard:
     def pinned_summary(self) -> list[str]:
         """What to leave on the normal screen after the view closes."""
         with self._lock:
-            pins = sorted(self._pins.values(), key=lambda p: p.seq, reverse=True)
+            pins = sorted(self._pins, key=lambda p: p.seq, reverse=True)
         return [
             f"[{p.label} {p.score:.2f}] {p.clock}  {p.headline}  ({p.chain})  {p.incident_id}"
             for p in pins

@@ -371,7 +371,7 @@ works):
 
 ```
  SENTINEL | watch lo0 | 01:12 | events 4183 | CRIT 2 HIGH 0 MED 1 LOW 0 | q quit  c clear pins
- PINNED: CRITICAL ALERTS (2)  newest on top, kept until cleared
+ PINNED: CRITICAL ALERTS (2)  every one stays; newest on top
   CRITICAL 1.00  23:43:20  Unusual DNS requests that may hide data  (T1046 > T1071.004)  inc-...
   CRITICAL 0.99  23:42:51  Device is probing many network ports  (T1046)  inc-...
  RECENT TRAFFIC (sliding window)
@@ -379,10 +379,12 @@ works):
  ...
 ```
 
-- **Pinned area (top):** every CRITICAL incident is pinned the moment it is reported (within about
-  50 ms), newest first. When an incident grows (a scan followed by password guessing) its pin
-  updates in place and moves to the top. Pins never scroll away; if there are more than fit, the
-  rest are summarised as `+N older critical alerts` so the traffic window keeps its share.
+- **Pinned area (top):** **every** CRITICAL alert gets its own pinned line the moment it is reported
+  (within about 50 ms), newest on top, and stays. A scan, then password guessing, then a DNS tunnel
+  from one device are three lines even though they belong to one incident, and the `CRIT` counter
+  in the header counts each of them (HIGH, MED and LOW count alerts the same way). Criticals take
+  all the room except four lines of traffic; only beyond that are the oldest summarised as
+  `+N older critical alerts` (the last 500 are kept).
 - **Traffic window (below):** the most recent packets, sliding as new ones arrive, filling whatever
   height is left. Alerts of any severity also appear in it, inline. `-T` hides the traffic and
   shows only alerts. `-H`, `-p` and `--proto` filter what is shown, as usual.
@@ -390,6 +392,9 @@ works):
   ends, the screen stays with `FINISHED` in the header until you press `q`.
 - **After you quit** the normal screen gets your pinned alerts and the run summary, so nothing is
   lost.
+- Repeating the same attack soon after is a new alert only once the detector's `cooldown_seconds`
+  has passed (default 300 s, `demo-10s.toml` uses 15 s), so use `--config demo-10s.toml` when you
+  rehearse the same attack several times in a row.
 - It needs an interactive terminal at least 40 columns by 8 rows. Piped or `--json` output falls
   back to the plain view with a warning.
 

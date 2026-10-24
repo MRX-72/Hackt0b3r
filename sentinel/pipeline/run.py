@@ -33,7 +33,6 @@ class Pipeline:
         self._engine = DetectionEngine(settings.detection)
         self._correlator = Correlator(settings.detection.incident_gap_seconds)
         self._pending_flows: list[Flow] = []
-        self._explained: dict[str, int] = {}  # incident id -> chain length already explained
         self._flows = self._alerts = self._incidents = 0
         if notifier is not None:
             notifier.on_delivery = storage.log_delivery
@@ -85,28 +84,25 @@ class Pipeline:
             self._pending_flows = []
 
     def _handle(self, alert: Alert) -> None:
+        """Every alert yields its own report: the incident so far, explained by its newest step."""
         self._alerts += 1
         self._storage.insert_alert(alert)
         incident = self._correlator.add(alert)
-        known = self._explained.get(incident.id)
-        if known is not None:
-            previous = self._storage.get_incident(incident.id)
-            if previous is not None:
-                incident = incident.model_copy(
-                    update={"summary": previous.summary, "status": previous.status}
-                )
-        self._storage.save_incident(incident)
-        if known is not None and len(incident.chain) <= known:
-            return
-        if known is None:
+        previous = self._storage.get_incident(incident.id)
+        if previous is None:
             self._incidents += 1
-        self._explained[incident.id] = len(incident.chain)
+        self._storage.save_incident(incident)
         sanitized = sanitize_incident(incident, self._correlator.alerts_of(alert.host_mac))
         explanation = self._explainer.explain(sanitized)
         deliveries = self._notifier.notify(sanitized, explanation) if self._notifier else []
-        sent = any(d.status == "sent" for d in deliveries)
+        notified = any(d.status == "sent" for d in deliveries) or (
+            previous is not None and previous.status == "notified"
+        )
         incident = incident.model_copy(
-            update={"summary": explanation.headline, "status": "notified" if sent else "explained"}
+            update={
+                "summary": explanation.headline,
+                "status": "notified" if notified else "explained",
+            }
         )
         self._storage.save_incident(incident)
         if self._on_report:
