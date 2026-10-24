@@ -163,10 +163,10 @@ class Storage:
         # One thread uses a Storage at a time; the capture thread may be joined and closed by main.
         self.conn = sqlite3.connect(path, isolation_level=None, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
-        self.conn.execute("PRAGMA journal_mode=WAL")
-        self.conn.execute("PRAGMA foreign_keys=ON")
-        self.conn.execute("PRAGMA synchronous=NORMAL")
-        try:
+        try:  # any failure (not a database, a bad migration) must not leak the handle
+            self.conn.execute("PRAGMA journal_mode=WAL")
+            self.conn.execute("PRAGMA foreign_keys=ON")
+            self.conn.execute("PRAGMA synchronous=NORMAL")
             migrate(self.conn, load_migrations())
         except BaseException:
             self.conn.close()

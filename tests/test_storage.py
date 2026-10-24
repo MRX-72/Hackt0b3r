@@ -1,3 +1,4 @@
+import gc
 import os
 import sqlite3
 from collections.abc import Iterator
@@ -333,3 +334,14 @@ def test_old_sidecar_files_are_tightened_too(tmp_path: Path) -> None:
     modes = {p.name: p.stat().st_mode & 0o777 for p in tmp_path.glob("old.db*")}
     store.close()
     assert set(modes.values()) == {0o600}, modes
+
+
+def test_a_file_that_is_not_a_database_does_not_leak_the_connection(
+    tmp_path: Path, recwarn: pytest.WarningsRecorder
+) -> None:
+    path = tmp_path / "garbage.db"
+    path.write_bytes(b"this is not a database" * 50)
+    with pytest.raises(sqlite3.DatabaseError):
+        Storage(path)
+    gc.collect()
+    assert not [w for w in recwarn if issubclass(w.category, ResourceWarning)]
