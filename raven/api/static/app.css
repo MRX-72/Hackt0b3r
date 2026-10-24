@@ -187,7 +187,7 @@ select:focus, input:focus { border-color: var(--dim); }
 
 /* Narrow windows: keep every cell readable by dropping the least important stats, never by overlap. */
 #bar { overflow: hidden; }
-@media (max-width: 1500px) { .stat.opt { display: none; } }
+@media (max-width: 1420px) { .stat.opt { display: none; } }
 @media (max-width: 1250px) { #theme { display: none; } .tab { padding: 0 14px; } }
 @media (max-width: 1000px) { .brand { padding: 0 10px; letter-spacing: .12em; } .tab { padding: 0 9px; letter-spacing: .06em; } }
 @media (max-width: 800px) { .stat:not(.crit):not(.link) { display: none; } }
