@@ -63,6 +63,8 @@
         tbody.appendChild(tr);
       });
       $("#n-empty").hidden = rows.length > 0; $("#ntab").hidden = rows.length === 0;
+      $("#n-empty").textContent = !config.enabled ? "NOTIFICATIONS ARE OFF IN CONFIG.TOML"
+        : !config.armed ? "NOTHING SENT: THIS RUN WAS STARTED WITHOUT -N" : "NO NOTIFICATIONS YET";
       const from = rows.length ? f.offset + 1 : 0;
       $("#n-range").textContent = `${from}-${f.offset + rows.length} OF ${num(total)}`;
       $("#n-prev").disabled = f.offset === 0; $("#n-next").disabled = f.offset + rows.length >= total;
