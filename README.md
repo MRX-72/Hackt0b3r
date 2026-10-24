@@ -2,21 +2,41 @@
 
 Sentinel watches the network traffic of a small office, lab or college network and tells you, in
 plain English, when something looks wrong: **port scans, brute-force logins, beaconing (malware
-checking in) and DNS tunnelling**. Every detection is kept in a permanent history you can browse in
-a local web console or the terminal, and can be pushed to **Slack, Discord or Telegram**.
+checking in), DNS tunnelling and unusual traffic volume**. Every detection is kept in a permanent
+history you can browse in a local web console or the terminal, and can be pushed to **Slack,
+Discord or Telegram**.
 
-It runs on one Mac that sits in front of your devices (a gateway). Nothing leaves the machine
-except the alerts you switch on. No cloud, no account, no payload inspection.
+It runs on one Mac that sits in front of your devices (a gateway). No cloud, no account, no
+payload inspection. The only traffic that leaves the machine is the alerts you switch on.
+
+**Contents:**
+[Who it is for](#who-it-is-for) ·
+[What it detects](#what-it-detects) ·
+[Install](#install) ·
+[Quick start](#quick-start-5-minutes-no-network-needed) ·
+[Command reference](#command-reference) ·
+[Live capture](#live-capture) ·
+[Web console](#web-console) ·
+[Attack yourself](#attack-yourself-live-demo) ·
+[Alerts](#alerts-to-slack-discord-telegram) ·
+[LLM summaries](#plain-english-summaries-with-a-local-llm-optional) ·
+[Configuration and data](#configuration-and-data) ·
+[Troubleshooting](#troubleshooting) ·
+[Safety](#safety) ·
+[Limits](#limits-read-this) ·
+[Develop](#develop)
+
+---
 
 ## Who it is for
 
-- Small teams, schools, labs and home offices with **no security staff**, who want "something is
-  scanning our network" without running a SIEM.
-- Admins and students learning detection: every detector is a readable rule, and `replay` runs any
-  `.pcap` through it offline.
-- Not for: enterprise scale, blocking attacks automatically (Sentinel only alerts), or reading
+- Small teams, schools, labs and home offices with **no security staff**, who want to know
+  "something is scanning our network" without running a SIEM.
+- Admins and students learning detection: every rule is readable, and `replay` runs any `.pcap`
+  through it offline.
+- **Not for:** enterprise scale, blocking attacks automatically (Sentinel only alerts), or reading
   encrypted content. A switched, encrypted Wi-Fi network only shows you your own traffic, so live
-  capture is only meaningful on a gateway (see [Where to run it](#where-to-run-it)).
+  capture is only meaningful on a gateway (see [Live capture](#live-capture)).
 
 ## What it detects
 
@@ -25,61 +45,184 @@ except the alerts you switch on. No cloud, no account, no payload inspection.
 | Port / host scan | T1046 | one device probing many ports or hosts, fast or slow (10 s, 5 min and 1 h windows) |
 | Brute force | T1110 | many connections to SSH, RDP, SMB, FTP... that mostly complete |
 | Beaconing | T1071.001 | a device contacting one server at suspiciously regular intervals |
-| DNS tunnelling | T1071.004 | many long, random-looking lookups under one domain; a character n-gram model scores how "random" names look and catches slow tunnels with short names |
-| Unusual behaviour | none (statistical) | an Isolation Forest learns your network's normal for ~35 minutes, then flags a device whose traffic volume is far beyond anything seen (for example a bulk upload no rule covers) |
+| DNS tunnelling | T1071.004 | many long, random-looking lookups under one domain; a character n-gram model scores how "random" names look, which catches slow tunnels with short names |
+| Unusual behaviour | none (statistical) | an Isolation Forest learns your network's normal for about 35 minutes, then flags a device whose traffic volume is far beyond anything seen (for example a bulk upload no rule covers) |
 
-Alerts with the same device are joined into one **incident** (for example scan then brute force)
-and given a 0 to 1 severity score. Explanations come from built-in templates, or from a local LLM
-(Ollama or llama.cpp) if you enable one; the LLM only writes the wording and never decides
+Alerts on the same device are joined into one **incident** (for example scan, then brute force)
+with a 0 to 1 score shown as CRITICAL / HIGH / MEDIUM / LOW. Explanations come from built-in
+templates, or from a local LLM if you enable one; the LLM only writes wording and never decides
 anything.
 
-The two statistical detectors are measured in [docs/ABLATION.md](docs/ABLATION.md) (synthetic
-traffic only; their false-alarm rate on a real network is unverified) and can be switched off in
-`[detection.ml]`. Not built yet: an autoencoder, per-device peer baselines, automatic blocking and
-a background service. See `docs/BACKLOG.md`.
-
-## What is inside
+### What is inside, and how far it is verified
 
 | Part | What it is | Status |
 |---|---|---|
 | Packet capture | live via `tcpdump`, or replay any `.pcap` | live verified on loopback only; gateway `bridge100` not yet |
-| Rule detectors | port scan, brute force, beaconing (timing regularity), DNS tunnelling | tested on synthetic and live loopback attacks |
+| Rule detectors | scan, brute force, beaconing, DNS tunnelling | tested on synthetic and live loopback attacks |
 | DNS n-gram model | character-trigram "random name" score, a 5th DNS signal | built, measured on synthetic data ([ablation](docs/ABLATION.md)) |
 | Isolation Forest | learns your network's normal, flags unusual volume | built, measured on synthetic data; real false-alarm rate unverified |
-| Incidents | alerts joined per device, ATT&CK chain, 0 to 1 score | built |
+| Incidents | alerts joined per device, ATT&CK chain, score | built |
 | Explanations | plain-English templates; optional local LLM (Ollama, llama.cpp) with fact-checking and template fallback | templates verified; real LLM not yet |
 | Notifications | Slack, Discord, Telegram with rate limits, retries, dedupe | tested against fakes; real delivery unverified |
 | Web console | live packet monitor, topology, alerts; permanent history with search, CSV and delete | built, checked in headless Chromium |
 | Terminal | `watch -d` live dashboard, `history`, `incidents`, `ack`, `status`, `doctor` | built |
-| Storage | SQLite in `~/.sentinel`, never pruned history, audit log | built |
-| Demo tools | practice `.pcap` and loopback attack scripts (loopback only) | built, see [demo.md](demo.md) |
+| Storage | SQLite in `~/.sentinel`, history never pruned automatically, audit log | built |
 | Not built | autoencoder, per-device peer baselines, automatic blocking, background service | roadmap |
+
+---
 
 ## Install
 
-You need **macOS** (tested platform; live capture uses the built-in `tcpdump`) and
-[uv](https://docs.astral.sh/uv/). uv downloads Python 3.13 for you.
+**Requirements:** macOS (the tested platform; live capture uses the built-in `tcpdump`) and
+[uv](https://docs.astral.sh/uv/). uv downloads the right Python (3.13) for you. Nothing else.
 
 ```bash
+# 1. get uv (skip if you have it)
 brew install uv                       # or: curl -LsSf https://astral.sh/uv/install.sh | sh
-git clone <this repository> sentinel && cd sentinel
-uv tool install .                     # puts `sentinel` on your PATH (~/.local/bin)
-sentinel --version
+
+# 2. get the code
+git clone <repo-url> sentinel && cd sentinel
+
+# 3. install the `sentinel` command
+uv tool install .
+
+# 4. set up your folder and check it
 sentinel init                         # creates ~/.sentinel/config.toml and a private secrets.env
-sentinel doctor                       # checks everything and says what to fix
+sentinel doctor                       # checks everything and tells you what to fix
 ```
 
-Upgrade later with `git pull && uv tool install --force .`. Remove with `uv tool uninstall sentinel`.
-`pipx install .` works too. Prefer a throwaway try-out? `uv run sentinel ...` inside the checkout
-works without installing.
+If step 4 says `command not found`, run `uv tool update-shell` and open a new terminal.
 
-## Try it (no network needed)
+| I want to... | Command |
+|---|---|
+| upgrade | `git pull && uv tool install --force .` |
+| uninstall the command | `uv tool uninstall sentinel` |
+| try it without installing | `uv sync`, then use `uv run sentinel ...` inside the checkout |
+| install with pipx instead | `pipx install .` |
+
+Uninstalling the command keeps your data in `~/.sentinel/`; delete that folder to remove it too.
+
+## Quick start (5 minutes, no network needed)
+
+Run these from the checkout. The practice capture is a synthetic network containing one of each attack.
 
 ```bash
-uv run python tools/make_demo_pcap.py demo.pcap    # a synthetic network with one of each attack
-sentinel replay demo.pcap                           # run it through the detectors
-sentinel ui --replay demo.pcap                      # same, in the web console (opens your browser)
+uv run python tools/make_demo_pcap.py demo.pcap   # make the practice capture
+sentinel replay demo.pcap                          # detectors run, alerts print in the terminal
+sentinel ui --replay demo.pcap                     # same, in the web console (opens your browser)
+sentinel history                                   # everything detected, from the terminal
 ```
+
+You should see four CRITICAL detections (port scan, brute force, beaconing, DNS tunnel). Replays are
+stored too, tagged `replay` and dated 1970 (the practice capture's clock); filter them out in History.
+
+---
+
+## Command reference
+
+`sentinel <command> [options]`. Add `--help` to any command. Run `sentinel` alone for examples.
+
+| Command | What it does |
+|---|---|
+| `init` | create `config.toml` and a private `secrets.env` (never overwrites) |
+| `doctor` | check config, credentials, interface and LLM; `--fix` repairs what is safe |
+| `status` | one-screen summary: database, incidents, notifications, LLM |
+| `replay FILE...` | run `.pcap`/`.pcapng` files through the detectors |
+| `watch` | capture live traffic (needs capture permission, see [Live capture](#live-capture)) |
+| `ui` | local web console |
+| `history` | the permanent anomaly history |
+| `incidents` / `incident ID` | list incidents / show one with its timeline |
+| `ack` / `dismiss` / `resolve` `ID...` | change incident status (a unique id prefix is enough) |
+| `notify test CHANNEL` | send one marked sample message to `slack`, `discord` or `telegram` |
+| `llm test` | list models on your LLM server and summarise a sample incident |
+| `config show` | the effective settings (secrets are never shown) |
+
+### Options for every command
+
+| Option | Meaning |
+|---|---|
+| `--config FILE` | settings file (default: `$SENTINEL_CONFIG`, then `./config.toml`, then `~/.sentinel/config.toml`, else built-in defaults) |
+| `--json` | machine-readable output, one JSON object per line |
+| `--color auto\|always\|never` | colour (default `auto`: only on a terminal; respects `NO_COLOR`) |
+| `--version`, `-h/--help` | version, help |
+
+### `replay` and `watch` (same output options)
+
+| Option | Meaning |
+|---|---|
+| `-t`, `--show-traffic` | print every packet event as it is processed (`-T`/`--no-traffic` turns it off) |
+| `-H`, `--host IP` | with `-t`: only events involving this IP |
+| `-p`, `--port N` | with `-t`: only events on this port |
+| `--proto P` | with `-t`: only `tcp`, `udp`, `icmp`, `dns`, `arp`, `dhcp` or `mdns` |
+| `-b`, `--brief` | one line per incident instead of the full block |
+| `-d`, `--dash` | full-screen live view: recent traffic, with every CRITICAL alert pinned on top (`q` quits, `c` clears pins) |
+| `-n`, `--notify` | send notifications for new incidents |
+| `watch --iface NAME` | interface to capture (default: `[capture] interface`, `bridge100`) |
+| `watch --for TIME` | stop after this long, e.g. `90s`, `10m`, `2h` |
+
+### `ui`
+
+| Option | Meaning |
+|---|---|
+| `--iface NAME` | capture this interface live |
+| `--live` | capture on the interface from `config.toml` |
+| `--replay FILE...` | play capture files instead of capturing |
+| `--speed N` | replay speed multiple (default 20) |
+| `--port N` | port to serve on (default 8787) |
+| `--no-open` | do not open the browser |
+| `-n`, `--notify` | send notifications for new incidents |
+
+With none of `--iface/--live/--replay` it just serves the history.
+
+### `history` and `incidents`
+
+| Option | Meaning |
+|---|---|
+| `-n`, `--limit N` | how many to show (history 30, incidents 20). **Here `-n` is a count, not `--notify`.** |
+| `--label LEVEL` | history: `critical`, `high`, `medium` or `low` |
+| `--source S` | history: `live` or `replay` |
+| `--since TIME` | only the last `24h`, `7d`, `90m`... |
+| `--text WORDS` | history: search headline, addresses, technique or incident id |
+| `--min-score 0-1` | incidents: only scores at or above this |
+| `-a`, `--all` | incidents: include dismissed and resolved |
+
+Examples: `sentinel history --label critical --since 7d`, `sentinel incidents --min-score 0.7`,
+`sentinel ack inc-aabb`, `sentinel history --json | jq .headline`.
+
+---
+
+## Live capture
+
+Sentinel sees what crosses the interface it captures. For a whole network, put it on the Mac that
+is the **gateway**, for example a MacBook sharing its connection through *Internet Sharing*, where
+clients appear on `bridge100` (the default; confirm with `ifconfig`). On a normal laptop on Wi-Fi it
+only sees that laptop's own traffic.
+
+```bash
+sentinel watch --iface lo0 -d                          # your own machine, safe to try anywhere
+sudo "$(which sentinel)" watch --iface bridge100 -d    # a gateway; needs capture permission
+sudo "$(which sentinel)" ui --iface bridge100          # or the web console
+```
+
+- Capture needs permission to read network devices. On macOS you may not need `sudo` if your user
+  is in the `access_bpf` group (check with `id`); otherwise use `sudo` with the **full path** as
+  shown, and Sentinel still uses **your** `~/.sentinel` folder, not root's.
+- Only one live capture may feed a database. A second one refuses to start; stop the first with
+  `pkill -f sentinel`.
+- Stop with Ctrl-C (or `q` in the dashboard).
+
+## Web console
+
+`sentinel ui` prints a link like `http://127.0.0.1:8787/?t=...` and opens it. The link's token is
+needed once; the page only listens on `127.0.0.1`.
+
+- **LIVE tab:** packet monitor (newest first, with a filter box), packets per second, a network
+  topology around this host, and an alert stack. Packets from a device that just raised an alert
+  show red for a minute.
+- **HISTORY tab:** every anomaly ever detected. Filter by severity, time range or source, search,
+  click a row for the full explanation and evidence, `EXPORT CSV`, and delete chosen entries
+  (tick rows, or open one; a second click confirms; each deletion is recorded in the audit log).
+- **Keys:** `1` live, `2` history, `/` search or filter, `p` pause the packet table.
 
 ## Attack yourself (live demo)
 
@@ -90,89 +233,102 @@ while Sentinel catches it in another window. Run from the checkout, in two termi
 ```bash
 # terminal 1: the monitor. The demo config uses a 10 s window and a 15 s cooldown so every attack
 # alerts quickly and can be repeated, and keeps the demo out of your real history (examples/demo.db)
-uv run sentinel --config examples/demo-10s.toml ui --iface lo0      # web console, or:
+uv run sentinel --config examples/demo-10s.toml ui --iface lo0          # web console, or:
 uv run sentinel --config examples/demo-10s.toml watch --iface lo0 -d    # full-screen terminal view
 
 # terminal 2: wait until terminal 1 says it is capturing, then attack
-uv run python tools/demo_attacks.py              # press Enter between attacks, to talk
-uv run python tools/demo_attacks.py --auto       # hands-off, 12 s between attacks
-uv run python tools/demo_attacks.py --only scan,dns   # just some of them (scan brute beacon dns web)
+uv run python tools/demo_attacks.py                   # press Enter between attacks, to talk
+uv run python tools/demo_attacks.py --auto            # hands-off, 12 s between attacks
+uv run python tools/demo_attacks.py --only scan,dns   # pick some (scan brute beacon dns web)
 ```
 
 Each attack should raise a red `CRITICAL` line within about 10 to 25 seconds (scan: "probing many
 network ports", brute force: "repeated login attempts", beacon: "one server at fixed intervals",
-DNS: "unusual DNS requests"), and the device's incident grows as the same device does more. The `web`
-step is normal browsing as a control and must raise nothing. If capture on `lo0` is refused, run the
-monitor with `sudo "$(which sentinel)"` instead. Timings, expected results and manual one-attack
-commands: [demo.md](demo.md).
+DNS: "unusual DNS requests"). The `web` step is normal browsing as a control and must raise nothing.
+If capture on `lo0` is refused, run the monitor with `sudo "$(which sentinel)"`. Timings and
+one-attack-at-a-time commands: [demo.md](demo.md).
 
-## Use it
+## Alerts to Slack, Discord, Telegram
 
-```bash
-sentinel ui --iface lo0               # web console, live capture of your own machine
-sentinel history --label critical     # everything detected so far, from the terminal
-sentinel incidents                    # open incidents;  sentinel ack <id>  to acknowledge one
-sentinel status                       # database, incidents, notifications, LLM at a glance
+1. Put your keys in `~/.sentinel/secrets.env` (`SLACK_WEBHOOK_URL`, `DISCORD_WEBHOOK_URL`,
+   `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID`). Only fill the channels you use. The file must be
+   `chmod 600` (`sentinel doctor --fix` does it).
+2. In `config.toml` set `[notify]` `enabled = true` and `channels = ["slack"]` (any of `slack`,
+   `discord`, `telegram`).
+3. `sentinel notify test slack` sends one marked test message to your real workspace.
+4. Add `-n` to `watch`, `replay` or `ui` to send alerts for real incidents.
+
+Messages contain only sanitised summaries (device, technique, score, advice), never packet data.
+Other `[notify]` settings: `min_severity` (default 0.6), `max_per_minute`, retries and a circuit
+breaker. Details: [USER_GUIDE.md](USER_GUIDE.md).
+
+## Plain-English summaries with a local LLM (optional)
+
+Off by default; the built-in templates already explain every alert. To use your own model, run
+[Ollama](https://ollama.com) or llama.cpp's `llama-server`, then in `config.toml`:
+
+```toml
+[llm]
+enabled = true
+runtime = "ollama"                   # or "openai" for llama-server / any OpenAI-compatible server
+base_url = "http://127.0.0.1:11434"  # llama-server: http://127.0.0.1:8080
+model = "llama3.2"                   # whatever you pulled
 ```
 
-Live capture on a gateway needs root. Run with the full path so sudo finds it, and it still uses
-**your** `~/.sentinel` folder:
+`sentinel llm test` checks it. The model only rewrites the explanation from sanitised fields; its
+output is fact-checked against the evidence and replaced by the template if it invents anything.
 
-```bash
-sudo "$(which sentinel)" watch --iface bridge100 -d     # full-screen live dashboard
-sudo "$(which sentinel)" ui --iface bridge100           # or the web console
-```
+## Configuration and data
 
-- **Web console** (`sentinel ui`): LIVE tab with a packet monitor, packets per second, a network
-  topology and an alert stack; HISTORY tab with every anomaly ever detected (filter, search, detail,
-  CSV export, delete chosen entries). It only listens on `127.0.0.1` and needs the one-time link it prints.
-- **Terminal**: `watch -d` (live dashboard with criticals pinned), `watch -t` (show traffic),
-  `replay FILE.pcap`. Every flag is in [USER_GUIDE.md](USER_GUIDE.md).
-
-### Where your data lives
-
-Everything is under **`~/.sentinel/`** (override with `SENTINEL_HOME`), so it is the same wherever
-you run the command from:
+Everything lives in **`~/.sentinel/`** (override with `SENTINEL_HOME`), the same wherever you run from:
 
 | File | What |
 |---|---|
-| `sentinel.db` | the permanent history: every detection (kept until you delete entries; never pruned automatically), incidents, audit log |
-| `config.toml` | settings (detection thresholds, interface, notifications, LLM) |
+| `sentinel.db` | the permanent history, incidents, audit log |
+| `config.toml` | settings: interface, detection thresholds, statistical detectors, notifications, LLM |
 | `secrets.env` | webhook URLs and tokens, mode 600, never printed or logged |
 
-Settings are found in this order: `--config FILE`, `$SENTINEL_CONFIG`, `./config.toml`,
-`~/.sentinel/config.toml`. A relative path inside a config file means "next to that file".
+`sentinel config show` prints the effective settings. A relative path inside a config file means
+"next to that file". **Back up** by copying `sentinel.db` while Sentinel is stopped; **start fresh**
+by deleting it.
 
-**Back up** by copying `sentinel.db` while Sentinel is stopped (or `sqlite3 sentinel.db ".backup copy.db"`).
-**Start fresh** by deleting it. Replays are stored too, tagged `replay`; filter them out in History.
+The statistical detectors are tuned under `[detection.ml]` (`ngram_dns`, `isolation_forest`,
+`if_threshold`); set either to `false` to switch it off. Measurements and limits: [docs/ABLATION.md](docs/ABLATION.md).
 
-### Alerts to Slack, Discord, Telegram
+## Troubleshooting
 
-1. Put your keys in `~/.sentinel/secrets.env` (`SLACK_WEBHOOK_URL`, `DISCORD_WEBHOOK_URL`,
-   `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID`). The file must be `chmod 600`.
-2. In `config.toml`: `[notify]` `enabled = true`, `channels = ["slack"]`.
-3. `sentinel notify test slack` sends one marked test message. Then add `-n` to `watch`, `replay`
-   or `ui`, or enable it in config for all runs.
+| Symptom | Fix |
+|---|---|
+| `command not found: sentinel` | `uv tool update-shell`, then open a new terminal (or use `uv run sentinel`) |
+| `configuration error: ... chmod 600` | `chmod 600 ~/.sentinel/secrets.env` or `sentinel doctor --fix` |
+| `another Sentinel is already capturing ...` | stop the other one: `pkill -f sentinel` |
+| capture permission denied / no packets | use `sudo "$(which sentinel)" ...`; check the interface with `ifconfig`; run `sentinel doctor` |
+| history empty after a restart | you ran from a different `SENTINEL_HOME`/config; `sentinel status` shows which database is used |
+| a legitimate device keeps alerting | raise thresholds in `[detection]` or add it to `trusted_ips` |
+| too many "unusual traffic" alerts | raise `if_threshold` or set `isolation_forest = false` |
+| a repeated attack raises no new alert | the 5-minute cooldown; use `examples/demo-10s.toml` for demos |
 
-Messages contain only sanitised summaries (device, technique, score, advice), never packet data.
-Details, rate limits and the LLM setup: [USER_GUIDE.md](USER_GUIDE.md).
+More in [USER_GUIDE.md](USER_GUIDE.md#troubleshooting).
 
-## Where to run it
+## Safety
 
-Sentinel sees what crosses the interface it captures. For a whole network, put it on the Mac that
-is the gateway, for example a MacBook sharing its connection through **Internet Sharing**, where
-clients appear on `bridge100` (the default interface in the config; confirm with `ifconfig`). On a
-normal laptop connected to Wi-Fi it only sees that laptop's own traffic. Real-gateway behaviour,
-real Slack/Discord/Telegram delivery and a real local LLM have **not yet been verified on
-hardware**; the checklist is in `docs/HUMAN_VERIFICATION.md`.
-
-## Safe to run
-
-- Network-derived text (DNS names, hostnames) is treated as hostile: it is sanitised before any
+- Network-derived text (DNS names, hostnames) is treated as hostile: sanitised before any
   notification, LLM or screen, and the console only ever shows it as plain text under a strict
   Content-Security-Policy.
+- The console listens on `127.0.0.1` only and needs the per-run token.
 - Sentinel never blocks or changes anything on the network. Capture never stalls the detectors.
 - The attack scripts in `tools/` refuse any target except loopback. Use them only on your own machine.
+- Secrets live only in `secrets.env` (mode 600) or environment variables.
+
+## Limits (read this)
+
+- Live capture is verified on loopback only. A real gateway (`bridge100`), real Slack/Discord/
+  Telegram delivery and a real local LLM are **not yet verified on hardware**; the checklist is
+  [docs/HUMAN_VERIFICATION.md](docs/HUMAN_VERIFICATION.md).
+- The two statistical detectors are measured on synthetic traffic only; their false-alarm rate on a
+  real network is unknown. The Isolation Forest is silent for its first ~35 minutes.
+- No automatic blocking, no autoencoder, no background service, and macOS only so far.
+- No license file is included yet.
 
 ## Develop
 
@@ -183,6 +339,11 @@ make install       # uv tool install --force .
 make build         # wheel + sdist in dist/
 ```
 
-Layout: `sentinel/` (code; `api/` is the service surface used by both the CLI and the web console),
-`tests/`, `tools/` (demo and attack scripts, see [demo.md](demo.md)), `docs/` (spec, decisions,
-diagrams, state), `examples/`, `schemas/` (JSON schemas of the data contracts).
+`make check` takes about two minutes. Layout: `sentinel/` (code; `api/` is the service surface used
+by both the CLI and the web console), `tests/`, `tools/` (demo and attack scripts), `examples/`
+(demo config), `schemas/` (JSON schemas of the data contracts), `spikes/` (hardware checks to run
+on the gateway), `docs/` (spec, decisions, diagrams, state, ablation).
+
+More documentation: [USER_GUIDE.md](USER_GUIDE.md) (every command in depth),
+[demo.md](demo.md) (reproduce each attack), [docs/STATE.md](docs/STATE.md) (project status),
+[docs/DECISIONS.md](docs/DECISIONS.md) (why things are the way they are).
