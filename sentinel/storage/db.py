@@ -6,6 +6,7 @@ One connection per Storage; the caller serialises access.
 import json
 import os
 import sqlite3
+import stat
 import time
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
@@ -60,9 +61,24 @@ def migrate(conn: sqlite3.Connection, migrations: list[tuple[int, str]]) -> None
             raise
 
 
+def _give_away(path: Path, uid: int, gid: int) -> None:
+    """chown a regular file or directory without ever following a symlink (the folder is the
+    user's, so a planted link must not make root chown some other file)."""
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError:  # missing, or a symlink: leave it alone
+        return
+    try:
+        if stat.S_ISREG(mode := os.fstat(fd).st_mode) or stat.S_ISDIR(mode):
+            os.fchown(fd, uid, gid)
+    finally:
+        os.close(fd)
+
+
 class Storage:
     def __init__(self, path: Path, clock: Callable[[], float] = time.time) -> None:
         self._clock = clock
+        self._made_folder = not path.parent.exists()
         path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         self._path = path
         # One thread uses a Storage at a time; the capture thread may be joined and closed by main.
@@ -88,13 +104,11 @@ class Storage:
         uid, gid = os.environ.get("SUDO_UID"), os.environ.get("SUDO_GID")
         if os.geteuid() != 0 or not uid or not gid:
             return
-        folder = self._path.parent
         targets = [self._path.with_name(self._path.name + s) for s in ("", "-wal", "-shm")]
-        if folder.stat().st_uid == 0:
-            targets.append(folder)
+        if self._made_folder:  # never touch a folder that was already there
+            targets.append(self._path.parent)
         for target in targets:
-            if target.exists():
-                os.chown(target, int(uid), int(gid))
+            _give_away(target, int(uid), int(gid))
 
     @contextmanager
     def _tx(self) -> Iterator[None]:

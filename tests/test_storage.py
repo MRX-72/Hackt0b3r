@@ -204,16 +204,42 @@ def test_a_missing_data_folder_is_created_privately_and_the_data_persists(tmp_pa
 def test_under_sudo_the_files_are_handed_back_to_the_invoking_user(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    owned: list[tuple[str, int, int]] = []
+    owned: list[tuple[int, int, int]] = []
     monkeypatch.setattr(os, "geteuid", lambda: 0)
-    monkeypatch.setattr(os, "chown", lambda p, u, g: owned.append((Path(p).name, u, g)))
+    monkeypatch.setattr(os, "fchown", lambda fd, u, g: owned.append((os.fstat(fd).st_ino, u, g)))
     monkeypatch.setenv("SUDO_UID", "501")
     monkeypatch.setenv("SUDO_GID", "20")
-    store = Storage(tmp_path / "s.db")
+    folder = tmp_path / "fresh"
+    store = Storage(folder / "s.db")
     store.close()
-    names = {name for name, uid, gid in owned if (uid, gid) == (501, 20)}
-    assert "s.db" in names and "s.db-wal" in names
+    inodes = {ino for ino, uid, gid in owned if (uid, gid) == (501, 20)}
+    assert (folder / "s.db").stat().st_ino in inodes
+    assert folder.stat().st_ino in inodes  # created by us
     owned.clear()
+    Storage(folder / "s.db").close()  # existing folder is not ours to change
+    assert folder.stat().st_ino not in {ino for ino, _, _ in owned}
     monkeypatch.setattr(os, "geteuid", lambda: 501)  # not root: nothing to hand back
-    Storage(tmp_path / "s.db").close()
+    owned.clear()
+    Storage(folder / "s.db").close()
     assert owned == []
+
+
+def test_a_planted_symlink_is_never_followed_by_the_handback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    victim = tmp_path / "victim"
+    victim.write_text("root's file")
+    folder = tmp_path / "home"
+    folder.mkdir()
+    owned: list[int] = []
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setattr(os, "fchown", lambda fd, u, g: owned.append(os.fstat(fd).st_ino))
+    monkeypatch.setenv("SUDO_UID", "501")
+    monkeypatch.setenv("SUDO_GID", "20")
+    store = Storage(folder / "s.db")
+    (folder / "s.db-wal").unlink(missing_ok=True)
+    (folder / "s.db-wal").symlink_to(victim)  # planted while Sentinel runs as root
+    store._hand_back()
+    assert owned and victim.stat().st_ino not in owned
+    (folder / "s.db-wal").unlink()
+    store.close()
