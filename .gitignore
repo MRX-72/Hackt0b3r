@@ -11,3 +11,4 @@ __pycache__/
 secrets.env
 sentinel.db*
 demo.db*
+docs/pitch/node_modules/
