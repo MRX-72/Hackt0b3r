@@ -466,7 +466,8 @@ def test_a_flood_of_events_cannot_grow_the_hub_without_bound() -> None:
         hub.add_event(flow(i))
     hub.flush()
     _, data = parse_sse(client.get_nowait())
-    assert data["n"] == MAX_PENDING
+    assert data["n"] == MAX_PENDING + 300  # the rate still counts what was dropped
+    assert len(data["events"]) <= MAX_BATCH
     assert hub.hello()["dropped"] == 300 and hub.hello()["events"] == MAX_PENDING + 300
 
 

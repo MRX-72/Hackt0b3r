@@ -75,6 +75,7 @@ class Hub:
         self._counts: dict[str, int] = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
         self._events = 0
         self._dropped = 0
+        self._dropped_unflushed = 0  # dropped since the last flush: still counts toward the rate
         self._since_status = 0
         self._last_status = time.monotonic()
         self._started = time.monotonic()
@@ -91,6 +92,7 @@ class Hub:
             self._last_event = time.monotonic()
             if len(self._pending) >= MAX_PENDING:  # capture never blocks and memory stays bounded
                 self._dropped += 1
+                self._dropped_unflushed += 1
                 return
             self._pending.append(_compact(event))
 
@@ -154,11 +156,12 @@ class Hub:
     def flush(self) -> None:
         with self._lock:
             batch, self._pending = self._pending, []
+            skipped, self._dropped_unflushed = self._dropped_unflushed, 0
         if not batch:
             return
-        total = len(batch)
-        if total > MAX_BATCH:  # sample evenly so the animation still spans the whole interval
-            step = total / MAX_BATCH
+        total = len(batch) + skipped
+        if len(batch) > MAX_BATCH:  # sample evenly so the animation still spans the whole interval
+            step = len(batch) / MAX_BATCH
             batch = [batch[int(i * step)] for i in range(MAX_BATCH)]
         self._publish("batch", {"type": "batch", "n": total, "events": batch})
 

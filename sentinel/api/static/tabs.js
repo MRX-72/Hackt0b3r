@@ -187,7 +187,8 @@
       box.append(
         card("CAPTURE", (g) => {
           kv(g, "SOURCE", rt.capture); kv(g, "STATE", rt.state, rt.state.startsWith("error") ? "badc" : rt.state === "running" ? "okc" : "");
-          kv(g, "UP FOR", ago(rt.uptime)); kv(g, "EVENTS", num(rt.events)); kv(g, "PACKETS/S", String(rt.pps));
+          kv(g, "UP FOR", ago(rt.uptime)); kv(g, "EVENTS", num(rt.events));
+          kv(g, "DROPPED", num(rt.dropped || 0), rt.dropped ? "warnc" : ""); kv(g, "PACKETS/S", String(rt.pps));
           kv(g, "LAST EVENT", quiet === null ? "none yet" : `${ago(quiet)} ago`, live && (quiet === null || quiet > 30) ? "warnc" : "");
           if (cfg.capture) kv(g, "CONFIG IFACE", `${cfg.capture.interface}  (snaplen ${cfg.capture.snaplen})`);
         }),

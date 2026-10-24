@@ -329,7 +329,7 @@ def test_a_test_notification_is_sent_only_for_channels_with_credentials(
 def test_health_collects_runtime_config_database_and_checks(console: Console) -> None:
     status, data = console.request("GET", "/api/health")
     assert status == 200 and data["runtime"]["capture"] == "live lo0"
-    assert data["runtime"]["seconds_since_event"] is None
+    assert data["runtime"]["seconds_since_event"] is None and data["runtime"]["dropped"] == 0
     assert data["config"]["version"] == "9.9" and data["database"]["devices"] == 2
     assert data["database"]["history"] == 1 and data["database"]["deliveries"] == 2
     assert [(c["name"], c["ok"]) for c in data["checks"]] == [
