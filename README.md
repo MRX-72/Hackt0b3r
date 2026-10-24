@@ -375,7 +375,7 @@ More in [USER_GUIDE.md](USER_GUIDE.md#troubleshooting).
 - The two statistical detectors are measured on synthetic traffic only; their false-alarm rate on a
   real network is unknown. The Isolation Forest is silent for its first ~35 minutes.
 - No automatic blocking, no autoencoder, no background service, and macOS only so far.
-- No license file is included yet.
+- Licensed under the MIT License (see [LICENSE](LICENSE)).
 
 ## Develop
 
