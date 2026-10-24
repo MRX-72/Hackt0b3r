@@ -27,6 +27,10 @@
     "mean_interval_seconds": {
       "title": "Mean Interval Seconds",
       "type": "number"
+    },
+    "seconds_since_last": {
+      "title": "Seconds Since Last",
+      "type": "number"
     }
   },
   "required": [
@@ -35,7 +39,8 @@
     "count",
     "mean_interval_seconds",
     "interval_cv",
-    "mean_bytes"
+    "mean_bytes",
+    "seconds_since_last"
   ],
   "title": "DestinationTiming",
   "type": "object"

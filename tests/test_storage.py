@@ -155,3 +155,9 @@ def test_hostile_strings_are_stored_as_data(db: Storage) -> None:
     assert got.dns_query == evil
     assert db.audit_entries()[0].detail == {evil: evil}
     assert db.flows_for_host(evil, 0, 10) == []
+
+
+def test_inserting_the_same_alert_twice_is_idempotent(db: Storage) -> None:
+    db.insert_alert(alert("a1", 5.0))
+    db.insert_alert(alert("a1", 5.0))
+    assert len(db.alerts_since(0)) == 1

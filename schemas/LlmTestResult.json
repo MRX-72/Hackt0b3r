@@ -1,0 +1,90 @@
+{
+  "$defs": {
+    "Explanation": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "enum": [
+            "investigate_device",
+            "disconnect_device",
+            "reset_credentials",
+            "review_dns",
+            "monitor"
+          ],
+          "title": "Action Id",
+          "type": "string"
+        },
+        "confidence_note": {
+          "title": "Confidence Note",
+          "type": "string"
+        },
+        "headline": {
+          "title": "Headline",
+          "type": "string"
+        },
+        "likely_cause": {
+          "title": "Likely Cause",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "template",
+            "llm"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "suggested_action": {
+          "title": "Suggested Action",
+          "type": "string"
+        },
+        "what_happened": {
+          "title": "What Happened",
+          "type": "string"
+        }
+      },
+      "required": [
+        "headline",
+        "what_happened",
+        "likely_cause",
+        "action_id",
+        "suggested_action",
+        "confidence_note",
+        "source"
+      ],
+      "title": "Explanation",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "explanation": {
+      "$ref": "#/$defs/Explanation"
+    },
+    "fallback_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Fallback Reason"
+    },
+    "models": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Models",
+      "type": "array"
+    }
+  },
+  "required": [
+    "models",
+    "explanation",
+    "fallback_reason"
+  ],
+  "title": "LlmTestResult",
+  "type": "object"
+}

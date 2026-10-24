@@ -187,12 +187,17 @@ class WindowEngine:
         if len(names) < _SUBDOMAIN_CAP:
             names.add(sub or name)
 
+    @staticmethod
+    def _last_bucket(now: float) -> int:
+        """Newest bucket a window ending at `now` covers; a boundary time ends the bucket before."""
+        return math.ceil(now / BUCKET_SECONDS) - 1
+
     def snapshot(self, now: float) -> list[HostContext]:
         self._evict(now)
         return [self._context(h, now) for h in self._hosts.values()]
 
     def _evict(self, now: float) -> None:
-        oldest = int((now - self._horizon) // BUCKET_SECONDS) + 1
+        oldest = self._last_bucket(now) - self._horizon // BUCKET_SECONDS + 1
         for mac in list(self._hosts):
             host = self._hosts[mac]
             host.buckets = {i: b for i, b in host.buckets.items() if i >= oldest}
@@ -210,7 +215,7 @@ class WindowEngine:
         features: dict[int, WindowFeatures] = {}
         services: dict[int, dict[tuple[str, int], tuple[int, int]]] = {}
         for window in self._windows:
-            first = int(now // BUCKET_SECONDS) - window // BUCKET_SECONDS + 1
+            first = self._last_bucket(now) - window // BUCKET_SECONDS + 1
             buckets = [b for i, b in host.buckets.items() if i >= first]
             features[window], services[window] = self._merge(host, buckets, window, now)
         return HostContext(host.mac, host.ip, now, features, services, self._timings(host.mac, now))
@@ -272,6 +277,7 @@ class WindowEngine:
                     dst_ip=dst_ip, dst_port=dst_port, count=len(starts),
                     mean_interval_seconds=mean, interval_cv=std / mean if mean > 0 else math.inf,
                     mean_bytes=sum(s[1] for s in starts) / len(starts),
+                    seconds_since_last=now - starts[-1][0],
                 )
             )  # fmt: skip
         return out

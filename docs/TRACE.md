@@ -5,7 +5,7 @@
 | R-SAF-001 | P0 | labtools | NONE |
 | R-SAF-002 | P0 | explain | NONE |
 | R-SAF-003 | P0 | explain.sanitize | NONE |
-| R-SAF-004 | P0 | explain.sanitize | NONE |
+| R-SAF-004 | P0 | explain.sanitize | test_explain.py, test_pipeline.py |
 | R-SAF-005 | P0 | bus | NONE |
 | R-SAF-006 | P0 | sensor.parse | test_parser.py |
 | R-SAF-007 | P0 | sensor | NONE |
@@ -15,29 +15,29 @@
 | R-STO-001 | P0 | storage | test_storage.py |
 | R-STO-002 | P0 | storage | test_storage.py |
 | R-STO-003 | P0 | storage | test_storage.py |
-| R-CFG-001 | P0 | config | NONE |
+| R-CFG-001 | P0 | config | test_config.py |
 | R-FLW-001 | P0 | sensor.parse | test_parser.py |
-| R-RPL-001 | P0 | sensor.replay | NONE |
-| R-FEA-001 | P0 | features | NONE |
+| R-RPL-001 | P0 | sensor.replay | test_replay.py |
+| R-FEA-001 | P0 | features | test_windows.py |
 | R-FEA-002 | P0 | features | NONE |
 | R-DET-001 | P0 | detect | NONE |
-| R-DET-002 | P0 | detect | NONE |
-| R-DET-003 | P0 | detect | NONE |
-| R-DET-004 | P0 | ml.periodicity | NONE |
-| R-DET-005 | P0 | detect, ml.dns_model | NONE |
-| R-DET-006 | P0 | detect | NONE |
-| R-DET-007 | P0 | detect | NONE |
+| R-DET-002 | P0 | detect | test_detect.py |
+| R-DET-003 | P0 | detect | test_detect.py |
+| R-DET-004 | P0 | ml.periodicity | test_detect.py |
+| R-DET-005 | P0 | detect, ml.dns_model | test_detect.py |
+| R-DET-006 | P0 | detect | test_detect.py |
+| R-DET-007 | P0 | detect | test_detect.py |
 | R-DET-008 | P0 | detect | NONE |
 | R-DET-009 | P0 | contracts | test_contracts.py |
 | R-ML-001 | P0 | ml.iforest | NONE |
 | R-ML-002 | P0 | ml.peers | NONE |
 | R-ML-003 | P0 | ml.ensemble | NONE |
 | R-ML-004 | P0 | evalharness | NONE |
-| R-COR-001 | P0 | correlate | NONE |
+| R-COR-001 | P0 | correlate | test_correlate.py |
 | R-BUD-001 | P0 | budget | NONE |
-| R-EXP-001 | P0 | explain.sanitize | NONE |
-| R-EXP-002 | P0 | nlp.faithfulness | NONE |
-| R-EXP-003 | P0 | explain.templates | NONE |
+| R-EXP-001 | P0 | explain.sanitize | test_explain.py |
+| R-EXP-002 | P0 | nlp.faithfulness | test_explain.py |
+| R-EXP-003 | P0 | explain.templates | test_explain.py |
 | R-MOD-001 | P0 | models | NONE |
 | R-MOD-002 | P0 | models | NONE |
 | R-MOD-003 | P0 | models | NONE |

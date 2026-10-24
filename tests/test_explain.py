@@ -81,7 +81,7 @@ def test_poisoned_strings_never_reach_the_llm_prompt() -> None:
     Explainer(llm).explain(make(detector=hostile))
     prompt = llm.prompts[0]
     detector = json.loads(prompt)["steps"][0]["detector"]
-    assert re.fullmatch(r"[A-Za-z0-9.-]{1,32}", detector)
+    assert re.fullmatch(r"[A-Za-z0-9_.-]{1,32}", detector)
     for fragment in ("IGNORE ALL", "<", ";", "print secrets"):
         assert fragment not in prompt
 

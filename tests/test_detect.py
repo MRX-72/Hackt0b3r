@@ -113,3 +113,26 @@ def test_repeated_refused_connections_to_ssh_are_not_brute_force() -> None:
         for p in sc.handshake(i * 1.0, sc.ATTACKER, sc.VICTIM, 41000 + i, 22, open_=False)
     ]
     assert by(detect(packets), "bruteforce") == []
+
+
+def test_a_finished_attack_alerts_once_even_while_it_lingers_in_long_windows() -> None:
+    """The 5 min / 1 h windows still contain a past scan; that must not re-alert every cooldown."""
+    scan = sc.port_scan(100.0, range(1, 201))
+    later_traffic = sc.normal_browsing(120, 4000, sc.USER)
+    alerts = detect(scan + later_traffic)
+    assert len(by(alerts, "portscan")) == 1
+
+
+def test_a_beacon_that_stopped_is_not_reported_again_and_one_that_restarts_is() -> None:
+    first = sc.beacon(0, 20, 30.0)
+    quiet_then_traffic = sc.normal_browsing(700, 3000, sc.USER)
+    assert len(by(detect(first + quiet_then_traffic), "beaconing")) == 1
+    restarted = sc.beacon(4000, 20, 30.0, seed=5)
+    alerts = by(detect(first + quiet_then_traffic + restarted), "beaconing")
+    assert len(alerts) == 2
+
+
+def test_attack_ending_on_a_tick_boundary_is_still_seen_by_the_10s_window() -> None:
+    packets = sc.port_scan(100.0, range(1, 201)) + sc.normal_browsing(125, 30, sc.USER)
+    alerts = by(detect(packets), "portscan")
+    assert alerts[0].evidence["window_seconds"] == 10.0 and alerts[0].ts == 110.0

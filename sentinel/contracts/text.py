@@ -2,12 +2,12 @@
 
 import re
 
-_UNSAFE_NAME = re.compile(r"[^A-Za-z0-9\-.]")
+_UNSAFE_NAME = re.compile(r"[^A-Za-z0-9_.\-]")
 _CONTROL = re.compile("[\x00-\x1f\x7f-\x9f\u2028\u2029\u202a-\u202e\u2066-\u2069]")
 
 
 def safe_identifier(value: str, max_length: int = 63) -> str:
-    """Hostname-style text for LLM/notification/UI: only [A-Za-z0-9-.], truncated."""
+    """Hostname-style text for LLM/notification/UI: only [A-Za-z0-9_.-], truncated."""
     return _UNSAFE_NAME.sub("", value)[:max_length]
 
 

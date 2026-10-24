@@ -151,6 +151,7 @@ class DestinationTiming(_Frozen):
     mean_interval_seconds: float
     interval_cv: float
     mean_bytes: float
+    seconds_since_last: float
 
 
 ActionId = Literal[
@@ -201,3 +202,36 @@ class Delivery(_Frozen):
     channel: Channel
     status: Literal["sent", "failed", "skipped"]
     detail: str
+
+
+class IncidentReport(_Frozen):
+    """An incident with its explanation and notification outcomes (what clients display)."""
+
+    incident: Incident
+    explanation: Explanation
+    deliveries: list[Delivery]
+
+
+class RunSummary(_Frozen):
+    frames: int
+    flows: int
+    alerts: int
+    incidents: int
+    parse_errors: int
+    payload_errors: int
+    late_dropped: int
+    llm_used: int
+    llm_rejected: int
+    llm_errors: int
+
+
+class DoctorCheck(_Frozen):
+    name: str
+    ok: bool
+    detail: str
+
+
+class LlmTestResult(_Frozen):
+    models: list[str]
+    explanation: Explanation
+    fallback_reason: str | None

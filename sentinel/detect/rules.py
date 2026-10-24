@@ -91,6 +91,7 @@ class Beaconing:
                 and t.mean_interval_seconds >= s.beacon_min_interval_seconds
                 and t.interval_cv <= s.beacon_max_interval_cv
                 and t.mean_bytes <= s.beacon_max_mean_bytes
+                and t.seconds_since_last <= s.beacon_active_intervals * t.mean_interval_seconds
             ):  # fmt: skip
                 evidence = {
                     "dst_port": float(t.dst_port), "count": float(t.count),

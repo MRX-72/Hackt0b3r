@@ -35,7 +35,12 @@ class Correlator:
         ordered = sorted(alerts, key=lambda a: a.ts)
         chain = list(dict.fromkeys(a.technique for a in ordered))
         return Incident(
-            id=f"inc-{alert.host_mac}-{int(ordered[0].ts)}", host_mac=alert.host_mac,
+            id=f"inc-{alert.host_mac.replace(':', '')}-{int(ordered[0].ts)}",
+            host_mac=alert.host_mac,
             start_ts=ordered[0].ts, end_ts=ordered[-1].ts, alerts=[a.id for a in ordered],
             chain=chain, score=_score(alerts), status="correlated" if len(alerts) > 1 else "open",
         )  # fmt: skip
+
+    def alerts_of(self, host_mac: str) -> list[Alert]:
+        """Alerts of the host's open incident, oldest first."""
+        return sorted(self._alerts.get(host_mac, []), key=lambda a: a.ts)

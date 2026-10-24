@@ -1,0 +1,59 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "alerts": {
+      "title": "Alerts",
+      "type": "integer"
+    },
+    "flows": {
+      "title": "Flows",
+      "type": "integer"
+    },
+    "frames": {
+      "title": "Frames",
+      "type": "integer"
+    },
+    "incidents": {
+      "title": "Incidents",
+      "type": "integer"
+    },
+    "late_dropped": {
+      "title": "Late Dropped",
+      "type": "integer"
+    },
+    "llm_errors": {
+      "title": "Llm Errors",
+      "type": "integer"
+    },
+    "llm_rejected": {
+      "title": "Llm Rejected",
+      "type": "integer"
+    },
+    "llm_used": {
+      "title": "Llm Used",
+      "type": "integer"
+    },
+    "parse_errors": {
+      "title": "Parse Errors",
+      "type": "integer"
+    },
+    "payload_errors": {
+      "title": "Payload Errors",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "frames",
+    "flows",
+    "alerts",
+    "incidents",
+    "parse_errors",
+    "payload_errors",
+    "late_dropped",
+    "llm_used",
+    "llm_rejected",
+    "llm_errors"
+  ],
+  "title": "RunSummary",
+  "type": "object"
+}

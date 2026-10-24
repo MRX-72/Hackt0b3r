@@ -1,0 +1,195 @@
+{
+  "$defs": {
+    "Delivery": {
+      "additionalProperties": false,
+      "description": "Outcome of one notification attempt. detail never contains URLs or tokens.",
+      "properties": {
+        "channel": {
+          "enum": [
+            "slack",
+            "discord",
+            "telegram"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "sent",
+            "failed",
+            "skipped"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel",
+        "status",
+        "detail"
+      ],
+      "title": "Delivery",
+      "type": "object"
+    },
+    "Explanation": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "enum": [
+            "investigate_device",
+            "disconnect_device",
+            "reset_credentials",
+            "review_dns",
+            "monitor"
+          ],
+          "title": "Action Id",
+          "type": "string"
+        },
+        "confidence_note": {
+          "title": "Confidence Note",
+          "type": "string"
+        },
+        "headline": {
+          "title": "Headline",
+          "type": "string"
+        },
+        "likely_cause": {
+          "title": "Likely Cause",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "template",
+            "llm"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "suggested_action": {
+          "title": "Suggested Action",
+          "type": "string"
+        },
+        "what_happened": {
+          "title": "What Happened",
+          "type": "string"
+        }
+      },
+      "required": [
+        "headline",
+        "what_happened",
+        "likely_cause",
+        "action_id",
+        "suggested_action",
+        "confidence_note",
+        "source"
+      ],
+      "title": "Explanation",
+      "type": "object"
+    },
+    "Incident": {
+      "additionalProperties": false,
+      "properties": {
+        "alerts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Alerts",
+          "type": "array"
+        },
+        "chain": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Chain",
+          "type": "array"
+        },
+        "end_ts": {
+          "title": "End Ts",
+          "type": "number"
+        },
+        "host_mac": {
+          "pattern": "^([0-9a-f]{2}:){5}[0-9a-f]{2}$",
+          "title": "Host Mac",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "score": {
+          "title": "Score",
+          "type": "number"
+        },
+        "start_ts": {
+          "title": "Start Ts",
+          "type": "number"
+        },
+        "status": {
+          "default": "open",
+          "enum": [
+            "open",
+            "correlated",
+            "explained",
+            "notified",
+            "acknowledged",
+            "dismissed",
+            "resolved"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Summary"
+        }
+      },
+      "required": [
+        "id",
+        "host_mac",
+        "start_ts",
+        "end_ts",
+        "alerts",
+        "chain",
+        "score"
+      ],
+      "title": "Incident",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "An incident with its explanation and notification outcomes (what clients display).",
+  "properties": {
+    "deliveries": {
+      "items": {
+        "$ref": "#/$defs/Delivery"
+      },
+      "title": "Deliveries",
+      "type": "array"
+    },
+    "explanation": {
+      "$ref": "#/$defs/Explanation"
+    },
+    "incident": {
+      "$ref": "#/$defs/Incident"
+    }
+  },
+  "required": [
+    "incident",
+    "explanation",
+    "deliveries"
+  ],
+  "title": "IncidentReport",
+  "type": "object"
+}

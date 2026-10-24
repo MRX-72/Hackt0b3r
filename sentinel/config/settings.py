@@ -37,6 +37,8 @@ class DetectionSettings(_Section):
     beacon_max_interval_cv: float = 0.15
     beacon_min_interval_seconds: float = 1.0
     beacon_max_mean_bytes: float = 600.0
+    # A beacon that missed this many expected check-ins is over; stop alerting on it.
+    beacon_active_intervals: float = 3.0
     beacon_ignore_ports: list[int] = [53, 123]  # DNS and NTP are periodic by design
     # DNS tunnelling needs two independent signals among the four below.
     dns_min_queries: int = 10

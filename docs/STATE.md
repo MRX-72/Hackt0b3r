@@ -2,27 +2,24 @@
 Last updated: 2026-10-24
 
 ## Stage
-Stage 1 (core). Gate 0 closed 2026-10-24 (diagrams validated with termaid only). Gate 1 not reached.
+Stage 1, reordered by the user (D-014): detection engine, notifiers, LLM summaries and a CLI first. Gate 1 not formally run.
 
-## Done
-- Stage 0 (see git log) plus gap closure: contracts package + JSON Schema export test, security marker group, 90% coverage floor.
-- Component 1/13 storage: done.
-- Component 2/13 flow model + parser: done.
+## Scope
+CLI only; GUI last as a client of the service facade (D-013, D-015).
 
-## Scope change
-CLI only for now; GUI is built last as a pure client of the API (D-013).
+## Done (see git log)
+- Stage 0, storage, parser, config + secrets, replay/live capture source (tcpdump pipe), window features, rule detectors (port scan, brute force, beaconing, DNS tunnel) with engine, correlation, sanitizer, templates, faithfulness checks, Ollama + OpenAI-compatible (llama.cpp) clients, Slack/Discord/Telegram notifiers with retry, rate limit, breaker and dedupe, pipeline, service facade, CLI (`replay`, `watch`, `incidents`, `notify test`, `llm test`, `doctor`, `--show-traffic/--no-traffic`, `--json`).
 
-## In progress
-- Nothing. Next: component 3, replay source (pcap -> parser -> storage via the real pipeline path). Needs a Scapy-or-struct pcap fixture generator with labels.
+## Not built yet
+Rogue DHCP/ARP/canary detectors, Isolation Forest + peers, DNS n-gram model, event bus with drop accounting, enforcement validator/pf renderer, sentineld daemon, model registry, HTTP API server, device inventory, modes, packets view, rule engine, embeddings, `ask`, eval/purple-team, GUI.
 
-## Blockers
-- None.
+## Process deviations (honest list)
+- Component briefs exist only for storage, parser and features; later components were specified in DECISIONS and tests instead.
+- Mutation checks were done for storage, parser and detectors, not for notifiers/faithfulness/CLI.
+- Diagrams 03/04/12 not updated for the service facade and net package (05 is).
 
-## Done reports
-| component | commit | requirements | tests added | make check | open issues | labels |
-|---|---|---|---|---|---|---|
-| 1 storage | see git log | R-STO-001/003, R-STO-002 (partial), R-DET-009 (partial), R-PRC-001 (partial) | 22 total in suite (12 storage, 7 contracts, 3 arch) | green, coverage 98% | not yet wired into a pipeline (none exists); migration tested on SQLite 3.54.1 only | SQLite 3.54.1 VERIFIED; behavior under concurrent writers UNKNOWN (single connection by design) |
-| 2 parser | see git log | R-FLW-001, R-SAF-006 | 30 (parser) | green, coverage 98.6% | not wired into a pipeline until replay; snaplen vs DNS (D-011); mDNS-non-response branch uncovered | dpkt 1.9.8 behavior VERIFIED by tests/fuzz; real-capture frames UNVERIFIED (H-03) |
+## Unverified on real hardware / services
+Live capture on bridge100 (H-03, H-09), real Slack/Discord/Telegram delivery (H-10), real Ollama/llama-server (H-06, H-11), snaplen choice (D-011).
 
 ## Last make check
-Green after storage; mutation checks done: removing audit triggers, dropping flow indexes, disabling foreign_keys, inverting prune cutoff each fail a test.
+Green: 163 tests, 18 in the security group, coverage 97%, mypy strict, ruff, vulture, deptry, architecture test.

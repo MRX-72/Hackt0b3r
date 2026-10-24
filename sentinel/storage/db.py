@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from importlib import resources
 from pathlib import Path
 
-from sentinel.contracts.models import Alert, AuditEntry, Flow, Incident
+from sentinel.contracts.models import Alert, AuditEntry, Delivery, Flow, Incident
 
 # Two indexed lookups unioned: a host is either side of a flow.
 FLOWS_FOR_HOST_SQL = """
@@ -94,7 +94,8 @@ class Storage:
     def insert_alert(self, a: Alert) -> None:
         self.conn.execute(
             "INSERT INTO alert (id, ts, detector, host_mac, host_ip, severity, confidence,"
-            " evidence_json, technique) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " evidence_json, technique) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            " ON CONFLICT(id) DO NOTHING",  # replaying a capture twice is idempotent
             (a.id, a.ts, a.detector, a.host_mac, a.host_ip, a.severity, a.confidence,
              json.dumps(a.evidence), a.technique),
         )  # fmt: skip
@@ -150,6 +151,18 @@ class Storage:
         self.conn.execute(
             "INSERT INTO audit_log (ts, actor, action, target, detail_json) VALUES (?, ?, ?, ?, ?)",
             (self._clock(), actor, action, target, json.dumps(detail or {})),
+        )
+
+    def recent_incidents(self, limit: int) -> list[Incident]:
+        rows = self.conn.execute("SELECT id FROM incident ORDER BY end_ts DESC LIMIT ?", (limit,))
+        return [i for r in rows if (i := self.get_incident(r["id"])) is not None]
+
+    def log_delivery(self, d: Delivery, incident_id: str) -> None:
+        error = None if d.status == "sent" else d.detail
+        self.conn.execute(
+            "INSERT INTO notification_delivery (ts, channel, incident_id, status, error)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (self._clock(), d.channel, incident_id, d.status, error),
         )
 
     def audit_entries(self) -> list[AuditEntry]:

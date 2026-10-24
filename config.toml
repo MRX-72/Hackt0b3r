@@ -1,0 +1,23 @@
+# Sentinel settings. No secrets here: webhook URLs and tokens go in secrets.env (chmod 600).
+database = "sentinel.db"
+secrets_file = "secrets.env"
+
+[cli]
+show_traffic = false          # --show-traffic / --no-traffic override this per run
+
+[capture]
+interface = "bridge100"       # check with `ifconfig`; Internet Sharing normally creates bridge100
+snaplen = 384                 # bytes per packet; must cover long DNS names (see docs/DECISIONS.md D-011)
+
+[notify]
+enabled = false               # set true, list channels, and fill secrets.env
+channels = []                 # any of "slack", "discord", "telegram"
+min_severity = 0.6
+# link_base_url = "http://127.0.0.1:8080/incidents"
+
+[llm]
+enabled = false
+runtime = "ollama"            # "ollama" or "openai" (llama.cpp llama-server and other OpenAI-compatible servers)
+base_url = "http://127.0.0.1:11434"   # llama-server: e.g. http://127.0.0.1:8080
+model = ""                    # e.g. "llama3.2" for Ollama; for llama-server any name (it serves what it loaded)
+timeout_seconds = 60

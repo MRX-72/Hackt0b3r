@@ -1,41 +1,41 @@
 id,priority,statement,source,component,test_id,status
 R-SAF-001,P0,Attack scripts refuse any target outside the configured lab subnet,"P3 s10, P3 s17.10",labtools,,todo
 R-SAF-002,P0,No LLM makes a detection or enforcement decision,P1 NN2,explain,,todo
-R-SAF-003,P0,"Network-derived strings never reach LLM, notification or UI unsanitized; UI renders inert text","P1 NN3, P4 s5",explain.sanitize,,todo
-R-SAF-004,P0,"Poisoned hostname/DNS name/free text does not change LLM output, notifications or UI","P3 s17.7, P4 s13.6, P5 s13.6",explain.sanitize,,todo
+R-SAF-003,P0,"Network-derived strings never reach LLM, notification or UI unsanitized; UI renders inert text","P1 NN3, P4 s5",explain.sanitize,"test_explain.py, test_cli.py::test_hostile_dns_names_*",partial: LLM/notify/CLI covered; GUI not built
+R-SAF-004,P0,"Poisoned hostname/DNS name/free text does not change LLM output, notifications or UI","P3 s17.7, P4 s13.6, P5 s13.6",explain.sanitize,test_pipeline.py::test_llm_text_is_used_*,partial: structured path covered; no free-text guard model
 R-SAF-005,P0,Capture never blocks; bus drops low-priority events and counts drops,"P1 NN5, P4 s2",bus,,todo
 R-SAF-006,P0,Parser never crashes on malformed packets; parse errors counted; fuzz-tested,P4 s2,sensor.parse,"test_parser.py::test_fuzz_*, test_every_prefix_*",done for parser; daemon-level crash resilience later
 R-SAF-007,P0,"No payload storage by default (headers only, snaplen ~96)","P1, P4 s6",sensor,(snaplen is capture config),"open: see D-011, snaplen decision in daemon component"
-R-SAF-008,P0,"Secrets never in repo, logs or API responses; env/Keychain only",P4 s9,notify.secrets,,todo
-R-SAF-009,P0,No external network calls except opt-in notifications; none in Air-gapped/Replay,P1,notify,,todo
-R-SAF-010,P0,Control characters in network strings escaped in logs,P4 s10,pipeline,,todo
+R-SAF-008,P0,"Secrets never in repo, logs or API responses; env/Keychain only",P4 s9,notify.secrets,"test_config.py, test_notify.py",done
+R-SAF-009,P0,No external network calls except opt-in notifications; none in Air-gapped/Replay,P1,notify,test_pipeline.py::test_notifications_are_off_in_replay_*,partial: replay off unless --notify; modes not built
+R-SAF-010,P0,Control characters in network strings escaped in logs,P4 s10,pipeline,test_cli.py::test_hostile_dns_names_*,partial: terminal output escaped; log lines not yet
 R-STO-001,P0,"SQLite WAL, numbered SQL migrations, index (host_mac, ts)",P4 s3,storage,test_storage.py::test_open_enables_wal_fk_and_latest_version,done
 R-STO-002,P0,"Retention policy for flows, alerts, pcap ring buffer, configurable",P4 s3,storage,test_storage.py::test_prune_*,partial: flows/alerts/incidents only; pcap ring buffer later
 R-STO-003,P0,Append-only audit log for every state change,P4 s3,storage,test_storage.py::test_audit_is_append_only_*,done
-R-CFG-001,P0,Config validated with pydantic; invalid config fails fast with clear message,P4 s3,config,,todo
+R-CFG-001,P0,Config validated with pydantic; invalid config fails fast with clear message,P4 s3,config,test_config.py,done
 R-FLW-001,P0,"Flow record matches spec s5 fields; DHCP, ARP, mDNS emitted as separate events",P3 s5,sensor.parse,test_parser.py,done: flow + ARP/DHCP/mDNS events
-R-RPL-001,P0,"Replay mode runs the full pipeline from a pcap with no network, at original or accelerated speed",P3 s17.2,sensor.replay,,todo
-R-FEA-001,P0,"Rolling windows at 10s, 5m, 1h per host with features from spec s6",P3 s6,features,,todo
+R-RPL-001,P0,"Replay mode runs the full pipeline from a pcap with no network, at original or accelerated speed",P3 s17.2,sensor.replay,test_replay.py,"partial: pcap/pcapng replay at full speed, no --speed pacing"
+R-FEA-001,P0,"Rolling windows at 10s, 5m, 1h per host with features from spec s6",P3 s6,features,test_windows.py,done
 R-FEA-002,P0,Feature snapshots persisted every 10 s,P3 s6,features,,todo
-R-DET-001,P0,Detector interface: name; on_window(ctx) -> list[Alert],P4 s3,detect,,todo
-R-DET-002,P0,Port scan detector at all three timescales,P3 s8.1,detect,,todo
-R-DET-003,P0,Brute force detector,P3 s8.1,detect,,todo
-R-DET-004,P0,"Beaconing detector via periodicity analysis, explainable evidence",P5 s2,ml.periodicity,,todo
-R-DET-005,P0,DNS tunnel detector: entropy/length/TXT rules plus n-gram + LR model,P5 s12,"detect, ml.dns_model",,todo
-R-DET-006,P0,Slow scan missed by single 10s window and caught by multi-timescale config (a test),"P3 s17.4, P2 Gate1",detect,,todo
-R-DET-007,P0,"Negative tests: normal and near-miss traffic (busy host, periodic update check) produce no alert",P6 s6,detect,,todo
-R-DET-008,P0,Rogue DHCP and ARP anomaly detectors; canary tripwire,P3 s8,detect,,todo
+R-DET-001,P0,Detector interface: name; on_window(ctx) -> list[Alert],P4 s3,detect,test_detect.py,done (Protocol in detect/interface.py)
+R-DET-002,P0,Port scan detector at all three timescales,P3 s8.1,detect,test_detect.py::test_fast_port_scan_*,done
+R-DET-003,P0,Brute force detector,P3 s8.1,detect,test_detect.py::test_brute_force_*,done
+R-DET-004,P0,"Beaconing detector via periodicity analysis, explainable evidence",P5 s2,ml.periodicity,test_detect.py::test_regular_beacon_*,"partial: CV-of-intervals rule, no FFT/autocorrelation"
+R-DET-005,P0,DNS tunnel detector: entropy/length/TXT rules plus n-gram + LR model,P5 s12,"detect, ml.dns_model",test_detect.py::test_dns_tunnel_*,partial: rules only; n-gram+LR model not built
+R-DET-006,P0,Slow scan missed by single 10s window and caught by multi-timescale config (a test),"P3 s17.4, P2 Gate1",detect,test_detect.py::test_slow_scan_*,done
+R-DET-007,P0,"Negative tests: normal and near-miss traffic (busy host, periodic update check) produce no alert",P6 s6,detect,test_detect.py near-miss tests,done for implemented detectors
+R-DET-008,P0,Rogue DHCP and ARP anomaly detectors; canary tripwire,P3 s8,detect,,"open: rogue DHCP, ARP anomaly, canary not built (events are parsed)"
 R-DET-009,P0,Alert/incident schemas match spec s9; evidence numeric only,P3 s9,contracts,test_contracts.py,partial: Alert/Incident shapes done
-R-ML-001,P0,Isolation Forest per device with learning period; returns top contributing features,P3 s8.2,ml.iforest,,todo
-R-ML-002,P0,"Peer-group robust z (median/MAD), needs >=3 peers else skip and log",P3 s8.3,ml.peers,,todo
+R-ML-001,P0,Isolation Forest per device with learning period; returns top contributing features,P3 s8.2,ml.iforest,,open: Isolation Forest not built
+R-ML-002,P0,"Peer-group robust z (median/MAD), needs >=3 peers else skip and log",P3 s8.3,ml.peers,,open: peer scoring not built
 R-ML-003,P0,Ensemble with calibrated scores and model-agreement signal,P5 s4,ml.ensemble,,todo
 R-ML-004,P0,Every model earns its place in ablation table or ships disabled,"P1 NN8, P5 s9",evalharness,,todo
-R-COR-001,P0,Correlate alerts by host within gap (default 10 min) into incidents with ATT&CK chain; plausible-order score boost,P3 s9,correlate,,todo
+R-COR-001,P0,Correlate alerts by host within gap (default 10 min) into incidents with ATT&CK chain; plausible-order score boost,P3 s9,correlate,test_correlate.py,done
 R-BUD-001,P0,"Alert budget per day/hour; ranking score; overflow to lower-priority list, nothing deleted; raised vs shown tracked",P3 s12,budget,,todo
-R-EXP-001,P0,Sanitizer is the single function deciding what LLM/notify/UI may see,P2 core 9,explain.sanitize,,todo
-R-EXP-002,P0,"LLM output schema-validated; numeric, entity, action, markup faithfulness checks; fall back to template and count rejections",P5 s7,nlp.faithfulness,,todo
-R-EXP-003,P0,System works with LLM disabled (template text),P3 s17.6,explain.templates,,todo
-R-MOD-001,P0,"Model registry: sha256 pinned and verified, RAM cap, lazy load, idle unload, fallbacks, health",P5 s3,models,,todo
+R-EXP-001,P0,Sanitizer is the single function deciding what LLM/notify/UI may see,P2 core 9,explain.sanitize,test_explain.py,done
+R-EXP-002,P0,"LLM output schema-validated; numeric, entity, action, markup faithfulness checks; fall back to template and count rejections",P5 s7,nlp.faithfulness,test_explain.py faithfulness tests,done
+R-EXP-003,P0,System works with LLM disabled (template text),P3 s17.6,explain.templates,"test_explain.py, test_pipeline.py",done
+R-MOD-001,P0,"Model registry: sha256 pinned and verified, RAM cap, lazy load, idle unload, fallbacks, health",P5 s3,models,,open: model registry not built; LLM clients exist
 R-MOD-002,P0,"Safe formats only (ONNX/safetensors); no pickle, no trust_remote_code; no runtime downloads",P5 s3,models,,todo
 R-MOD-003,P0,Disabling any model including all LLMs and embeddings leaves detection working,P5 s13.2,models,,todo
 R-MOD-004,P0,"MODELS.md lists source, license, checksum per model",P5 s13.10,docs,,todo
@@ -49,12 +49,12 @@ R-ENF-007,P1,"Real pf apply inside anchor with TTL and rollback, only after huma
 R-DMN-001,P0,"sentineld (root) does only capture, ring buffer, approved enforcement; Unix socket mode 0600",P4 s2,daemon,,todo
 R-API-001,P0,"API on 127.0.0.1, bearer token (0600 file), constant-time compare, auth-failure rate limit; rejects missing token","P4 s2, s10, s13.2",api,,todo
 R-API-002,P0,"REST + live stream exposing incidents, devices, status; GET /metrics counters",P4 s3,api,,todo
-R-CLI-001,P0,"CLI: status, start/stop, mode, devices, incidents, replay, eval run, doctor; --json parses","P4 s12, s13.3",cli,,todo
-R-CLI-002,P0,`sentinel doctor` reports green or actionable errors,P4 s13.1,cli,,todo
+R-CLI-001,P0,"CLI: status, start/stop, mode, devices, incidents, replay, eval run, doctor; --json parses","P4 s12, s13.3",cli,test_cli.py,"partial: replay, watch, incidents, notify test, llm test, doctor; mode/start/stop open"
+R-CLI-002,P0,`sentinel doctor` reports green or actionable errors,P4 s13.1,cli,test_cli.py,"partial: doctor checks secrets, creds, interface, LLM"
 R-INV-001,P0,"Device inventory keyed by MAC, OUI vendor offline, new-device alert, IP/MAC conflict alerts",P3 s7,inventory,,todo
 R-INV-002,P0,Device type guess with confidence; admin label overrides; behavior-change alert,P3 s7,inventory,,todo
 R-MDE-001,P0,"Modes Learning, Standard, Strict, Replay, Air-gapped as config bundles; audited switching","P4 s7, s13.8",modes,,todo
-R-NOT-001,P0,"One channel (Discord or Slack) with severity routing, test button, sanitization, failure never blocks detection",P4 s12,notify,,todo
+R-NOT-001,P0,"One channel (Discord or Slack) with severity routing, test button, sanitization, failure never blocks detection",P4 s12,notify,test_notify.py,"done for Slack, Discord, Telegram (real send unverified: H-10)"
 R-GUI-001,P0,"GUI Overview, Incidents, Devices, Modes, Purple-team; textContent only, strict CSP, vendored assets, no CDN",P4 s5,web,,deferred to end (D-013)
 R-PKT-001,P0,"Packets view lite: live list, host/port filter, incident click-through, pcap export [CLI form first: sentinel packets live|show, capture export; GUI view deferred]","P4 s12, s13.5",packets,,todo
 R-NLP-001,P0,Embedding dedupe and similar past incidents,P5 s12,nlp.embed,,todo
@@ -70,7 +70,7 @@ R-PRC-004,P0,docs/TRACE.md maps requirement->module->test; gate fails on unteste
 R-PRC-005,P0,"Performance numbers (packets/s, CPU) measured and reported, not assumed",P4 s3,evalharness,,todo
 R-PRC-006,P0,spikes/ empty or absent at release,P2 Stage0.3,docs,,todo
 R-DET-020,P1,"Detection rule YAML engine with schema errors, test mode, defaults, versioning",P4 s8.1,rules,,todo
-R-NOT-020,P1,"Telegram and second channel, dedupe/grouping, quiet hours, digest",P4 s12,notify,,todo
+R-NOT-020,P1,"Telegram and second channel, dedupe/grouping, quiet hours, digest",P4 s12,notify,test_notify.py,"partial: dedupe, rate limit, retry, breaker done; quiet hours/digest open"
 R-PKT-020,P1,"Packets full: detail tree, hex, display filter, conversations, follow stream",P4 s12,packets,,todo
 R-ML-020,P1,"char-CNN DNS, GBT device type, learned ranker, forecaster, Prompt Guard, reranker, autoencoder, streaming, HDBSCAN peers",P5 s12,"ml, nlp",,todo
 R-MDE-020,P1,Forensics and Maintenance modes with scope and expiry,P4 s7,modes,,todo

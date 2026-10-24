@@ -16,6 +16,7 @@ class DetectionEngine:
             PortScan(settings), BruteForce(settings), Beaconing(settings), DnsTunnel(settings),
         ]  # fmt: skip
         self._cooldown = settings.cooldown_seconds
+        self._active: set[tuple[str, str]] = set()  # conditions currently firing
         self._last_alert: dict[tuple[str, str], float] = {}
         self._next_tick: float | None = None
         self._latest = 0.0
@@ -37,13 +38,22 @@ class DetectionEngine:
         return self._evaluate(self._latest) if self._next_tick is not None else []
 
     def _evaluate(self, now: float) -> list[Alert]:
+        """An ongoing condition alerts once; it is forgotten when it stops firing, and a
+        recurrence within the cooldown of the last alert is suppressed as flapping."""
         raised: list[Alert] = []
         for ctx in self.windows.snapshot(now):
             for detector in self._detectors:
                 key = (detector.name, ctx.host_mac)
-                if now - self._last_alert.get(key, -self._cooldown) < self._cooldown:
+                alerts = detector.on_window(ctx)
+                if not alerts:
+                    self._active.discard(key)
                     continue
-                if alerts := detector.on_window(ctx):
-                    self._last_alert[key] = now
-                    raised += alerts
+                if (
+                    key in self._active
+                    or now - self._last_alert.get(key, -self._cooldown) < self._cooldown
+                ):
+                    continue
+                self._active.add(key)
+                self._last_alert[key] = now
+                raised += alerts
         return raised
