@@ -275,7 +275,7 @@ base_url = "http://127.0.0.1:11434"  # llama-server: http://127.0.0.1:8080
 model = "llama3.2"                   # whatever you pulled
 ```
 
-`sentinel llm test` checks it. The model only rewrites the explanation from sanitised fields; its
+`sentinel llm test` checks it and prints `source: llm` when the model answered (`source: template (fallback: ...)` tells you why it did not). Runtimes that cannot force JSON output, such as Ollama's MLX runner, are handled automatically. The model only rewrites the explanation from sanitised fields; its
 output is fact-checked against the evidence and replaced by the template if it invents anything.
 
 ## Configuration and data

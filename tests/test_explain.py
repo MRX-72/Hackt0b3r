@@ -191,6 +191,37 @@ def test_ollama_request_shape_and_parsing() -> None:
     assert client.models() == ["llama3.2"]
 
 
+class Sequence:
+    """Answers each request from a list of (status, body)."""
+
+    def __init__(self, *answers: tuple[int, object]) -> None:
+        self.answers, self.requests = list(answers), []  # type: ignore[var-annotated]
+
+    def __call__(self, request: Request) -> Response:
+        self.requests.append(request)
+        status, body = self.answers.pop(0)
+        return Response(status, json.dumps(body).encode())
+
+
+def test_ollama_without_structured_output_falls_back_to_plain_json_once() -> None:
+    reply = {"message": {"content": 'Sure!\n```json\n{"headline": "x"}\n```'}}
+    seq = Sequence((501, {}), (200, reply), (200, reply))
+    client = OllamaClient(LlmSettings(enabled=True, model="m"), None, seq)
+    assert client.complete_json("sys", "usr", {"type": "object"}) == '{"headline": "x"}'
+    first, second = (json.loads(r.body or b"") for r in seq.requests)
+    assert "format" in first and "format" not in second
+    assert "JSON schema" in second["messages"][0]["content"]
+    assert client.complete_json("sys", "usr", {"type": "object"}) == '{"headline": "x"}'
+    assert len(seq.requests) == 3  # the unsupported format is not retried every time
+
+
+def test_other_ollama_errors_are_not_mistaken_for_missing_structured_output() -> None:
+    seq = Sequence((500, {}))
+    with pytest.raises(LlmError, match="HTTP 500"):
+        OllamaClient(LlmSettings(enabled=True, model="m"), None, seq).complete_json("a", "b", {})
+    assert len(seq.requests) == 1
+
+
 def test_openai_compatible_request_shape_key_and_trailing_v1() -> None:
     rec = Recorder(200, {"choices": [{"message": {"content": "{}"}}], "data": [{"id": "gguf"}]})
     s = LlmSettings(enabled=True, runtime="openai", model="m", base_url="http://127.0.0.1:8080/v1")

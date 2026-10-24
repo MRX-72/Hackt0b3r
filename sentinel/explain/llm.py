@@ -9,12 +9,24 @@ from sentinel.net.http import Request, Transport, TransportError, json_request, 
 
 
 class LlmError(Exception):
-    pass
+    def __init__(self, message: str, status: int | None = None) -> None:
+        super().__init__(message)
+        self.status = status
 
 
 class LlmClient(Protocol):
     def complete_json(self, system: str, user: str, schema: dict[str, Any]) -> str: ...
     def models(self) -> list[str]: ...
+
+
+# HTTP statuses a server uses to say "I cannot do schema-constrained output" (Ollama MLX: 501).
+_NO_STRUCTURED_OUTPUT = (HTTPStatus.BAD_REQUEST, HTTPStatus.NOT_IMPLEMENTED)
+
+
+def _json_object(text: str) -> str:
+    """The outermost {...} of a model reply, which may wrap it in ```json fences or prose."""
+    start, end = text.find("{"), text.rfind("}")
+    return text[start : end + 1] if 0 <= start < end else text
 
 
 class _Base:
@@ -30,7 +42,7 @@ class _Base:
         except TransportError as exc:
             raise LlmError(f"cannot reach the LLM server: {exc}") from exc
         if response.status != HTTPStatus.OK:
-            raise LlmError(f"LLM server returned HTTP {response.status}")
+            raise LlmError(f"LLM server returned HTTP {response.status}", response.status)
         try:
             return json.loads(response.body)
         except ValueError as exc:
@@ -44,12 +56,30 @@ class _Base:
 class OllamaClient(_Base):
     """Native /api/chat; `format` takes a JSON schema (structured outputs)."""
 
+    _structured = True  # cleared once a runtime turns out not to support schema-constrained output
+
     def complete_json(self, system: str, user: str, schema: dict[str, Any]) -> str:
-        payload = {
-            "model": self._s.model, "stream": False, "format": schema,
+        if self._structured:
+            try:
+                return self._chat(system, user, schema)
+            except LlmError as exc:
+                if exc.status not in _NO_STRUCTURED_OUTPUT:
+                    raise
+                self._structured = False
+        # Some runtimes (Ollama's MLX runner) cannot constrain output to a schema: ask in words
+        # and pull the JSON object out of the reply. The caller validates it either way.
+        ask = f"{system}\nReply with only one JSON object matching this JSON schema: "
+        ask += json.dumps(schema)
+        return _json_object(self._chat(ask, user, None))
+
+    def _chat(self, system: str, user: str, schema: dict[str, Any] | None) -> str:
+        payload: dict[str, Any] = {
+            "model": self._s.model, "stream": False,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
             "options": {"temperature": self._s.temperature},
         }  # fmt: skip
+        if schema is not None:
+            payload["format"] = schema
         body = self._call(self._request("POST", f"{self._base}/api/chat", payload))
         try:
             return str(body["message"]["content"])
