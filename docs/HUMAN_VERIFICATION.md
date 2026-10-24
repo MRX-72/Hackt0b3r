@@ -12,6 +12,7 @@ Run these on the gateway Mac (Mac C) unless noted. Report the printed PASS/FAIL 
 | H-07 | Needle runs on this Mac for our schema | later, at `ask` stage | accuracy on labeled set |
 | H-08 | Slack/Discord/Telegram real send | later, human supplies webhook via env/Keychain | message received? |
 
+| H-09a | Loopback live capture and port-scan detection | VERIFIED 2026-10-24 on this Mac: `sentinel watch --iface lo0` + `tools/localhost_scan.py` | fast scan -> CRITICAL via 10 s window; 1 probe/s scan -> HIGH via 5 min window; 60 local web requests -> no incident |
 | H-09 | Live capture via `sudo sentinel watch --iface bridge100` shows traffic (interim: tcpdump pipe, replaced by sentineld) | `sudo .venv/bin/sentinel watch --iface bridge100 --show-traffic` while generating traffic | lines appear? any error text |
 | H-10 | Each notifier delivers a test message (put keys in `secrets.env` first) | `sentinel notify test slack`, `... discord`, `... telegram` | message arrives? error text |
 | H-11 | LLM summary works with your model | start `ollama serve` (or `llama-server -m <gguf>`), set `[llm]` in `config.toml`, run `sentinel llm test` | output, latency |

@@ -199,3 +199,51 @@ def test_byte_counts_use_the_wire_length_not_the_snaplen_truncated_length() -> N
     zero_len = bytearray(full)
     zero_len[16:18] = b"\x00\x00"  # TSO/checksum-offload captures report IP length 0
     assert only_flow(bytes(zero_len)).bytes == len(full)
+
+
+def test_dns_queries_with_record_types_dpkt_cannot_decode_still_parse() -> None:
+    """EDNS (41) and HTTPS (65) records ride along on real queries; only the name matters."""
+    payload = f.dns_message(
+        "www.example.com",
+        [],
+        [f.dns_rr("", 41, b"\x00\x0a\x00\x00"), f.dns_rr("x.com", 65, b"\x01\x02")],
+        False,
+    )
+    p, [flow] = parse_one(f.eth(f.ipv4(17, f.udp(40000, 53, payload))))
+    assert isinstance(flow, Flow) and flow.dns_query == "www.example.com"
+    assert (p.parse_errors, p.payload_errors) == (0, 0)
+
+
+def test_mdns_responses_with_nsec_records_yield_device_names() -> None:
+    """Apple devices announce NSEC (47) records; dpkt rejects the whole packet, we must not."""
+    payload = f.dns_message(
+        None,
+        [
+            f.dns_rr("macbook.local", 1, b"\xc0\xa8\x02\x03"),
+            f.dns_rr("macbook.local", 47, b"\xc0\x0c\x00\x01\x40"),
+        ],
+        [],
+        True,
+    )
+    p, events = parse_one(f.eth(f.ipv4(17, f.udp(5353, 5353, payload))))
+    assert [e.name for e in events if isinstance(e, MdnsEvent)] == [
+        "macbook.local",
+        "macbook.local",
+    ]
+    assert p.payload_errors == 0
+
+
+def test_dns_answer_with_a_lying_record_length_is_counted_not_fatal() -> None:
+    payload = f.dns_message(None, [f.dns_rr("a.local", 1, b"\x01\x02\x03\x04")[:-6]], [], True)
+    p, events = parse_one(f.eth(f.ipv4(17, f.udp(5353, 5353, payload))))
+    assert len(events) == 1 and isinstance(events[0], Flow) and p.payload_errors == 1
+
+
+def test_a_payload_cut_off_by_snaplen_is_not_counted_as_garbage() -> None:
+    payload = f.dns_message(
+        None, [f.dns_rr(f"host{i}.local", 1, b"\x01\x02\x03\x04") for i in range(20)], [], True
+    )
+    frame = f.eth(f.ipv4(17, f.udp(5353, 5353, payload)))
+    p, events = parse_one(frame[:100])
+    assert (p.truncated_payloads, p.payload_errors, p.parse_errors) == (1, 0, 0)
+    assert len(events) >= 1 and isinstance(events[0], Flow) and events[0].bytes == len(frame)

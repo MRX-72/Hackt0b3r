@@ -92,6 +92,8 @@ def format_summary(s: RunSummary) -> str:
         f"parse_errors={s.parse_errors} payload_errors={s.payload_errors} "
         f"late_dropped={s.late_dropped}"
     )
+    if s.truncated_payloads:
+        text += f" truncated_payloads={s.truncated_payloads}"
     if s.state_capped:
         text += f" state_capped={s.state_capped}"
     if s.llm_used or s.llm_rejected or s.llm_errors:

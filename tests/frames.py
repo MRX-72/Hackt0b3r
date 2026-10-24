@@ -110,3 +110,24 @@ def udp_frame(
     src: tuple[bytes, str], dst: tuple[bytes, str], sport: int, dport: int, payload: bytes = b""
 ) -> bytes:
     return eth(ipv4(17, udp(sport, dport, payload), src[1], dst[1]), src=src[0], dst=dst[0])
+
+
+def dns_rr(name: str, rtype: int, rdata: bytes, ttl: int = 120) -> bytes:
+    return dns_name(name) + struct.pack("!HHIH", rtype, 1, ttl, len(rdata)) + rdata
+
+
+def dns_message(
+    qname: str | None, answers: list[bytes], additional: list[bytes], response: bool
+) -> bytes:
+    """A DNS message with arbitrary resource records (record data is opaque to the builder)."""
+    question = dns_name(qname) + struct.pack("!HH", 1, 1) if qname else b""
+    header = struct.pack(
+        "!HHHHHH",
+        0x4321,
+        0x8400 if response else 0x0100,
+        1 if qname else 0,
+        len(answers),
+        0,
+        len(additional),
+    )
+    return header + question + b"".join(answers) + b"".join(additional)

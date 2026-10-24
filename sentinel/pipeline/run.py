@@ -60,6 +60,7 @@ class Pipeline:
             frames=self._parser.frames, flows=self._flows, alerts=self._alerts,
             incidents=self._incidents, parse_errors=self._parser.parse_errors,
             payload_errors=self._parser.payload_errors,
+            truncated_payloads=self._parser.truncated_payloads,
             late_dropped=self._engine.windows.late_dropped,
             state_capped=self._engine.windows.state_capped,
             llm_used=stats.llm_used, llm_rejected=stats.llm_rejected, llm_errors=stats.llm_errors,

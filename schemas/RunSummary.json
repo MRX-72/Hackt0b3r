@@ -44,6 +44,10 @@
     "state_capped": {
       "title": "State Capped",
       "type": "integer"
+    },
+    "truncated_payloads": {
+      "title": "Truncated Payloads",
+      "type": "integer"
     }
   },
   "required": [
@@ -53,6 +57,7 @@
     "incidents",
     "parse_errors",
     "payload_errors",
+    "truncated_payloads",
     "late_dropped",
     "state_capped",
     "llm_used",

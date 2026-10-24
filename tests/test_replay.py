@@ -1,10 +1,14 @@
 import io
 import sys
+import time
 from pathlib import Path
 
 import dpkt
 import pytest
 
+from sentinel.config.settings import DetectionSettings
+from sentinel.contracts.models import Alert, Flow
+from sentinel.detect.engine import DetectionEngine
 from sentinel.sensor.parse import FrameParser
 from sentinel.sensor.replay import CaptureError, capture_live, read_frames, read_pcap, tcpdump_argv
 from tests import scenarios as sc
@@ -36,9 +40,9 @@ def test_pcapng_is_read(tmp_path: Path) -> None:
     assert [f for _, f in read_frames(io.BufferedReader(buf))] == [f for _, f in packets]
 
 
-def test_non_ethernet_link_type_is_rejected_loudly(tmp_path: Path) -> None:
+def test_unsupported_link_type_is_rejected_loudly(tmp_path: Path) -> None:
     buf = io.BytesIO()
-    dpkt.pcap.Writer(buf, linktype=dpkt.pcap.DLT_NULL).writepkt(b"\x02\x00\x00\x00abcd", 1.0)
+    dpkt.pcap.Writer(buf, linktype=dpkt.pcap.DLT_IEEE802_11).writepkt(b"abcd", 1.0)
     buf.seek(0)
     with pytest.raises(CaptureError, match="link type"):
         list(read_frames(io.BufferedReader(buf)))
@@ -85,4 +89,75 @@ def test_capture_live_streams_from_a_subprocess(tmp_path: Path) -> None:
 def test_capture_live_reports_a_failing_command() -> None:
     cmd = [sys.executable, "-c", "import sys;sys.stderr.write('permission denied');sys.exit(1)"]
     with pytest.raises(CaptureError):
+        list(capture_live(cmd))
+
+
+def loopback_pcap(
+    packets: list[sc.Packet], header: bytes = b"\x02\x00\x00\x00"
+) -> io.BufferedReader:
+    """The scenario traffic as a BSD loopback (DLT_NULL) capture: 4-byte family + bare IP."""
+    buf = io.BytesIO()
+    writer = dpkt.pcap.Writer(buf, linktype=dpkt.pcap.DLT_NULL)
+    for ts, frame in sorted(packets, key=lambda p: p[0]):
+        writer.writepkt(header + frame[14:], ts)
+    buf.seek(0)
+    return io.BufferedReader(buf)
+
+
+def flows_of(stream: io.BufferedReader) -> list[Flow]:
+    parser = FrameParser()
+    found = [
+        e for ts, fr in read_frames(stream) for e in parser.parse(fr, ts) if isinstance(e, Flow)
+    ]
+    assert parser.parse_errors == 0
+    return found
+
+
+def test_loopback_captures_are_wrapped_so_the_normal_parser_works() -> None:
+    packets = sc.port_scan(100.0, range(1, 21))
+    flows = flows_of(loopback_pcap(packets))
+    assert len(flows) == len(packets)
+    assert {(f.src_ip, f.dst_ip) for f in flows} == {
+        (sc.ATTACKER[1], sc.VICTIM[1]),
+        (sc.VICTIM[1], sc.ATTACKER[1]),
+    }
+
+
+def test_devices_stay_distinct_on_links_without_mac_addresses() -> None:
+    macs = {f.src_mac for f in flows_of(loopback_pcap(sc.port_scan(1.0, range(1, 5))))}
+    assert macs == {"02:00:c0:a8:02:1e", "02:00:c0:a8:02:14"}  # derived from 192.168.2.30 / .20
+
+
+def test_a_port_scan_on_a_loopback_capture_is_detected() -> None:
+    engine = DetectionEngine(DetectionSettings())
+    parser = FrameParser()
+    alerts: list[Alert] = []
+    for ts, frame in read_frames(loopback_pcap(sc.port_scan(100.0, range(1, 201)))):
+        for event in parser.parse(frame, ts):
+            alerts += engine.process(event, ts)
+    alerts += engine.flush()
+    assert [a.detector for a in alerts] == ["portscan"] and alerts[0].target_ip == sc.VICTIM[1]
+
+
+def test_raw_ip_and_garbage_loopback_frames() -> None:
+    buf = io.BytesIO()
+    writer = dpkt.pcap.Writer(buf, linktype=12)  # DLT_RAW on macOS
+    writer.writepkt(sc.port_scan(1.0, range(1, 2))[0][1][14:], 1.0)
+    writer.writepkt(b"\x00\x01", 2.0)
+    buf.seek(0)
+    parser = FrameParser()
+    events = [e for ts, fr in read_frames(io.BufferedReader(buf)) for e in parser.parse(fr, ts)]
+    assert len(events) == 1 and parser.parse_errors == 1
+
+
+def test_capture_live_duration_stops_a_silent_command() -> None:
+    sleeper = [sys.executable, "-c", "import time; time.sleep(30)"]
+    started = time.monotonic()
+    assert list(capture_live(sleeper, duration_seconds=0.5)) == []
+    assert time.monotonic() - started < 10
+
+
+def test_a_capture_command_that_dies_reports_its_own_error_text() -> None:
+    cmd = [sys.executable, "-c", "import sys; sys.stderr.write('permission denied'); sys.exit(1)"]
+    with pytest.raises(CaptureError, match="permission denied"):
         list(capture_live(cmd))

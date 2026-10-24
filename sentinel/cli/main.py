@@ -98,7 +98,7 @@ def _parser() -> argparse.ArgumentParser:
     watch.add_argument("--iface", help="interface (default: [capture] interface)")
     watch.add_argument(
         "--for", dest="duration", type=parse_duration, metavar="TIME",
-        help="stop after this long, e.g. 90s, 10m, 2h (checked as packets arrive)",
+        help="stop after this long, e.g. 90s, 10m, 2h",
     )  # fmt: skip
     _stream_flags(watch)
     sub.add_parser("status", help="one-screen summary: database, incidents, notify, LLM")

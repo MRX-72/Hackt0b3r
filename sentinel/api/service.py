@@ -129,11 +129,9 @@ class SentinelService:
         try:
             with _errors():
                 last_prune = 0.0
-                deadline = None if duration_seconds is None else time.monotonic() + duration_seconds
-                for ts, frame in capture_live(tcpdump_argv(interface, cap.snaplen, cap.bpf)):
+                argv = tcpdump_argv(interface, cap.snaplen, cap.bpf)
+                for ts, frame in capture_live(argv, duration_seconds):
                     pipeline.ingest(ts, frame)
-                    if deadline is not None and time.monotonic() >= deadline:
-                        break
                     if ts - last_prune > _PRUNE_EVERY_SECONDS:
                         pipeline.prune(time.time())
                         last_prune = ts

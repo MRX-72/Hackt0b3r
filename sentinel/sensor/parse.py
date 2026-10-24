@@ -53,6 +53,8 @@ _DHCP_TYPES: dict[int, DhcpMsgType] = {
     dpkt.dhcp.DHCPINFORM: "inform",
 }
 _FRAGMENT_PROTOS: dict[int, Proto] = {dpkt.ip.IP_PROTO_TCP: "tcp", dpkt.ip.IP_PROTO_UDP: "udp"}
+_DNS_HEADER = 12
+_DNS_QR_RESPONSE = 0x8000
 _DHCP_PORTS = {67, 68}
 _ETHERNET_HEADER = 14
 _IPV6_HEADER = 40
@@ -93,6 +95,36 @@ def _wire_length(ip: dpkt.ip.IP | dpkt.ip6.IP6, captured: int) -> int:
     return max(captured, _ETHERNET_HEADER + declared) if declared else captured
 
 
+@dataclass(frozen=True)
+class _DnsMessage:
+    is_response: bool
+    question: tuple[str, int] | None  # (name, record type) of the first question
+    answer_names: list[str]
+
+
+def _read_dns(payload: bytes, max_answers: int) -> _DnsMessage:
+    """Header, first question and answer owner names. Record data is skipped, never decoded.
+
+    dpkt refuses a whole message when it holds any record type it cannot decode (NSEC, HTTPS,
+    RRSIG, ... are everywhere in real DNS/mDNS), so names are walked by hand instead.
+    """
+    _, flags, questions, answers, _, _ = struct.unpack_from("!6H", payload)
+    offset = _DNS_HEADER
+    first: tuple[str, int] | None = None
+    for index in range(min(questions, 1)):
+        name, offset = dpkt.dns.unpack_name(payload, offset)
+        (qtype, _) = struct.unpack_from("!HH", payload, offset)
+        offset += 4
+        first = (name, qtype) if index == 0 else first
+    names: list[str] = []
+    for _ in range(min(answers, max_answers)):
+        name, offset = dpkt.dns.unpack_name(payload, offset)
+        _, _, _, length = struct.unpack_from("!HHIH", payload, offset)
+        offset += 10 + length
+        names.append(name)
+    return _DnsMessage(bool(flags & _DNS_QR_RESPONSE), first, names)
+
+
 def _text(raw: bytes) -> str:
     return raw.decode("utf-8", errors="replace")
 
@@ -103,6 +135,7 @@ class FrameParser:
     ignored: int = 0
     parse_errors: int = 0
     payload_errors: int = 0
+    truncated_payloads: int = 0
 
     def parse(self, data: bytes, ts: float) -> list[Event]:
         self.frames += 1
@@ -165,10 +198,13 @@ class FrameParser:
         )  # fmt: skip
         events: list[Event] = [flow]
         if name == "udp" and isinstance(l4, dpkt.udp.UDP):
-            events = self._udp_payload(flow, l4, events)
+            cut_short = flow.bytes > length  # snaplen kept less than the packet carried
+            events = self._udp_payload(flow, l4, events, cut_short)
         return events
 
-    def _udp_payload(self, flow: Flow, udp: dpkt.udp.UDP, events: list[Event]) -> list[Event]:
+    def _udp_payload(
+        self, flow: Flow, udp: dpkt.udp.UDP, events: list[Event], cut_short: bool
+    ) -> list[Event]:
         ports = {udp.sport, udp.dport}
         try:
             if _DNS_PORT in ports:
@@ -178,17 +214,21 @@ class FrameParser:
             if _MDNS_PORT in ports:
                 return [*events, *self._mdns(flow, udp.data)]
         except _MALFORMED:
-            self.payload_errors += 1
+            # A payload the snaplen cut off is expected to fail; only count genuine garbage.
+            if cut_short:
+                self.truncated_payloads += 1
+            else:
+                self.payload_errors += 1
         return events
 
     @staticmethod
     def _with_query(flow: Flow, payload: bytes) -> Flow:
-        dns = dpkt.dns.DNS(payload)
-        if dns.qr == dpkt.dns.DNS_Q and dns.qd:
-            question = dns.qd[0]
-            qtype = _DNS_TYPES.get(question.type, f"TYPE{question.type}")
-            return flow.model_copy(update={"dns_query": question.name.lower(), "dns_qtype": qtype})
-        return flow
+        message = _read_dns(payload, max_answers=0)
+        if message.is_response or message.question is None:
+            return flow
+        name, qtype = message.question
+        label = _DNS_TYPES.get(qtype, f"TYPE{qtype}")
+        return flow.model_copy(update={"dns_query": name.lower(), "dns_qtype": label})
 
     @staticmethod
     def _dhcp(flow: Flow, payload: bytes) -> DhcpEvent:
@@ -208,10 +248,10 @@ class FrameParser:
 
     @staticmethod
     def _mdns(flow: Flow, payload: bytes) -> list[MdnsEvent]:
-        dns = dpkt.dns.DNS(payload)
-        if dns.qr != dpkt.dns.DNS_R:
+        message = _read_dns(payload, max_answers=_MDNS_MAX_NAMES)
+        if not message.is_response:
             return []
         return [
-            MdnsEvent(ts=flow.ts, src_mac=flow.src_mac, src_ip=flow.src_ip, name=rr.name)
-            for rr in dns.an[:_MDNS_MAX_NAMES]
+            MdnsEvent(ts=flow.ts, src_mac=flow.src_mac, src_ip=flow.src_ip, name=name)
+            for name in message.answer_names
         ]

@@ -235,7 +235,7 @@ sentinel replay PCAP [PCAP ...] [-t | -T] [-H IP] [-p N] [--proto P] [-n] [-b]
 ```
 
 Runs `.pcap` / `.pcapng` files through the whole pipeline: parse, detect, group, explain, store, and
-(optionally) notify. Only Ethernet captures are supported. With several files each is analysed
+(optionally) notify. Ethernet, loopback (`lo0`) and raw-IP captures are supported. With several files each is analysed
 separately under a `== file ==` heading. Replaying a file twice does not duplicate alerts (with
 `-n`, messages are sent again).
 
@@ -250,7 +250,9 @@ separately under a `== file ==` heading. Replaying a file twice does not duplica
 Each run ends with a summary:
 `frames=… flows=… alerts=… incidents=… parse_errors=… payload_errors=… late_dropped=…`.
 `parse_errors` counts malformed packets that were skipped; `payload_errors` counts packets whose
-DNS/DHCP content was unreadable (the packet itself still counts as traffic).
+DNS/DHCP content was unreadable (the packet itself still counts as traffic); `truncated_payloads`
+(shown only when non-zero) counts DNS/mDNS payloads that `snaplen` cut off, which is expected
+for big mDNS announcements.
 
 ### `watch` — capture live traffic
 
@@ -259,7 +261,8 @@ sudo .venv/bin/sentinel watch [--iface IFACE] [--for TIME] [same options as repl
 ```
 
 Runs `tcpdump` on the interface (default `[capture] interface`, normally `bridge100`) and feeds the
-same pipeline until you press Ctrl-C, or until `--for TIME` has passed (checked as packets arrive).
+same pipeline until you press Ctrl-C, or until `--for TIME` has passed (it stops on time even when
+the link is silent).
 Read [Live capture](#live-capture-on-the-gateway-mac) first.
 
 ### `incidents` — list stored incidents
@@ -542,6 +545,32 @@ enough to run without a model.
 
 ---
 
+## Try it on your own machine (loopback)
+
+You can watch Sentinel catch a real port scan without any other device. The script below scans
+**your own** loopback interface (it refuses every other address), and Sentinel captures `lo0`:
+
+```bash
+# terminal 1: capture for two minutes (no notifications unless you add -n)
+sentinel watch --iface lo0 --for 2m -b
+
+# terminal 2: a fast scan (400 ports, about a second) ...
+python tools/localhost_scan.py
+# ... or a slow one that only the 5-minute window can catch (1 probe a second)
+python tools/localhost_scan.py --delay 1 --ports 20000-20039
+```
+
+Expected: a `CRITICAL ... Device is probing many network ports (T1046)` line after the fast scan
+(10-second window), and a `HIGH` one after the slow scan (5-minute window, "within 5 minutes").
+On loopback every connection is between the machine and itself, so the "device" is `127.0.0.1`.
+Normal local traffic (for example hundreds of requests to a local web server) raises nothing.
+You can also record with `tcpdump -i lo0 -w lo.pcap` and run `sentinel replay lo.pcap`.
+
+Loopback and raw-IP captures have no MAC addresses, so Sentinel gives each IP a stand-in MAC
+(`02:00:` + the IP's bytes) to tell devices apart.
+
+---
+
 ## Live capture on the gateway Mac
 
 Sentinel can only see traffic that crosses the machine it runs on. The intended setup is a Mac that
@@ -555,7 +584,9 @@ sudo .venv/bin/sentinel watch --iface bridge100 --show-traffic
 
 Things to know:
 
-- **Root.** Live capture runs `tcpdump`, which needs root. In this version the whole program runs as
+- **Root.** Live capture runs `tcpdump`. On macOS you may not need `sudo` at all: members of the
+  `access_bpf` group (check with `id`) can read the capture devices. If you do run with `sudo`,
+  note below. In this version the whole program runs as
   root while you use `watch` (a separate privileged capture process is planned). If your database
   path is relative, root will create it in the current directory; use a separate settings file for
   live runs so you do not end up with a root-owned database:

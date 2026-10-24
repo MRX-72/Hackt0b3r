@@ -3,6 +3,7 @@ import json
 import os
 import re
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -381,15 +382,22 @@ def test_durations_parse_and_reject_nonsense() -> None:
             parse_duration(bad)
 
 
-def test_watch_stops_after_the_requested_duration(
+def test_watch_passes_the_duration_to_the_capture(
     env: dict[str, object], capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     frames = list(read_pcap(Path(str(env["pcap"]))))
-    ticks = iter(range(0, 10_000, 10))
-    monkeypatch.setattr("sentinel.api.service.capture_live", lambda argv: iter(frames))
-    monkeypatch.setattr("sentinel.api.service.time.monotonic", lambda: float(next(ticks)))
+    seen: dict[str, object] = {}
+
+    def fake_capture(
+        argv: list[str], duration_seconds: float | None = None
+    ) -> Iterator[tuple[float, bytes]]:
+        seen.update(argv=argv, duration=duration_seconds)
+        return iter(frames)
+
+    monkeypatch.setattr("sentinel.api.service.capture_live", fake_capture)
     out = run_ok(env, capsys, "watch", "--for", "35s", "--iface", "lo0")
-    assert "frames=" in out and int(out.split("frames=")[1].split()[0]) <= 5
+    assert seen["duration"] == 35.0 and seen["argv"][:3] == ["tcpdump", "-i", "lo0"]  # type: ignore[index]
+    assert "INCIDENT" in out and "frames=" in out
 
 
 def test_doctor_works_with_loose_secrets_and_fix_repairs_them(

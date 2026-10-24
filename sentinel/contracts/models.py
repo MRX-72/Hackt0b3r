@@ -224,6 +224,7 @@ class RunSummary(_Frozen):
     incidents: int
     parse_errors: int
     payload_errors: int
+    truncated_payloads: int  # DNS/DHCP/mDNS payloads the snaplen cut short
     late_dropped: int
     state_capped: int  # times a flood hit a memory bound (counts stay far above thresholds)
     llm_used: int
