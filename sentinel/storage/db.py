@@ -97,18 +97,35 @@ FROM device d LEFT JOIN (
 def _make_private(path: Path) -> None:
     """The history holds addresses, DNS names and evidence: owner-only, never the umask default.
 
-    A new database is created 0600 (SQLite gives its -wal and -shm files the same mode); an
-    existing one that this user owns is tightened. Never creates through a planted symlink.
+    A new database is created 0600 (SQLite gives its -wal and -shm files the same mode). Existing
+    files of ours (database, -wal, -shm) are tightened, but only a single-link regular file owned
+    by this user or the sudo user is touched, and never through a symlink.
     """
     try:
         os.close(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600))
     except FileExistsError:
-        try:
-            info = path.stat()
-        except FileNotFoundError:
+        if path.is_symlink() and not path.exists():
             raise StorageError(f"{path} is a dangling symlink; not creating through it") from None
-        if info.st_uid == os.geteuid() and info.st_mode & 0o077:
-            path.chmod(0o600)
+    try:
+        owners = {os.geteuid(), int(os.environ.get("SUDO_UID", "-1"))}
+    except ValueError:
+        owners = {os.geteuid()}
+    for suffix in ("", "-wal", "-shm"):
+        _tighten(path.with_name(path.name + suffix), owners)
+
+
+def _tighten(path: Path, owners: set[int]) -> None:
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError:  # missing, or a symlink: leave it alone
+        return
+    try:
+        info = os.fstat(fd)
+        loose = info.st_mode & 0o077
+        if stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and info.st_uid in owners and loose:
+            os.fchmod(fd, 0o600)
+    finally:
+        os.close(fd)
 
 
 def _give_away(path: Path, uid: int, gid: int) -> None:

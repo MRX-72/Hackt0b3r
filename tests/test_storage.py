@@ -300,3 +300,36 @@ def test_an_existing_loose_database_is_tightened_and_a_symlink_is_not_created_th
     with pytest.raises(StorageError, match="dangling symlink"):
         Storage(link)
     assert not victim.exists() or victim.stat().st_size == 0
+
+
+@pytest.mark.security
+def test_tightening_never_follows_a_link_and_never_touches_a_directory_or_shared_file(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "someone_elses_file"
+    target.write_text("x")
+    target.chmod(0o644)
+    link = tmp_path / "linked.db"
+    link.symlink_to(target)  # an existing target: sqlite would follow it, we must not chmod it
+    Storage(link).close()
+    assert target.stat().st_mode & 0o777 == 0o644
+    shared = tmp_path / "shared.db"
+    sqlite3.connect(shared).close()
+    shared.chmod(0o644)
+    os.link(shared, tmp_path / "second_name.db")  # two names: not a file we can reason about
+    Storage(shared).close()
+    assert shared.stat().st_mode & 0o777 == 0o644
+
+
+@pytest.mark.security
+def test_old_sidecar_files_are_tightened_too(tmp_path: Path) -> None:
+    path = tmp_path / "old.db"
+    sqlite3.connect(path).close()
+    for suffix in ("", "-wal", "-shm"):
+        side = tmp_path / ("old.db" + suffix)
+        side.touch(exist_ok=True)
+        side.chmod(0o644)
+    store = Storage(path)
+    modes = {p.name: p.stat().st_mode & 0o777 for p in tmp_path.glob("old.db*")}
+    store.close()
+    assert set(modes.values()) == {0o600}, modes
