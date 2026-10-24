@@ -409,3 +409,26 @@ def test_doctor_works_with_loose_secrets_and_fix_repairs_them(
     assert cli(env, "doctor", "--fix") == 0
     assert "fixed" in capsys.readouterr().out
     assert (tmp_path / "secrets.env").stat().st_mode & 0o777 == 0o600
+
+
+def test_alerts_are_a_solid_red_badge_and_traffic_is_dimmed_when_colour_is_on(
+    env: dict[str, object], capsys: pytest.CaptureFixture[str]
+) -> None:
+    out = run_ok(env, capsys, "--color", "always", "replay", str(env["pcap"]), "-t", "-b")
+    assert re.search(r"\x1b\[1;97;41m \[CRITICAL \d\.\d\d\] \x1b\[0m", out)  # white on red
+    alert = next(line for line in out.splitlines() if "CRITICAL" in line)
+    assert "\x1b[1;31m" in alert and not alert.startswith("\x1b[2m")  # red text, not dimmed
+    traffic = [line for line in out.splitlines() if " -> " in line]
+    assert traffic and all(line.startswith("\x1b[2m") for line in traffic)  # dim grey
+    lines = out.splitlines()
+    at = lines.index(alert)
+    assert lines[at - 1] == "" and lines[at + 1] == ""  # space around the alert in the noise
+
+
+def test_without_colour_the_alert_is_plain_text_and_json_is_never_coloured(
+    env: dict[str, object], capsys: pytest.CaptureFixture[str]
+) -> None:
+    plain = run_ok(env, capsys, "--color", "never", "replay", str(env["pcap"]), "-t", "-b")
+    assert "\x1b[" not in plain and re.search(r"\[CRITICAL \d\.\d\d\] inc-", plain)
+    as_json = run_ok(env, capsys, "--color", "always", "--json", "replay", str(env["pcap"]), "-t")
+    assert "\x1b[" not in as_json

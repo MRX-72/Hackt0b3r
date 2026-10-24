@@ -178,7 +178,7 @@ sentinel [--config FILE] [--json] [--color auto|always|never] [--version] <comma
 |---|---|
 | `--config FILE` | Settings file. Default: `config.toml` in the current directory if it exists, otherwise built-in defaults. |
 | `--json` | Print JSON lines instead of text (see [Scripting](#scripting-with---json)). Never coloured. |
-| `--color` | Colour severity labels. `auto` (default) colours only on a terminal and respects `NO_COLOR`. |
+| `--color` | `auto` (default) colours only on a terminal and respects `NO_COLOR`; `always` / `never` force it. With colour on, an alert is a solid badge (white on red for CRITICAL/HIGH, yellow for MEDIUM, cyan for LOW) with a tinted line and a blank line either side, and ordinary traffic lines are dimmed grey, so detections jump out of the traffic noise. |
 | `--version` | Print the version. |
 
 Run `sentinel` with no command to see the help and examples.

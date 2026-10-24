@@ -14,6 +14,7 @@ from pydantic import ValidationError
 
 from sentinel.api.service import SentinelService, ServiceError, init_workspace
 from sentinel.cli.render import (
+    dim,
     format_brief,
     format_detail,
     format_event,
@@ -155,10 +156,12 @@ def _run_stream(args: argparse.Namespace, service: SentinelService, settings: Se
 
     def on_event(event: Event) -> None:
         if matches(event, args.host, args.port, args.proto):
-            _out(args, format_event(event), {"event": _event_json(event)})
+            _out(args, dim(format_event(event), color), {"event": _event_json(event)})
 
     def on_report(report: IncidentReport) -> None:
         text = format_brief(report, color) if args.brief else format_report(report, color)
+        if show and not args.json:
+            text = f"\n{text}\n"  # air around an alert among the traffic lines
         _out(args, text, {"report": report.model_dump()})
 
     common: dict[str, Any] = {

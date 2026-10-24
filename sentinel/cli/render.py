@@ -58,12 +58,27 @@ def severity_label(score: float) -> str:
     return next(label for floor, label in _SEVERITY_FLOORS if score >= floor)
 
 
-_COLORS = {"CRITICAL": "1;31", "HIGH": "31", "MEDIUM": "33", "LOW": "36"}
+_BADGES = {"CRITICAL": "1;97;41", "HIGH": "1;97;41", "MEDIUM": "1;30;43", "LOW": "1;30;46"}
+_TEXT = {"CRITICAL": "1;31", "HIGH": "1;31", "MEDIUM": "33", "LOW": "36"}
+_DIM = "2"
 
 
-def paint(label: str, color: bool) -> str:
-    """Wrap a severity label in ANSI colour. Only our own fixed labels are ever coloured."""
-    return f"\x1b[{_COLORS[label]}m{label}\x1b[0m" if color and label in _COLORS else label
+def badge(score: float, color: bool) -> str:
+    """`[CRITICAL 1.00]`; with colour it is a solid block (white on red for CRITICAL/HIGH) so an
+    alert stands out from a screen of traffic lines. Only our own fixed labels are coloured."""
+    label = severity_label(score)
+    text = f"[{label} {score:.2f}]"
+    return f"\x1b[{_BADGES[label]}m {text} \x1b[0m" if color else text
+
+
+def tint(text: str, score: float, color: bool) -> str:
+    """Colour the rest of an alert line to match its severity."""
+    return f"\x1b[{_TEXT[severity_label(score)]}m{text}\x1b[0m" if color else text
+
+
+def dim(text: str, color: bool) -> str:
+    """Grey out ordinary traffic so alerts are the brightest thing on screen."""
+    return f"\x1b[{_DIM}m{text}\x1b[0m" if color else text
 
 
 def format_report(report: IncidentReport, color: bool = False) -> str:
@@ -73,7 +88,7 @@ def format_report(report: IncidentReport, color: bool = False) -> str:
         for d in report.deliveries
     )
     lines = [
-        f"INCIDENT [{paint(severity_label(inc.score), color)} {inc.score:.2f}] {inc.id}",
+        f"INCIDENT {badge(inc.score, color)} {tint(inc.id, inc.score, color)}",
         f"  {terminal_safe(exp.headline)}",
         f"  chain: {' > '.join(inc.chain)}   ({exp.source} text)",
         f"  what:  {terminal_safe(exp.what_happened, 400)}",
@@ -126,8 +141,7 @@ def matches(event: Event, host: str | None, port: int | None, proto: str | None)
 def format_detail(detail: IncidentDetail, color: bool = False) -> str:
     inc = detail.incident
     lines = [
-        f"{inc.id}  [{paint(severity_label(inc.score), color)} {inc.score:.2f}]  "
-        f"status={inc.status}",
+        f"{inc.id}  {badge(inc.score, color)}  status={inc.status}",
         f"  device: {inc.host_mac}   chain: {' > '.join(inc.chain)}",
         f"  {terminal_safe(inc.summary or '(no summary)')}",
         "  timeline:",
@@ -146,9 +160,9 @@ def format_detail(detail: IncidentDetail, color: bool = False) -> str:
 def format_brief(report: IncidentReport, color: bool = False) -> str:
     inc = report.incident
     sent = " ".join(f"{d.channel}={d.status}" for d in report.deliveries)
-    label = paint(severity_label(inc.score), color)
-    line = f"[{label} {inc.score:.2f}] {inc.id}  {terminal_safe(report.explanation.headline)}"
-    return f"{line}  ({' > '.join(inc.chain)})" + (f"  {sent}" if sent else "")
+    rest = f"{inc.id}  {terminal_safe(report.explanation.headline)}  ({' > '.join(inc.chain)})"
+    rest += f"  {sent}" if sent else ""
+    return f"{badge(inc.score, color)} {tint(rest, inc.score, color)}"
 
 
 def _size(n: float) -> str:
