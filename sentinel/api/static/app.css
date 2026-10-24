@@ -43,7 +43,8 @@ button, select, input, a { font: inherit; color: inherit; }
 .body { flex: 1; min-height: 0; position: relative; }
 .body.scroll { overflow: auto; }
 canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-#p-rate { height: 128px; flex: none; }
+#p-rate { height: 140px; flex: none; }
+#p-topo { flex: 0 0 46%; min-height: 260px; }
 .empty { padding: 40px 12px; text-align: center; color: var(--faint); letter-spacing: .16em; font-size: 11px; }
 
 .ghost { background: none; border: 1px solid var(--line2); padding: 3px 11px; font-size: 11px; letter-spacing: .12em; color: var(--dim); cursor: pointer; text-decoration: none; }
@@ -119,3 +120,6 @@ select:focus, input:focus { border-color: var(--dim); }
 #p-filter { margin-left: auto; width: 250px; }
 #p-filter + .sub { min-width: 70px; text-align: right; }
 .panel h2 .ghost { margin-left: 0; }
+
+@keyframes arrive { from { background: #1f2a33; } to { background: transparent; } }
+#pkts tbody tr.fresh { animation: arrive 0.9s ease-out; }

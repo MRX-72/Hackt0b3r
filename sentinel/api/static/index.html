@@ -26,12 +26,8 @@
 
 <main id="live" class="view">
   <div class="col">
-    <section class="panel" id="p-rate">
-      <h2>PACKETS / SEC <span class="sub">last 60 s</span></h2>
-      <div class="body"><canvas id="rate"></canvas></div>
-    </section>
     <section class="panel grow">
-      <h2>PACKET MONITOR <span class="sub">newest first</span>
+      <h2>PACKET MONITOR <span class="sub">live, newest first</span>
         <input id="p-filter" type="text" maxlength="60" placeholder="FILTER  ip, port, proto, text" spellcheck="false" autocomplete="off">
         <span class="sub" id="p-count">0 shown</span>
         <button class="ghost" id="pause">PAUSE</button></h2>
@@ -42,8 +38,16 @@
         </table>
       </div>
     </section>
+    <section class="panel" id="p-rate">
+      <h2>PACKETS / SEC <span class="sub">last 60 s</span></h2>
+      <div class="body"><canvas id="rate"></canvas></div>
+    </section>
   </div>
   <div class="col side">
+    <section class="panel" id="p-topo">
+      <h2>NETWORK TOPOLOGY <span class="sub" id="topo-sub">0 devices</span></h2>
+      <div class="body"><canvas id="topo"></canvas></div>
+    </section>
     <section class="panel grow" id="p-alerts">
       <h2>ALERTS <span class="sub" id="alert-sub">this session</span><button class="ghost" id="clear">CLEAR</button></h2>
       <div id="alerts" class="list"></div>

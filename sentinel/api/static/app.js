@@ -18,6 +18,116 @@
   const state = { paused: false, flagged: new Map(), filter: "" };
   const isFlagged = (mac) => (state.flagged.get(mac) || 0) > Date.now();
 
+  // ---------------------------------------------------------------------------- topology
+  // Star around this machine (the gateway): one spoke per device, brighter = more recent traffic.
+  const PRIVATE = /^(10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|fe80|fc|fd)/i;
+  const LOOPBACK = /^(127\.|::1$)/;
+  const SLOTS = 12, IDLE_MS = 90000, PORT_RING = 8;
+  class Topology {
+    constructor(canvas) {
+      this.canvas = canvas; this.ctx = canvas.getContext("2d");
+      this.nodes = new Map(); this.slots = new Array(SLOTS).fill(null); this.ports = new Map();
+      this.self = { macs: new Set(), heat: 0 }; this.hidden = 0; this.dirty = true;
+      new ResizeObserver(() => this.resize()).observe(canvas.parentElement);
+      this.resize();
+      setInterval(() => this.tick(), 500);
+    }
+    resize() {
+      const r = this.canvas.parentElement.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+      this.w = r.width; this.h = r.height;
+      this.canvas.width = Math.max(1, Math.round(r.width * dpr)); this.canvas.height = Math.max(1, Math.round(r.height * dpr));
+      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0); this.dirty = true;
+    }
+    slotFor(key) {
+      if (key === "INTERNET") { this.slots[0] = this.slots[0] || key; return 0; }
+      const free = this.slots.findIndex((v, i) => i > 0 && v === null);
+      if (free < 0) return -1;
+      this.slots[free] = key; return free;
+    }
+    touch(key, mac) {
+      let n = this.nodes.get(key);
+      if (!n) {
+        const slot = this.slotFor(key);
+        if (slot < 0) { this.hidden++; return null; }
+        n = { key, slot, heat: 0, last: 0, macs: new Set() }; this.nodes.set(key, n);
+      }
+      n.heat += 1; n.last = Date.now(); if (mac) n.macs.add(mac);
+      return n;
+    }
+    add(ev) {
+      if (ev.k !== "f") return;
+      const a = LOOPBACK.test(ev.s), b = LOOPBACK.test(ev.d);
+      if (a && b) {  // traffic inside this machine: show which service ports are busy
+        const port = (ev.sp || 0) > (ev.dp || 0) ? ev.dp : ev.sp;
+        const p = this.ports.get(port) || { heat: 0, last: 0 };
+        p.heat += 1; p.last = Date.now(); this.ports.set(port, p);
+        this.self.heat += 1; this.self.macs.add(ev.m);
+      } else {
+        for (const [ip, mac] of [[ev.s, ev.m], [ev.d, null]]) {
+          if (LOOPBACK.test(ip)) { this.self.heat += 1; if (mac) this.self.macs.add(mac); continue; }
+          this.touch(PRIVATE.test(ip) ? ip : "INTERNET", mac);
+        }
+      }
+      this.dirty = true;
+    }
+    tick() {
+      const now = Date.now();
+      for (const [key, n] of this.nodes) {
+        n.heat *= 0.8;
+        if (now - n.last > IDLE_MS) { this.slots[n.slot] = null; this.nodes.delete(key); this.dirty = true; }
+      }
+      for (const [port, p] of this.ports) {
+        p.heat *= 0.8;
+        if (now - p.last > 20000) { this.ports.delete(port); this.dirty = true; }
+      }
+      this.self.heat *= 0.8;
+      if (this.dirty || this.nodes.size || this.ports.size) { this.draw(); this.dirty = false; }
+      $("#topo-sub").textContent = `${this.nodes.size} device${this.nodes.size === 1 ? "" : "s"}`
+        + (this.hidden ? ` (+${this.hidden} not shown)` : "");
+    }
+    flagged(macs) { return [...macs].some((m) => isFlagged(m)); }
+    draw() {
+      const g = this.ctx, w = this.w, h = this.h, cx = w / 2, cy = h / 2 + 4;
+      const radius = Math.max(40, Math.min(w / 2 - 120, h / 2 - 46));
+      g.clearRect(0, 0, w, h);
+      g.font = "12px ui-monospace, Menlo, monospace"; g.textBaseline = "middle";
+      const pos = (slot) => { const a = -Math.PI / 2 + (slot / SLOTS) * Math.PI * 2; return [cx + Math.cos(a) * radius, cy + Math.sin(a) * radius, a]; };
+      for (const n of this.nodes.values()) {  // spokes first, so nodes sit on top
+        const [x, y] = pos(n.slot), heat = Math.min(1, n.heat / 40);
+        g.strokeStyle = heat > 0.02 ? `rgba(91,141,184,${0.28 + 0.6 * heat})` : "#232a31";
+        g.lineWidth = 1 + 2 * heat; g.beginPath(); g.moveTo(cx, cy); g.lineTo(x, y); g.stroke();
+      }
+      g.lineWidth = 1;
+      const bad = this.flagged(this.self.macs);
+      const portList = [...this.ports.entries()].sort((a, b) => b[1].heat - a[1].heat).slice(0, PORT_RING);
+      portList.forEach(([port, p], i) => {  // service ports of this machine, evenly spaced on a ring
+        const a = -Math.PI / 2 + (i / PORT_RING) * Math.PI * 2, x = cx + Math.cos(a) * 54, y = cy + Math.sin(a) * 54;
+        const on = Math.min(1, p.heat / 20);
+        g.strokeStyle = "#232a31"; g.beginPath(); g.moveTo(cx, cy); g.lineTo(x, y); g.stroke();
+        g.fillStyle = "#12161a"; g.fillRect(x - 5, y - 5, 10, 10);
+        g.strokeStyle = on > 0.05 ? "#5b8db8" : "#3b4652"; g.strokeRect(x - 4.5, y - 4.5, 9, 9);
+        if (on > 0.05) { g.fillStyle = "#5b8db8"; g.globalAlpha = 0.4 + 0.6 * on; g.fillRect(x - 2.5, y - 2.5, 5, 5); g.globalAlpha = 1; }
+        g.fillStyle = on > 0.05 ? "#9fb4c7" : "#5d6772"; g.textAlign = Math.cos(a) > 0.3 ? "left" : Math.cos(a) < -0.3 ? "right" : "center";
+        const lx = x + Math.cos(a) * 11, ly = y + Math.sin(a) * 11 + (Math.abs(Math.cos(a)) <= 0.3 ? Math.sin(a) * 4 : 0);
+        g.fillText(":" + port, lx, ly);
+      });
+      g.fillStyle = bad ? "#2a1819" : "#1b2127"; g.strokeStyle = bad ? "#c4403f" : "#4b5864";
+      g.fillRect(cx - 10, cy - 10, 20, 20); g.strokeRect(cx - 9.5, cy - 9.5, 19, 19);
+      g.fillStyle = bad ? "#c4403f" : "#9aa7b4"; g.fillRect(cx - 3, cy - 3, 6, 6);
+      g.textAlign = "center"; g.fillStyle = bad ? "#c4403f" : "#7b8794";
+      g.fillText("THIS HOST", cx, cy + (portList.length ? 20 : 26));
+      for (const n of this.nodes.values()) {
+        const [x, y, a] = pos(n.slot), bad2 = this.flagged(n.macs), live = Date.now() - n.last < 1500;
+        g.fillStyle = bad2 ? "#2a1819" : "#1b2127"; g.strokeStyle = bad2 ? "#c4403f" : live ? "#7f95aa" : "#3b4652";
+        g.fillRect(x - 7, y - 7, 14, 14); g.strokeRect(x - 6.5, y - 6.5, 13, 13);
+        g.fillStyle = bad2 ? "#c4403f" : "#9aa7b4";
+        const right = Math.cos(a) > 0.35, left = Math.cos(a) < -0.35;
+        g.textAlign = right ? "left" : left ? "right" : "center";
+        g.fillText(n.key.length > 15 ? n.key.slice(0, 14) + "…" : n.key, x + (right ? 13 : left ? -13 : 0), y + (right || left ? 0 : Math.sin(a) > 0 ? 18 : -18));
+      }
+    }
+  }
+
   // ---------------------------------------------------------------------------- rate chart
   class RateView {
     constructor(canvas) {
@@ -51,12 +161,12 @@
   }
 
   // ---------------------------------------------------------------------------- live view
-  const rate = new RateView($("#rate"));
+  const rate = new RateView($("#rate")), topo = new Topology($("#topo"));
   const body = $("#pkts tbody");
 
   const kind = (ev) => ev.k === "f" ? ev.p : ev.k;
   function packetRow(ev) {
-    const tr = h("tr", isFlagged(ev.m) ? "flag" : "");
+    const tr = h("tr", isFlagged(ev.m) ? "flag fresh" : "fresh");
     const c = (text, cls) => tr.appendChild(h("td", cls, text));
     const ep = (ip, port) => (port ? `${ip}:${port}` : ip);
     c(hhmmss(ev.t));
@@ -91,7 +201,7 @@
     rate.add(msg.n);
     if (state.paused) return;
     const frag = document.createDocumentFragment();
-    msg.events.forEach((ev) => frag.prepend(packetRow(ev)));
+    msg.events.forEach((ev) => { topo.add(ev); frag.prepend(packetRow(ev)); });
     body.prepend(frag);
     while (body.rows.length > MAX_ROWS) body.deleteRow(body.rows.length - 1);
     countShown();
@@ -121,6 +231,7 @@
   function togglePause() {
     state.paused = !state.paused;
     $("#pause").textContent = state.paused ? "RESUME" : "PAUSE";
+    $("#pkts").classList.toggle("paused", state.paused);
   }
 
   function setStatus(s) {
