@@ -1,0 +1,24 @@
+%% 04 Data flow: packets to notification. Marks D = deterministic, M = ML, L = LLM
+flowchart TB
+  pkt["packets (D) capture, snaplen 96"] --> parse["parse to flow/events (D) - malformed input counted, never fatal"]
+  parse --> bus["event bus (D) bounded, drops low priority, counts drops"]
+  bus --> win["windows 10s / 5m / 1h (D)"]
+  win --> feat["feature vectors (D)"]
+  feat --> rules["rule detectors: scan, brute force, DHCP, ARP, canary (D)"]
+  feat --> per["periodicity: beaconing (D)"]
+  feat --> dns["DNS: entropy rules (D) + n-gram LR (M)"]
+  feat --> iso["Isolation Forest + peer robust z (M)"]
+  rules --> ens
+  per --> ens
+  dns --> ens
+  iso --> ens
+  ens["ensemble: calibration + model agreement (M)"] --> alert[Alert]
+  alert --> corr["correlation: incidents + ATT&CK (D)"]
+  corr --> budget["alert budget + ranking (D)"]
+  corr --> san["sanitizer (D) - only gate to LLM/notify/UI"]
+  san --> llm["explanation LLM (L), schema-constrained"]
+  llm --> faith["faithfulness checks (D)"]
+  faith -- pass --> out
+  faith -- fail --> tmpl["template fallback (D)"] --> out
+  san --> tmpl
+  budget --> out["UI and notifications (sanitized)"]

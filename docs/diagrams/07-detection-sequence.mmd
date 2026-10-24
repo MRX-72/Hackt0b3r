@@ -1,0 +1,21 @@
+%% 07 Sequence: a port scan from one host to an incident and a notification
+sequenceDiagram
+  participant S as sentineld
+  participant P as pipeline
+  participant W as windows/features
+  participant D as portscan detector
+  participant C as correlation
+  participant Z as sanitizer
+  participant E as explain (LLM or template)
+  participant N as notifier
+  S->>P: flow events (SYN, RST bursts from 192.168.2.3)
+  P->>W: update 10s, 5m, 1h windows
+  W->>D: window features (unique_ports, failed_ratio)
+  D->>P: Alert(T1046, severity, confidence, numeric evidence)
+  P->>C: alert
+  C->>P: Incident(chain=[T1046], score)
+  P->>Z: structured incident fields
+  Z->>E: sanitized fields only
+  E->>P: summary (faithfulness-checked, else template)
+  P->>N: sanitized summary + GUI link (if budget and mode allow)
+  N-->>P: delivery result (failure never blocks detection)

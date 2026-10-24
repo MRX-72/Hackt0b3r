@@ -1,0 +1,16 @@
+%% 11 Model registry: roles, runtimes, load/unload, RAM cap, fallbacks
+flowchart TB
+  reg[registry.yaml: id, role, runtime, path, sha256, license, ram_mb, enabled, load] --> verify{sha256 matches?}
+  verify -- no --> refuse[refuse + count + log]
+  verify -- yes --> cap{resident RAM + ram_mb <= cap?}
+  cap -- no --> skip[do not load, log, use fallback]
+  cap -- yes --> load[eager at start or lazy on first use]
+  load --> idle[unload after idle N minutes - lazy models]
+  subgraph roles[roles and fallbacks]
+    dns[dns_classifier - onnx or sklearn] -. down .-> dnsrules[entropy rules only]
+    exp[explain - ollama] -. down .-> tmpl[template text]
+    emb[embed] -. down .-> noemb[skip dedupe and RAG]
+    ask[needle ask] -. down .-> kw[keyword router, same allowlist]
+  end
+  load --> roles
+  load --> health[health: loaded, last used, p50/p95, errors]

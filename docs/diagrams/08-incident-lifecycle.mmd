@@ -1,0 +1,16 @@
+%% 08 Incident lifecycle
+stateDiagram-v2
+  [*] --> open: first alert on host
+  open --> correlated: more alerts within gap
+  correlated --> correlated: more alerts
+  open --> explained: summary produced
+  correlated --> explained: summary produced
+  explained --> notified: budget + mode + routing allow
+  explained --> acknowledged: admin ack in GUI/CLI
+  notified --> acknowledged
+  acknowledged --> resolved: admin resolves
+  acknowledged --> dismissed: admin dismisses as false positive
+  explained --> dismissed
+  notified --> dismissed
+  resolved --> [*]
+  dismissed --> [*]

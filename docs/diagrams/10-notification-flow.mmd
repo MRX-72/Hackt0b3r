@@ -1,0 +1,15 @@
+%% 10 Notification flow
+flowchart LR
+  inc[Incident] --> mode{mode allows external?<br/>not Air-gapped/Replay}
+  mode -- no --> drop[local only]
+  mode -- yes --> route[severity routing]
+  route --> dedupe[dedupe: one message per incident, updates grouped]
+  dedupe --> quiet{quiet hours?<br/>critical overrides}
+  quiet --> san[sanitize: structured fields + validated text,<br/>escape per platform, no mentions]
+  san --> rl[per-channel + global rate limit]
+  rl --> send[send]
+  send -- fail --> retry[exponential backoff]
+  retry --> cb{circuit breaker open?}
+  cb -- yes --> state[visible failure state in GUI]
+  cb -- no --> send
+  send --> log[(delivery log)]

@@ -1,0 +1,11 @@
+%% 12 Build order DAG. Core (Stage 1) in strict order, then surround (Stage 2). Core before surround.
+flowchart LR
+  s0[Stage 0: docs, contracts plan, skeleton, make check] --> c1
+  subgraph core[Stage 1: core]
+    c1[1 storage] --> c2[2 flow model + parser] --> c3[3 replay] --> c4[4 windows + features] --> c5[5 event bus]
+    c5 --> c6[6 detectors] --> c7[7 baseline + peers] --> c8[8 correlation] --> c9[9 sanitizer]
+    c9 --> c10[10 enforcement validator + pf renderer] --> c11[11 daemon + socket] --> c12[12 model registry + explain] --> c13[13 API skeleton]
+  end
+  c13 --> g1{Gate 1}
+  g1 --> s1[CLI] --> s2[inventory] --> s3[modes] --> s4[notify] --> s5[GUI] --> s6[packets view] --> s7[rule engine] --> s8[embeddings] --> s9[ask] --> s10[more models] --> s11[enforce apply] --> s12[purple team + eval]
+  s12 --> g2{Gate 2} --> polish[Stage 3 polish]

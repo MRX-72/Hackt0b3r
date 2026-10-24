@@ -1,0 +1,18 @@
+%% 01 System context: actors, Sentinel, external services, trust boundary
+flowchart LR
+  admin([Admin]):::actor
+  devices([LAN devices: laptops, phones, printers, IoT]):::actor
+  lab([Attacker lab Mac - own machines only]):::actor
+  subgraph gw[Gateway Mac - trust boundary: nothing leaves except opt-in summaries]
+    sentinel[[Sentinel: sentineld + sentinel-api + local models]]
+  end
+  notif[(Slack / Telegram / Discord)]:::ext
+  apimodel[(Optional API model - off by default)]:::ext
+  devices -- "traffic crosses gateway" --> sentinel
+  lab -- "scripted attacks, lab subnet only" --> devices
+  admin -- "CLI / GUI over 127.0.0.1 + bearer token" --> sentinel
+  sentinel -- "opt-in: sanitized incident summary only" --> notif
+  sentinel -. "opt-in, user initiated, sanitized structured input" .-> apimodel
+  notif -- "alert + link to GUI" --> admin
+  classDef actor fill:#eef,stroke:#446
+  classDef ext fill:#fee,stroke:#a44

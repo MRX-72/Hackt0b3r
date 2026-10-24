@@ -1,0 +1,23 @@
+%% 06 SQLite data model (WAL). Indexes: (host_mac, ts) on flows, alerts, feature_snapshots.
+erDiagram
+  DEVICE ||--o{ DEVICE_IP : "ip history"
+  DEVICE ||--o{ FLOW : "src_mac"
+  DEVICE ||--o{ FEATURE_SNAPSHOT : has
+  DEVICE ||--o{ ALERT : "host_mac"
+  INCIDENT ||--|{ INCIDENT_ALERT : groups
+  ALERT ||--o{ INCIDENT_ALERT : "member of"
+  INCIDENT ||--o{ ENFORCEMENT_RULE : "created_by"
+  INCIDENT ||--o{ INCIDENT_FEEDBACK : "admin resolution"
+  ENFORCEMENT_RULE ||--o{ AUDIT_LOG : "state changes"
+  NOTIFICATION_DELIVERY }o--|| INCIDENT : about
+  DEVICE { text mac PK  text vendor  text hostname_sanitized  text type_guess  real type_confidence  text type_label_admin  text trust  real first_seen  real last_seen }
+  DEVICE_IP { text mac FK  text ip  real first_seen  real last_seen }
+  FLOW { integer id PK  real ts  text src_mac  text dst_mac  text src_ip  text dst_ip  text proto  integer src_port  integer dst_port  integer bytes  integer packets  text tcp_flags }
+  FEATURE_SNAPSHOT { text host_mac FK  real ts  integer window_seconds  text features_json }
+  ALERT { text id PK  real ts  text detector  text host_mac FK  real severity  real confidence  text evidence_json  text technique }
+  INCIDENT { text id PK  text host_mac  real start_ts  real end_ts  text chain_json  real score  text summary  text status }
+  INCIDENT_ALERT { text incident_id FK  text alert_id FK }
+  INCIDENT_FEEDBACK { text incident_id FK  real ts  text resolution }
+  ENFORCEMENT_RULE { text id PK  text state  text rule_json  integer ttl_seconds  real expires_at  text created_by }
+  AUDIT_LOG { integer id PK  real ts  text actor  text action  text target  text detail_json }
+  NOTIFICATION_DELIVERY { integer id PK  real ts  text channel  text incident_id FK  text status  text error }

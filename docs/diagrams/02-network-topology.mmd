@@ -1,0 +1,16 @@
+%% 02 Network topology (interface name and subnet are ASSUMED until spikes/spike_bridge.sh is run)
+flowchart TB
+  subgraph macC[Mac C: gateway and brain]
+    uplink[uplink: phone USB tether - optional]
+    bridge[bridge100 - ASSUMED name]
+    sentinelC[sentineld + sentinel-api + Ollama]
+    c2[fake C2 + DNS tunnel server + canary]
+  end
+  macA[Mac A: victim / normal user<br/>baseline traffic, throwaway SSH, web, canary]
+  macB[Mac B: attacker<br/>labtools/attacks, subnet hard-check]
+  macA -- "Wi-Fi 192.168.2.0/24 - ASSUMED" --> bridge
+  macB -- "Wi-Fi" --> bridge
+  bridge --- sentinelC
+  bridge --- c2
+  uplink -.-> bridge
+  macB -. "A-to-B may be isolated by Internet Sharing - UNKNOWN; fallback: victim services on Mac C" .-> macA
