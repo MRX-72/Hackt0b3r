@@ -151,3 +151,41 @@ def test_root_ignores_a_config_that_someone_else_could_have_planted(
     monkeypatch.setattr(os, "geteuid", os.getuid)  # a normal user is unaffected
     assert find_config() == Path("config.toml")
     assert find_config(Path("typed-by-the-user.toml")) == Path("typed-by-the-user.toml")
+
+
+@pytest.mark.security
+@pytest.mark.parametrize(
+    ("key", "bad"),
+    [
+        ("SLACK_WEBHOOK_URL", "http://hooks.slack.test/services/TOPSECRET"),
+        ("DISCORD_WEBHOOK_URL", "ftp://discord.test/TOPSECRET"),
+        ("TELEGRAM_BOT_TOKEN", "123456:TOPSECRET/../../evil?x="),
+        ("TELEGRAM_BOT_TOKEN", "no-colon-TOPSECRET"),
+        ("TELEGRAM_CHAT_ID", "12 34; TOPSECRET"),
+    ],
+)
+def test_credentials_of_the_wrong_shape_are_refused_without_echoing_them(
+    tmp_path: Path, key: str, bad: str
+) -> None:
+    f = tmp_path / "s.env"
+    f.write_text(f"{key}={bad}\n")
+    f.chmod(0o600)
+    with pytest.raises(ValidationError) as err:
+        load_secrets(f, {})
+    assert "TOPSECRET" not in str(err.value) and "TOPSECRET" not in repr(err.value)
+
+
+def test_well_formed_credentials_are_accepted(tmp_path: Path) -> None:
+    f = tmp_path / "s.env"
+    f.write_text(
+        "SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T0/B0/xyz\n"
+        "DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/1/abc\n"
+        "TELEGRAM_BOT_TOKEN=123456789:AAFakeTokenForTestsOnly_abcdefghij0123\n"
+        "TELEGRAM_CHAT_ID=-1001234567890\n"
+    )
+    f.chmod(0o600)
+    s = load_secrets(f, {})
+    assert (
+        s.telegram_chat_id is not None and s.telegram_chat_id.get_secret_value() == "-1001234567890"
+    )
+    assert load_secrets(f, {"TELEGRAM_CHAT_ID": "@mychannel"}).telegram_chat_id is not None
