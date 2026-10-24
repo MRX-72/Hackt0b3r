@@ -4,6 +4,7 @@ One connection per Storage; the caller serialises access.
 """
 
 import json
+import os
 import sqlite3
 import time
 from collections.abc import Callable, Iterable, Iterator
@@ -62,6 +63,8 @@ def migrate(conn: sqlite3.Connection, migrations: list[tuple[int, str]]) -> None
 class Storage:
     def __init__(self, path: Path, clock: Callable[[], float] = time.time) -> None:
         self._clock = clock
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        self._path = path
         # One thread uses a Storage at a time; the capture thread may be joined and closed by main.
         self.conn = sqlite3.connect(path, isolation_level=None, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
@@ -73,9 +76,25 @@ class Storage:
         except BaseException:
             self.conn.close()
             raise
+        self._hand_back()
 
     def close(self) -> None:
         self.conn.close()
+        self._hand_back()
+
+    def _hand_back(self) -> None:
+        """Under `sudo` the files are created by root; give them to the invoking user so a later
+        run without sudo (the web console, `history`) can still open them."""
+        uid, gid = os.environ.get("SUDO_UID"), os.environ.get("SUDO_GID")
+        if os.geteuid() != 0 or not uid or not gid:
+            return
+        folder = self._path.parent
+        targets = [self._path.with_name(self._path.name + s) for s in ("", "-wal", "-shm")]
+        if folder.stat().st_uid == 0:
+            targets.append(folder)
+        for target in targets:
+            if target.exists():
+                os.chown(target, int(uid), int(gid))
 
     @contextmanager
     def _tx(self) -> Iterator[None]:

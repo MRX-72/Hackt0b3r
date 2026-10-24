@@ -1,10 +1,12 @@
+import os
+import pwd
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
 from sentinel.config.secrets import Secrets, SecretsError, load_secrets
-from sentinel.config.settings import load_settings
+from sentinel.config.settings import find_config, load_settings, sentinel_home
 
 
 def test_defaults_without_a_file() -> None:
@@ -71,3 +73,59 @@ def test_unknown_key_and_missing_file(tmp_path: Path) -> None:
     with pytest.raises(SecretsError, match=":1:"):
         load_secrets(secrets_file(tmp_path, "SLAK_WEBHOOK_URL=x\n"), {})
     assert load_secrets(tmp_path / "none.env", {}) == Secrets()
+
+
+def test_data_lives_in_one_per_user_folder_not_the_working_directory(
+    private_home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    s = load_settings(None)
+    assert s.database == private_home / "sentinel.db"
+    assert s.secrets_file == private_home / "secrets.env"
+    monkeypatch.delenv("SENTINEL_HOME")
+    assert sentinel_home() == Path.home() / ".sentinel"
+
+
+def test_sudo_uses_the_invoking_users_folder(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SENTINEL_HOME")
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setenv("SUDO_USER", "someone")
+    monkeypatch.setattr(
+        pwd,
+        "getpwnam",
+        lambda _: pwd.struct_passwd(("someone", "x", 501, 20, "", "/Users/someone", "")),
+    )
+    assert sentinel_home() == Path("/Users/someone/.sentinel")
+    monkeypatch.setenv("SUDO_USER", "nobody-such")
+    monkeypatch.setattr(pwd, "getpwnam", lambda _: (_ for _ in ()).throw(KeyError()))
+    assert sentinel_home() == Path.home() / ".sentinel"
+
+
+def test_config_discovery_order(
+    private_home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    monkeypatch.chdir(work)
+    assert find_config() is None
+    (private_home / "config.toml").write_text("")
+    assert find_config() == private_home / "config.toml"
+    (work / "config.toml").write_text("")
+    assert find_config() == Path("config.toml")
+    other = tmp_path / "other.toml"
+    other.write_text("")
+    monkeypatch.setenv("SENTINEL_CONFIG", str(other))
+    assert find_config() == other
+    assert find_config(Path("x.toml")) == Path("x.toml")
+
+
+def test_relative_paths_in_a_config_file_mean_next_to_that_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    conf = tmp_path / "etc" / "c.toml"
+    conf.parent.mkdir()
+    conf.write_text('database = "data/s.db"\nsecrets_file = "~/s.env"\n')
+    monkeypatch.chdir(tmp_path.parent)
+    s = load_settings(conf)
+    assert s.database == (tmp_path / "etc" / "data" / "s.db").resolve()
+    assert s.secrets_file == Path.home() / "s.env"

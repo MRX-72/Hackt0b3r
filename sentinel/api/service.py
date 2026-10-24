@@ -331,11 +331,18 @@ def init_workspace(directory: Path) -> list[tuple[Path, bool]]:
     """Create config.toml and a private secrets.env if missing. Returns (path, created)."""
     templates = resources.files("sentinel.config") / "templates"
     results: list[tuple[Path, bool]] = []
+    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     for name, mode in (("config.toml", 0o644), ("secrets.env", 0o600)):
         target = directory / name
         created = not target.exists()
-        if created:
-            target.write_text((templates / name).read_text())
+        if (
+            created
+        ):  # the template is not called secrets.env: that name is git-ignored and unpackaged
+            target.write_text(
+                (
+                    templates / f"{name}.template" if name == "secrets.env" else templates / name
+                ).read_text()
+            )
             target.chmod(mode)
         results.append((target, created))
     return results

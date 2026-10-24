@@ -284,11 +284,9 @@ def test_init_creates_private_files_and_never_overwrites(
     assert (target / "config.toml").read_text() == "# mine\n"
 
 
-def test_shipped_config_template_matches_the_repo_config() -> None:
-    root = Path(__file__).resolve().parent.parent
-    template = root / "sentinel/config/templates/config.toml"
-    assert (root / "config.toml").read_text() == template.read_text()
-    assert load_settings(template).detection.windows == [10, 300, 3600]
+def test_shipped_config_template_is_valid_and_keeps_the_defaults() -> None:
+    template = Path(__file__).resolve().parent.parent / "sentinel/config/templates/config.toml"
+    assert load_settings(template) == Settings()
 
 
 def test_status_summarises_database_incidents_notify_and_llm(
@@ -457,3 +455,10 @@ def test_history_command_lists_the_permanent_log_with_filters(
     assert "portscan" in run_ok(env, capsys, "history", "--text", "192.168.2.20")
     row = json.loads(run_ok(env, capsys, "history", "--json").splitlines()[0])
     assert row["label"] == "CRITICAL" and row["evidence"]["unique_dst_ports"] >= 200
+
+
+def test_ui_refuses_a_missing_capture_file_instead_of_serving_nothing(
+    env: dict[str, object], capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(["--config", str(env["config"]), "ui", "--replay", "nope.pcap", "--no-open"]) == 1
+    assert "no such capture file: nope.pcap" in capsys.readouterr().err

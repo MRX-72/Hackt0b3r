@@ -1,7 +1,15 @@
 [project]
 name = "sentinel"
 version = "0.1.0"
-description = "Small-network anomaly detector"
+description = "Network anomaly detector for small networks: scans, brute force, beaconing and DNS tunnelling, with plain-English alerts"
+readme = "README.md"
+keywords = ["network", "security", "anomaly-detection", "pcap", "ids"]
+classifiers = [
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: MacOS",
+    "Topic :: System :: Networking :: Monitoring",
+    "Topic :: Security",
+]
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "dpkt>=1.9.8",
@@ -30,7 +38,6 @@ select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "C4", "PL", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "S311", "PLR2004", "PLR0913", "PLR0917"]
-"docs/*" = ["B905", "E402"]  # deck build helpers
 "tools/*" = ["S311", "S310"]  # lab attack scripts: seeded randomness, loopback-only URLs
 
 [tool.mypy]
@@ -53,5 +60,4 @@ min_confidence = 80
 ignore_names = ["cls"]  # pydantic classmethod validators
 
 [tool.deptry]
-extend_exclude = ["docs/pitch"]  # deck build helpers
 known_first_party = ["sentinel", "localhost_attacks"]  # tools/ scripts import each other

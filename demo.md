@@ -28,7 +28,7 @@ other console shows the monitor catching it.
 ```bash
 # console 1: the monitor. -d = full-screen view with CRITICAL alerts pinned on top of the
 # sliding traffic window (q quits, c clears the pins); -b instead prints one line per incident
-uv run sentinel --config demo-10s.toml watch --iface lo0 -d
+uv run sentinel --config examples/demo-10s.toml watch --iface lo0 -d
 
 # console 2: the attacks
 uv run python tools/demo_attacks.py            # press Enter between attacks, to talk
@@ -45,7 +45,7 @@ added nothing. Options: `--settle N` (seconds between attacks), `--countdown N` 
 
 In the `-d` view every CRITICAL alert stacks as its own pinned line (a scan, logins, a beacon and a
 DNS tunnel from the one device are four lines, and the `CRIT` counter goes 1, 2, 3, 4). Running the
-same attack again within `cooldown_seconds` raises no new alert; `demo-10s.toml` sets it to 15 s so
+same attack again within `cooldown_seconds` raises no new alert; `examples/demo-10s.toml` sets it to 15 s so
 repeats show up as new pinned lines.
 
 ---
@@ -107,7 +107,7 @@ id | tr ' ' '\n' | grep access_bpf   # prints a line if you can capture without 
 - Ports used: TCP 2222 (fake SSH), TCP 8080 (fake C2), TCP 8765 (control web server), TCP
   20000-20399 (scanned range), UDP 53 (destination of the DNS queries; nothing needs to listen).
   Free them if something else uses them.
-- Notifications stay off. You can confirm with `sentinel --config demo-10s.toml status`, which prints
+- Notifications stay off. You can confirm with `sentinel --config examples/demo-10s.toml status`, which prints
   `notify     off`.
 
 ---
@@ -126,7 +126,7 @@ attack, waits for the capture to end, reads the stored incident back, and prints
 
 ## Replicate each attack by hand
 
-Use two terminals in the project folder. `demo-10s.toml` (included) enables only the 10-second
+Use two terminals in the project folder. `examples/demo-10s.toml` (included) enables only the 10-second
 window and adds port 2222 to the login-service list:
 
 ```toml
@@ -149,7 +149,7 @@ For **every** attack the pattern is the same. Start the capture first and give i
 ```bash
 # terminal 1
 rm -f demo.db*                                  # optional: start from an empty database
-uv run sentinel --config demo-10s.toml watch --iface lo0 --for 30s -b
+uv run sentinel --config examples/demo-10s.toml watch --iface lo0 --for 30s -b
 ```
 
 then, once terminal 1 is running, launch the attack:
@@ -163,7 +163,7 @@ Terminal 1 prints the incident when it is detected and a summary line when the 3
 over. Give the capture time to start before launching the attack: run `uv run sentinel --version`
 once beforehand (so `uv` finishes any rebuild) and wait until `pgrep tcpdump` prints a number
 (about 3-5 seconds). An attack that starts before capturing begins can lose its first packets,
-which is enough to miss the beacon. Inspect it afterwards with `uv run sentinel --config demo-10s.toml incidents` and
+which is enough to miss the beacon. Inspect it afterwards with `uv run sentinel --config examples/demo-10s.toml incidents` and
 `... incident <id>`.
 
 ### 1. Port scan
@@ -233,9 +233,9 @@ print only the summary line (`alerts=0 incidents=0`).
 ### Look at one result
 
 ```bash
-uv run sentinel --config demo-10s.toml incidents
-uv run sentinel --config demo-10s.toml incident inc-02007f000001      # a unique prefix is enough
-uv run sentinel --config demo-10s.toml status                         # confirms: notify off
+uv run sentinel --config examples/demo-10s.toml incidents
+uv run sentinel --config examples/demo-10s.toml incident inc-02007f000001      # a unique prefix is enough
+uv run sentinel --config examples/demo-10s.toml status                         # confirms: notify off
 ```
 
 Because every packet is between the machine and itself, Sentinel sees one "device" (`127.0.0.1`,
@@ -279,6 +279,6 @@ DNS-free traffic.
 | `tcpdump: ... /dev/bpf: Permission denied` | You are not in `access_bpf`. Use `sudo .venv/bin/sentinel ...` for the watch command. |
 | `OSError: [Errno 48] Address already in use` from an attack | Another program uses 2222 / 8080 / 8765. Pass `--port N` to the attack. For brute force on another port, add it to `auth_ports`. |
 | Nothing detected, summary shows `frames=` near 0 | The capture started after the attack. Start terminal 1 first and wait about 3 seconds. |
-| Brute force not detected on a port other than 2222 | The port is not in `auth_ports` in `demo-10s.toml`. |
+| Brute force not detected on a port other than 2222 | The port is not in `auth_ports` in `examples/demo-10s.toml`. |
 | `attempt to write a readonly database` afterwards | A `sudo` run left `demo.db` owned by root: `sudo chown $USER demo.db*`. |
 | Results differ from the table | Compare with `uv run python tools/localhost_check.py`; it uses exactly the config shown above. Timing columns vary; the PASS/FAIL columns should not. |

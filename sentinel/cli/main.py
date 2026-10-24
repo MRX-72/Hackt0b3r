@@ -27,19 +27,18 @@ from sentinel.cli.render import (
     matches,
 )
 from sentinel.config.secrets import Secrets, SecretsError, load_secrets
-from sentinel.config.settings import Settings, load_settings
+from sentinel.config.settings import Settings, find_config, load_settings, sentinel_home
 from sentinel.contracts.models import Event, HistoryQuery, IncidentReport
 from sentinel.contracts.text import terminal_safe
 
 ServiceFactory = Callable[[Settings, Secrets], SentinelService]
-DEFAULT_CONFIG = Path("config.toml")
 CHANNEL_CHOICES = ("slack", "discord", "telegram")
 PROTO_CHOICES = ("tcp", "udp", "icmp", "dns", "arp", "dhcp", "mdns")
 LENIENT_COMMANDS = {"doctor", "init", "config"}  # must work even when secrets.env is broken
 _DURATION = re.compile(r"^(\d+(?:\.\d+)?)([smhd]?)$")
 _UNITS = {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400}
 EXAMPLES = """examples:
-  sentinel init                                   create config.toml and a private secrets.env
+  sentinel init                                   create ~/.sentinel/config.toml and secrets.env
   sentinel replay capture.pcap -t -H 192.168.2.30 replay, showing one device's traffic
   sentinel replay a.pcap b.pcap --brief -n        several captures, one line per incident, notify
   sudo sentinel watch --for 10m                   live capture for ten minutes
@@ -121,7 +120,9 @@ def _parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--version", action="version", version=f"sentinel {version('sentinel')}")
     p.add_argument(
-        "--config", type=Path, help=f"settings file (default: {DEFAULT_CONFIG} if present)"
+        "--config",
+        type=Path,
+        help="settings file (default: $SENTINEL_CONFIG, ./config.toml, ~/.sentinel/config.toml)",
     )
     p.add_argument("--json", action="store_true", help="machine-readable output (JSON lines)")
     p.add_argument("--color", choices=["auto", "always", "never"], default="auto")
@@ -131,8 +132,8 @@ def _parser() -> argparse.ArgumentParser:
     def add(group: Any, name: str, **kwargs: Any) -> argparse.ArgumentParser:
         return group.add_parser(name, parents=[common], **kwargs)  # type: ignore[no-any-return]
 
-    add(sub, "init", help="create config.toml and a private secrets.env here").add_argument(
-        "--dir", type=Path, default=Path(), help="directory to create them in (default: here)"
+    add(sub, "init", help="create config.toml and a private secrets.env").add_argument(
+        "--dir", type=Path, default=None, help="where to create them (default: ~/.sentinel)"
     )
     replay = add(sub, "replay", help="run pcap/pcapng files through the detection pipeline")
     replay.add_argument("pcaps", type=Path, nargs="+", metavar="PCAP")
@@ -329,6 +330,9 @@ def _show_incident(args: argparse.Namespace, service: SentinelService) -> int:
 
 def _run_ui(args: argparse.Namespace, service: SentinelService, settings: Settings) -> int:
     iface = args.iface or (settings.capture.interface if args.live else None)
+    if missing := [p for p in args.replay or [] if not p.is_file()]:
+        print(f"error: no such capture file: {missing[0]}", file=sys.stderr)
+        return 1
     return run_ui(
         service, port=args.port, iface=iface, pcaps=args.replay, speed=args.speed,
         notify=args.notify, open_browser=not args.no_open,
@@ -361,7 +365,7 @@ def _status(args: argparse.Namespace, service: SentinelService) -> int:
 
 
 def _init(args: argparse.Namespace) -> int:
-    for path, created in init_workspace(args.dir):
+    for path, created in init_workspace(args.dir or sentinel_home()):
         _out(
             args,
             f"{'created' if created else 'kept   '} {path}",
@@ -400,9 +404,9 @@ def default_service(settings: Settings, secrets: Secrets) -> SentinelService:
 
 def _load(args: argparse.Namespace) -> tuple[Settings, Secrets] | None:
     """Settings and secrets, or None after printing why they cannot be used."""
-    config = args.config or (DEFAULT_CONFIG if DEFAULT_CONFIG.exists() else None)
+    settings = Settings()
     try:
-        settings = load_settings(config)
+        settings = load_settings(find_config(args.config))
         return settings, load_secrets(settings.secrets_file)
     except SecretsError as exc:
         if args.command in LENIENT_COMMANDS:  # `doctor` reports it and `--fix` repairs it

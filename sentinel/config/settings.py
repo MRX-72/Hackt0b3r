@@ -1,6 +1,8 @@
 """Validated settings loaded from config.toml. Holds no secrets (see secrets.py)."""
 
 import ipaddress
+import os
+import pwd
 import tomllib
 from pathlib import Path
 from typing import Literal
@@ -11,6 +13,32 @@ from sentinel.contracts.models import Channel
 
 # Window state is kept in fixed time buckets; every configured window is a whole number of them.
 BUCKET_SECONDS = 10
+
+
+def sentinel_home() -> Path:
+    """Where the database, config.toml and secrets.env live unless told otherwise.
+
+    $SENTINEL_HOME, else ~/.sentinel. Under `sudo` that is the invoking user's folder, so a root
+    capture and a normal-user `sentinel ui` share one history.
+    """
+    if env := os.environ.get("SENTINEL_HOME"):
+        return Path(env).expanduser()
+    if os.geteuid() == 0 and (user := os.environ.get("SUDO_USER")):
+        try:
+            return Path(pwd.getpwnam(user).pw_dir) / ".sentinel"
+        except KeyError:
+            pass
+    return Path.home() / ".sentinel"
+
+
+def find_config(explicit: Path | None = None) -> Path | None:
+    """--config, $SENTINEL_CONFIG, ./config.toml, <home>/config.toml; None = built-in defaults."""
+    if explicit is not None:
+        return explicit
+    candidates = [Path("config.toml"), sentinel_home() / "config.toml"]
+    if env := os.environ.get("SENTINEL_CONFIG"):
+        candidates.insert(0, Path(env).expanduser())
+    return next((c for c in candidates if c.is_file()), None)
 
 
 class _Section(BaseModel):
@@ -128,8 +156,8 @@ class StorageSettings(_Section):
 
 
 class Settings(_Section):
-    database: Path = Path("sentinel.db")
-    secrets_file: Path = Path("secrets.env")
+    database: Path = Field(default_factory=lambda: sentinel_home() / "sentinel.db")
+    secrets_file: Path = Field(default_factory=lambda: sentinel_home() / "secrets.env")
     gateway_ips: list[str] = []
     storage: StorageSettings = Field(default_factory=StorageSettings)
     capture: CaptureSettings = Field(default_factory=CaptureSettings)
@@ -143,4 +171,8 @@ def load_settings(path: Path | None) -> Settings:
     """Defaults when no file is given. Unknown keys and bad values fail loudly."""
     if path is None:
         return Settings()
-    return Settings.model_validate(tomllib.loads(path.read_text()))
+    data = tomllib.loads(path.read_text())
+    for key in ("database", "secrets_file"):  # relative paths mean "next to this file", not the cwd
+        if isinstance(data.get(key), str):
+            data[key] = str(path.resolve().parent / Path(data[key]).expanduser())
+    return Settings.model_validate(data)

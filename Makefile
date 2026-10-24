@@ -1,6 +1,12 @@
-.PHONY: bootstrap check test trace schemas
+.PHONY: bootstrap install check test trace schemas build
 bootstrap:
 	uv sync --python 3.13
+
+install:
+	uv tool install --force --python 3.13 .
+
+build:
+	uv build
 
 check:
 	uv run ruff format --check .

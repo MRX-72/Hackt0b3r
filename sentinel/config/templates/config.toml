@@ -1,6 +1,8 @@
 # Sentinel settings. No secrets here: webhook URLs and tokens go in secrets.env (chmod 600).
-database = "sentinel.db"
-secrets_file = "secrets.env"
+# Where history lives. Default: ~/.sentinel/sentinel.db (or $SENTINEL_HOME). A relative path here
+# means "next to this file". Back it up by copying the file while Sentinel is stopped.
+# database = "/var/lib/sentinel/sentinel.db"
+# secrets_file = "~/.sentinel/secrets.env"   # must be chmod 600
 
 [cli]
 show_traffic = false          # --show-traffic / --no-traffic override this per run

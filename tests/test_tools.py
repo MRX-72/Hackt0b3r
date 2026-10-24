@@ -7,33 +7,11 @@ from sentinel.sensor.parse import FrameParser
 from tests import frames as f
 from tools.localhost_attacks import dns_query
 
-SCRIPT = Path(__file__).resolve().parent.parent / "tools/localhost_scan.py"
-
-
-def run(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603
-        [sys.executable, str(SCRIPT), *args],
-        capture_output=True,
-        text=True,
-        timeout=30,
-        check=False,
-    )
-
-
-def test_the_scan_script_refuses_anything_but_loopback() -> None:
-    for target in ("192.168.2.1", "8.8.8.8", "10.0.0.5"):
-        result = run("--target", target, "--ports", "1-3")
-        assert result.returncode == 2 and "refusing" in result.stderr
-
-
-def test_the_scan_script_probes_loopback_and_sees_its_own_listener() -> None:
-    result = run("--ports", "20300-20319", "--open", "20305")
-    assert result.returncode == 0 and "probed 20 ports" in result.stdout
-    assert "1 open, 19 closed" in result.stdout
+TOOLS = Path(__file__).resolve().parent.parent / "tools"
 
 
 def test_attack_script_refuses_non_loopback_targets() -> None:
-    script = SCRIPT.parent / "localhost_attacks.py"
+    script = TOOLS / "localhost_attacks.py"
     for attack in ("scan", "brute", "beacon", "dns", "web"):
         result = subprocess.run(  # noqa: S603
             [sys.executable, str(script), attack, "--host", "192.168.2.1"],
@@ -50,7 +28,7 @@ def test_the_dns_attack_builds_queries_sentinel_parses_as_tunnel_candidates() ->
 
 
 def test_presenter_script_narrates_each_step_and_refuses_other_targets() -> None:
-    script = SCRIPT.parent / "demo_attacks.py"
+    script = TOOLS / "demo_attacks.py"
     ok = subprocess.run(  # noqa: S603
         [sys.executable, str(script), "--auto", "--only", "web", "--scale", "0.05",
          "--countdown", "0", "--settle", "0"],

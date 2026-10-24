@@ -55,22 +55,20 @@ on Slack, Discord or Telegram. This guide covers everything you can do with the 
 Requirements: macOS, [uv](https://docs.astral.sh/uv/), Python 3.13 (uv fetches it if needed).
 
 ```bash
-git clone <your repo> sentinel && cd sentinel     # or just cd into the project
-make bootstrap                                    # uv sync: creates .venv with Python 3.13
-uv run sentinel --version                         # sentinel 0.1.0
+git clone <your repo> sentinel && cd sentinel
+uv tool install .                                 # installs `sentinel` on your PATH (~/.local/bin)
+sentinel --version                                # sentinel 0.1.0
+sentinel init                                     # creates ~/.sentinel/config.toml and secrets.env
 ```
 
-Two ways to run the command, used interchangeably below:
+Without installing, `make bootstrap` then `uv run sentinel ...` inside the checkout works the same.
+The examples below write `sentinel`; use `uv run sentinel` if you did not install it.
 
-| Style | Example |
-|---|---|
-| through uv (no activation) | `uv run sentinel doctor` |
-| activate once | `source .venv/bin/activate` then `sentinel doctor` |
+For live capture you need root: `sudo "$(which sentinel)" watch ...` (or `sudo .venv/bin/sentinel`
+from a checkout). It uses your own `~/.sentinel` folder, not root's.
 
-For live capture you need root, so use the venv path: `sudo .venv/bin/sentinel watch ...`.
-
-First run in a new folder: `sentinel init` creates `config.toml` and a private `secrets.env`
-(it never overwrites files that already exist).
+All data lives in `~/.sentinel/` (override with `SENTINEL_HOME`): `sentinel.db` (the permanent
+history), `config.toml`, `secrets.env`. `sentinel init` never overwrites files that already exist.
 
 ---
 
@@ -128,7 +126,7 @@ First run in a new folder: `sentinel init` creates `config.toml` and a private `
    prefix is enough), then `dismiss` or `resolve` when done. Dismissed and resolved incidents drop
    out of `sentinel incidents` unless you add `--all`.
 
-7. Delete `sentinel.db` any time to start fresh.
+7. Delete `~/.sentinel/sentinel.db` any time to start fresh.
 
 ---
 
@@ -181,7 +179,7 @@ sentinel [--config FILE] [--json] [--color auto|always|never] [--version] <comma
 
 | Global option | Meaning |
 |---|---|
-| `--config FILE` | Settings file. Default: `config.toml` in the current directory if it exists, otherwise built-in defaults. |
+| `--config FILE` | Settings file. Default: `$SENTINEL_CONFIG`, then `./config.toml`, then `~/.sentinel/config.toml`, otherwise built-in defaults. |
 | `--json` | Print JSON lines instead of text (see [Scripting](#scripting-with---json)). Never coloured. |
 | `--color` | `auto` (default) colours only on a terminal and respects `NO_COLOR`; `always` / `never` force it. With colour on, an alert is a solid badge (white on red for CRITICAL/HIGH, yellow for MEDIUM, cyan for LOW) with a tinted line and a blank line either side, and ordinary traffic lines are dimmed grey, so detections jump out of the traffic noise. |
 | `--version` | Print the version. |
@@ -217,8 +215,8 @@ one incident starts that way; an ambiguous prefix lists the matches.
 sentinel init [--dir DIR]
 ```
 
-Creates `config.toml` (all defaults, commented) and `secrets.env` (empty template, mode 600) if
-they do not exist, and says what to do next. Existing files are left alone.
+Creates `config.toml` (all defaults, commented) and `secrets.env` (empty template, mode 600) in
+`~/.sentinel` (or `--dir`) if they do not exist, and says what to do next. Existing files are left alone.
 
 ### `status` — where things stand
 
@@ -227,7 +225,7 @@ sentinel status
 ```
 
 ```
-database   sentinel.db (212 KB), 4 alerts, 0 flows stored
+database   /Users/you/.sentinel/sentinel.db (212 KB), 4 alerts, 0 flows stored
 incidents  2 total: 1 explained, 1 notified; newest at 05:35:10.000
 notify     on (slack, telegram); missing credentials: telegram
 llm        on (llama3.2)
@@ -386,9 +384,8 @@ first load), only on 127.0.0.1, and nothing is loaded from the internet.
   Filter by severity, time range or source (live / replay), search headline, address, technique or
   incident id, page through results, click a row for the full explanation and the numbers behind
   it, and `EXPORT CSV`. Keys: `1` live, `2` history, `/` search, `p` pause.
-- The history lives in the database named in the footer (`database` in `config.toml`, relative to
-  where you run the command): run from the same folder, or give an absolute path, to see the same
-  history each time.
+- The history lives in `~/.sentinel/sentinel.db` (`database` in `config.toml`; a relative path
+  there means next to the config file), so it is the same whichever folder you run from.
 - The same history is available in the terminal: `sentinel history --label critical --since 7d`.
 
 ---
@@ -427,7 +424,7 @@ works):
 - **After you quit** the normal screen gets your pinned alerts and the run summary, so nothing is
   lost.
 - Repeating the same attack soon after is a new alert only once the detector's `cooldown_seconds`
-  has passed (default 300 s, `demo-10s.toml` uses 15 s), so use `--config demo-10s.toml` when you
+  has passed (default 300 s, `examples/demo-10s.toml` uses 15 s), so use `--config examples/demo-10s.toml` when you
   rehearse the same attack several times in a row.
 - It needs an interactive terminal at least 40 columns by 8 rows. Piped or `--json` output falls
   back to the plain view with a warning.
@@ -638,14 +635,12 @@ You can watch Sentinel catch a real port scan without any other device. The scri
 # terminal 1: capture for two minutes (no notifications unless you add -n)
 sentinel watch --iface lo0 --for 2m -b
 
-# terminal 2: a fast scan (400 ports, about a second) ...
-python tools/localhost_scan.py
-# ... or a slow one that only the 5-minute window can catch (1 probe a second)
-python tools/localhost_scan.py --delay 1 --ports 20000-20039
+# terminal 2: a fast scan of 400 ports (about a second)
+python tools/localhost_attacks.py scan
 ```
 
-Expected: a `CRITICAL ... Device is probing many network ports (T1046)` line after the fast scan
-(10-second window), and a `HIGH` one after the slow scan (5-minute window, "within 5 minutes").
+Expected: a `CRITICAL ... Device is probing many network ports (T1046)` line within the 10-second
+window.
 On loopback every connection is between the machine and itself, so the "device" is `127.0.0.1`.
 Normal local traffic (for example hundreds of requests to a local web server) raises nothing.
 You can also record with `tcpdump -i lo0 -w lo.pcap` and run `sentinel replay lo.pcap`.
@@ -670,18 +665,11 @@ Things to know:
 
 - **Root.** Live capture runs `tcpdump`. On macOS you may not need `sudo` at all: members of the
   `access_bpf` group (check with `id`) can read the capture devices. If you do run with `sudo`,
-  note below. In this version the whole program runs as
-  root while you use `watch` (a separate privileged capture process is planned). If your database
-  path is relative, root will create it in the current directory; use a separate settings file for
-  live runs so you do not end up with a root-owned database:
-
-  ```toml
-  # live.toml
-  database = "/Users/you/sentinel-live.db"
-  ```
-  ```bash
-  sudo .venv/bin/sentinel --config live.toml watch --iface bridge100
-  ```
+  note below. In this version the whole program runs as root while you use `watch` (a separate
+  privileged capture process is planned). Under `sudo` Sentinel keeps using **your** `~/.sentinel`
+  folder (it reads `SUDO_USER`) and hands the database files back to you when it opens and closes
+  them, so a later `sentinel ui` or `sentinel history` without sudo can still read the same history.
+  This hand-back has been unit-tested but not yet exercised under a real `sudo` on hardware.
 - **Snap length.** `[capture] snaplen = 384` keeps the first 384 bytes of each packet so long DNS
   names survive. That means up to ~300 bytes of payload per packet pass through memory, but Sentinel
   stores only header-level summaries and DNS names, never payloads.
@@ -696,8 +684,8 @@ Things to know:
 All settings are optional; unknown keys are rejected so typos do not pass silently.
 
 ```toml
-database = "sentinel.db"        # SQLite file (relative to where you run the command)
-secrets_file = "secrets.env"    # must be chmod 600
+# database = "~/.sentinel/sentinel.db"   # SQLite file; default shown. Relative = next to this file
+# secrets_file = "~/.sentinel/secrets.env"   # must be chmod 600
 gateway_ips = []                # reserved for upcoming gateway-aware detectors
 
 [cli]
@@ -837,7 +825,7 @@ JSON Schemas for every payload are in `schemas/` (`IncidentReport.json`, `RunSum
 | `llm test` says `cannot reach the LLM server` | Server not running or wrong `base_url`/`runtime`. |
 | `source: template (fallback: …)` | The model's reply was rejected; see the reason in parentheses. |
 | `doctor`: `interface bridge100 … not found` | Only a warning (replay does not need it). For `watch`, Internet Sharing is off or uses another name: run `ifconfig` and set `[capture] interface`. |
-| `sqlite3.OperationalError: attempt to write a readonly database` | A previous `sudo watch` created a root-owned `sentinel.db`. `sudo chown $USER sentinel.db*`, or use a separate database path for live runs. |
+| `sqlite3.OperationalError: attempt to write a readonly database` | A root-owned database left by an older version's `sudo` run. `sudo chown -R $USER ~/.sentinel`. |
 | Slow scan not detected | Make sure `windows` still includes 300 and 3600, and that the probes are failing (closed ports). |
 | A legitimate device keeps alerting | Raise the relevant thresholds in `[detection]`. |
 
@@ -866,7 +854,7 @@ Be aware of these before relying on Sentinel:
   grid point; expect a delay of up to about 10 seconds after a threshold is crossed. `replay`
   evaluates at the end of the file.
 - **Retention:** packet rows are not stored by default (`store_flows`); alerts and incidents are
-  pruned automatically only during `watch`. Delete `sentinel.db` to reset after replays.
+  pruned automatically only during `watch`. Delete `~/.sentinel/sentinel.db` to reset after replays.
 - **Never tested against real hardware or real services:** live capture, Slack/Discord/Telegram
   delivery, Ollama and llama.cpp. If something differs from this guide, it is a bug worth
   reporting; the checklist is in `docs/HUMAN_VERIFICATION.md`.

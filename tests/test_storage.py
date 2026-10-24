@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from collections.abc import Iterator
 from pathlib import Path
@@ -6,6 +7,7 @@ import pytest
 
 from sentinel.contracts.models import Alert, Flow, Incident
 from sentinel.storage.db import FLOWS_FOR_HOST_SQL, Storage, StorageError, load_migrations, migrate
+from tests.test_ui import record as anomaly
 
 A = "aa:bb:cc:dd:ee:01"
 B = "aa:bb:cc:dd:ee:02"
@@ -186,3 +188,32 @@ def test_alerts_of_incident_are_ordered_by_time(db: Storage) -> None:
     db.insert_alert(alert("early", 1.0))
     db.save_incident(incident(["late", "early"]))
     assert [a.id for a in db.alerts_of_incident("i1")] == ["early", "late"]
+
+
+def test_a_missing_data_folder_is_created_privately_and_the_data_persists(tmp_path: Path) -> None:
+    path = tmp_path / "new" / "deeper" / "s.db"
+    first = Storage(path)
+    first.log_anomaly(anomaly())
+    first.close()
+    assert path.parent.stat().st_mode & 0o777 == 0o700
+    again = Storage(path)
+    assert again.anomaly_label_counts() == {"CRITICAL": 1}
+    again.close()
+
+
+def test_under_sudo_the_files_are_handed_back_to_the_invoking_user(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    owned: list[tuple[str, int, int]] = []
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setattr(os, "chown", lambda p, u, g: owned.append((Path(p).name, u, g)))
+    monkeypatch.setenv("SUDO_UID", "501")
+    monkeypatch.setenv("SUDO_GID", "20")
+    store = Storage(tmp_path / "s.db")
+    store.close()
+    names = {name for name, uid, gid in owned if (uid, gid) == (501, 20)}
+    assert "s.db" in names and "s.db-wal" in names
+    owned.clear()
+    monkeypatch.setattr(os, "geteuid", lambda: 501)  # not root: nothing to hand back
+    Storage(tmp_path / "s.db").close()
+    assert owned == []
