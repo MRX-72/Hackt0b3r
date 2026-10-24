@@ -11,10 +11,13 @@ from sentinel.contracts.models import (
     IncidentReport,
     MdnsEvent,
     RunSummary,
+    StatusReport,
 )
 from sentinel.contracts.text import terminal_safe
 
 _DNS_PORT = 53
+_KILO = 1024
+_KILO = 1024
 _SEVERITY_FLOORS = ((0.85, "CRITICAL"), (0.7, "HIGH"), (0.5, "MEDIUM"), (0.0, "LOW"))
 
 
@@ -55,14 +58,22 @@ def severity_label(score: float) -> str:
     return next(label for floor, label in _SEVERITY_FLOORS if score >= floor)
 
 
-def format_report(report: IncidentReport) -> str:
+_COLORS = {"CRITICAL": "1;31", "HIGH": "31", "MEDIUM": "33", "LOW": "36"}
+
+
+def paint(label: str, color: bool) -> str:
+    """Wrap a severity label in ANSI colour. Only our own fixed labels are ever coloured."""
+    return f"\x1b[{_COLORS[label]}m{label}\x1b[0m" if color and label in _COLORS else label
+
+
+def format_report(report: IncidentReport, color: bool = False) -> str:
     inc, exp = report.incident, report.explanation
     sent = ", ".join(
         f"{d.channel}={d.status}" + (f" ({d.detail})" if d.status != "sent" else "")
         for d in report.deliveries
     )
     lines = [
-        f"INCIDENT [{severity_label(inc.score)} {inc.score:.2f}] {inc.id}",
+        f"INCIDENT [{paint(severity_label(inc.score), color)} {inc.score:.2f}] {inc.id}",
         f"  {terminal_safe(exp.headline)}",
         f"  chain: {' > '.join(inc.chain)}   ({exp.source} text)",
         f"  what:  {terminal_safe(exp.what_happened, 400)}",
@@ -110,10 +121,11 @@ def matches(event: Event, host: str | None, port: int | None, proto: str | None)
     )
 
 
-def format_detail(detail: IncidentDetail) -> str:
+def format_detail(detail: IncidentDetail, color: bool = False) -> str:
     inc = detail.incident
     lines = [
-        f"{inc.id}  [{severity_label(inc.score)} {inc.score:.2f}]  status={inc.status}",
+        f"{inc.id}  [{paint(severity_label(inc.score), color)} {inc.score:.2f}]  "
+        f"status={inc.status}",
         f"  device: {inc.host_mac}   chain: {' > '.join(inc.chain)}",
         f"  {terminal_safe(inc.summary or '(no summary)')}",
         "  timeline:",
@@ -127,3 +139,41 @@ def format_detail(detail: IncidentDetail) -> str:
         )
         lines.append(f"      {terminal_safe(evidence, 300)}")
     return "\n".join(lines)
+
+
+def format_brief(report: IncidentReport, color: bool = False) -> str:
+    inc = report.incident
+    sent = " ".join(f"{d.channel}={d.status}" for d in report.deliveries)
+    label = paint(severity_label(inc.score), color)
+    line = f"[{label} {inc.score:.2f}] {inc.id}  {terminal_safe(report.explanation.headline)}"
+    return f"{line}  ({' > '.join(inc.chain)})" + (f"  {sent}" if sent else "")
+
+
+def _size(n: float) -> str:
+    for unit in ("B", "KB", "MB"):
+        if n < _KILO:
+            return f"{n:.0f} {unit}" if unit != "MB" else f"{n:.1f} {unit}"
+        n /= _KILO
+    return f"{n:.1f} GB"
+
+
+def format_status(st: StatusReport) -> str:
+    total = sum(st.incidents_by_status.values())
+    by_status = ", ".join(f"{n} {k}" for k, n in sorted(st.incidents_by_status.items())) or "none"
+    newest = _clock(st.newest_incident_ts) if st.newest_incident_ts else "never"
+    if st.notify_enabled:
+        missing = [c for c in st.notify_channels if c not in st.channels_with_credentials]
+        notify = f"on ({', '.join(st.notify_channels) or 'no channels listed'})"
+        notify += f"; missing credentials: {', '.join(missing)}" if missing else ""
+    else:
+        notify = "off"
+    llm = f"on ({st.llm_model or 'no model set'})" if st.llm_enabled else "off (templates)"
+    return "\n".join(
+        [
+            f"database   {st.database} ({_size(st.database_bytes)}), {st.alerts} alerts, "
+            f"{st.flows_stored} flows stored",
+            f"incidents  {total} total: {by_status}; newest at {newest}",
+            f"notify     {notify}",
+            f"llm        {llm}",
+        ]
+    )

@@ -236,6 +236,20 @@ class IncidentDetail(_Frozen):
     alerts: list[Alert]
 
 
+class StatusReport(_Frozen):
+    database: str
+    database_bytes: int
+    alerts: int
+    flows_stored: int
+    incidents_by_status: dict[str, int]
+    newest_incident_ts: float | None
+    notify_enabled: bool
+    notify_channels: list[str]
+    channels_with_credentials: list[str]
+    llm_enabled: bool
+    llm_model: str
+
+
 class DoctorCheck(_Frozen):
     name: str
     ok: bool

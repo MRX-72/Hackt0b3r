@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import re
@@ -8,11 +9,12 @@ import pytest
 
 from sentinel.api.service import SentinelService
 from sentinel.cli import main as cli_main
-from sentinel.cli.main import main
+from sentinel.cli.main import main, parse_duration
 from sentinel.config.secrets import Secrets
-from sentinel.config.settings import Settings
+from sentinel.config.settings import Settings, load_settings
 from sentinel.contracts.models import IncidentReport
 from sentinel.net.http import Request, Response
+from sentinel.sensor.replay import read_pcap
 from tests import frames as f
 from tests import scenarios as sc
 from tools.make_demo_pcap import main as make
@@ -256,5 +258,146 @@ def test_closed_output_pipe_is_not_an_error(
 
     monkeypatch.setattr(cli_main, "_out", broken)
     monkeypatch.setattr(os, "dup2", lambda *_: 0)
-    monkeypatch.setattr(sys, "stdout", type("S", (), {"fileno": lambda self: 1})())
+    monkeypatch.setattr(
+        sys, "stdout", type("S", (), {"fileno": lambda self: 1, "isatty": lambda self: False})()
+    )
     assert cli(env, "replay", str(env["pcap"]), "--show-traffic") == 0
+
+
+def run_ok(env: dict[str, object], capsys: pytest.CaptureFixture[str], *args: str) -> str:
+    assert cli(env, *args) == 0
+    return capsys.readouterr().out
+
+
+def test_init_creates_private_files_and_never_overwrites(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    target = tmp_path / "ws"
+    target.mkdir()
+    assert main(["init", "--dir", str(target)]) == 0
+    assert "created" in capsys.readouterr().out
+    assert (target / "secrets.env").stat().st_mode & 0o777 == 0o600
+    (target / "config.toml").write_text("# mine\n")
+    assert main(["init", "--dir", str(target)]) == 0
+    assert "kept" in capsys.readouterr().out
+    assert (target / "config.toml").read_text() == "# mine\n"
+
+
+def test_shipped_config_template_matches_the_repo_config() -> None:
+    root = Path(__file__).resolve().parent.parent
+    template = root / "sentinel/config/templates/config.toml"
+    assert (root / "config.toml").read_text() == template.read_text()
+    assert load_settings(template).detection.windows == [10, 300, 3600]
+
+
+def test_status_summarises_database_incidents_notify_and_llm(
+    env: dict[str, object], capsys: pytest.CaptureFixture[str]
+) -> None:
+    run_ok(env, capsys, "replay", str(env["pcap"]))
+    out = run_ok(env, capsys, "status")
+    assert "1 total: 1 explained" in out and "notify     on (slack)" in out
+    assert "llm        on (test-model)" in out
+    data = json.loads(run_ok(env, capsys, "--json", "status"))
+    assert data["incidents_by_status"] == {"explained": 1} and data[
+        "channels_with_credentials"
+    ] == ["slack"]
+
+
+def test_ack_dismiss_resolve_by_prefix_with_audit_and_filtering(
+    env: dict[str, object], capsys: pytest.CaptureFixture[str]
+) -> None:
+    run_ok(env, capsys, "replay", str(env["pcap"]))
+    assert "-> acknowledged" in run_ok(env, capsys, "ack", "inc-aabbcc")
+    assert "inc-aabbcc" in run_ok(env, capsys, "incidents")  # acknowledged is still open work
+    assert "-> dismissed" in run_ok(env, capsys, "dismiss", "inc-aabbccddee30-110")
+    assert "no matching incidents" in run_ok(env, capsys, "incidents")
+    assert "dismissed" in run_ok(env, capsys, "incidents", "--all")
+    assert "-> resolved" in run_ok(env, capsys, "resolve", "inc-aabbccddee30-110")
+    svc = SentinelService(load_settings(Path(str(env["config"]))), Secrets())
+    actions = [(e.action, e.detail["status"]) for e in svc.storage.audit_entries()]
+    svc.close()
+    assert actions == [
+        ("incident_status", "acknowledged"),
+        ("incident_status", "dismissed"),
+        ("incident_status", "resolved"),
+    ]
+
+
+def test_unknown_or_ambiguous_incident_references_are_explained(
+    env: dict[str, object], capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    packets = sc.port_scan(100.0, range(1, 201)) + sc.beacon(0, 20, 30.0)
+    sc.write_pcap(tmp_path / "two.pcap", packets)
+    run_ok(env, capsys, "replay", str(tmp_path / "two.pcap"))
+    assert cli(env, "ack", "inc-aabbccddee") == 1
+    assert "ambiguous (2 matches)" in capsys.readouterr().err
+    assert cli(env, "ack", "zzz") == 1
+    assert "no incident matching" in capsys.readouterr().err
+
+
+def test_incident_list_filters(env: dict[str, object], capsys: pytest.CaptureFixture[str]) -> None:
+    run_ok(env, capsys, "replay", str(env["pcap"]))
+    assert "no matching" in run_ok(
+        env, capsys, "incidents", "--since", "1h"
+    )  # capture is from 1970
+    assert "inc-aabbcc" in run_ok(env, capsys, "incidents", "--min-score", "0.5")
+    assert "no matching" in run_ok(env, capsys, "incidents", "--min-score", "1.0")
+
+
+def test_brief_and_multiple_files_and_short_flags(
+    env: dict[str, object], capsys: pytest.CaptureFixture[str]
+) -> None:
+    pcap = str(env["pcap"])
+    out = run_ok(env, capsys, "replay", pcap, pcap, "-b", "-n")
+    assert out.count("== ") == 2 and out.count("frames=") == 2
+    assert "[CRITICAL" in out and "slack=sent" in out and "what:" not in out
+    out = run_ok(env, capsys, "replay", pcap, "-t", "-H", "192.168.2.30", "-p", "22")
+    lines = [ln for ln in out.splitlines() if " -> " in ln]
+    assert lines and all(":22" in ln for ln in lines)
+    assert " -> " not in run_ok(env, capsys, "replay", pcap, "-T")
+
+
+def test_color_only_when_asked_and_never_in_json(
+    env: dict[str, object], capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert "\x1b[" in run_ok(env, capsys, "--color", "always", "replay", str(env["pcap"]), "-b")
+    assert "\x1b[" not in run_ok(env, capsys, "replay", str(env["pcap"]), "-b")
+    assert "\x1b[" not in run_ok(
+        env, capsys, "--color", "always", "--json", "replay", str(env["pcap"])
+    )
+
+
+def test_durations_parse_and_reject_nonsense() -> None:
+    assert [parse_duration(t) for t in ("90", "90s", "15m", "2h", "1d", "1.5h")] == [
+        90,
+        90,
+        900,
+        7200,
+        86400,
+        5400,
+    ]
+    for bad in ("", "0", "-5m", "abc", "10x"):
+        with pytest.raises(argparse.ArgumentTypeError):
+            parse_duration(bad)
+
+
+def test_watch_stops_after_the_requested_duration(
+    env: dict[str, object], capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    frames = list(read_pcap(Path(str(env["pcap"]))))
+    ticks = iter(range(0, 10_000, 10))
+    monkeypatch.setattr("sentinel.api.service.capture_live", lambda argv: iter(frames))
+    monkeypatch.setattr("sentinel.api.service.time.monotonic", lambda: float(next(ticks)))
+    out = run_ok(env, capsys, "watch", "--for", "35s", "--iface", "lo0")
+    assert "frames=" in out and int(out.split("frames=")[1].split()[0]) <= 5
+
+
+def test_doctor_works_with_loose_secrets_and_fix_repairs_them(
+    env: dict[str, object], capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    (tmp_path / "secrets.env").chmod(0o644)
+    assert cli(env, "doctor") == 1
+    assert "chmod 600" in capsys.readouterr().out
+    assert cli(env, "doctor", "--fix") == 0
+    assert "fixed" in capsys.readouterr().out
+    assert (tmp_path / "secrets.env").stat().st_mode & 0o777 == 0o600

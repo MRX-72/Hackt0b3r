@@ -22,6 +22,7 @@ from sentinel.contracts.models import (
     MdnsEvent,
     RunSummary,
     SanitizedIncident,
+    StatusReport,
     WindowFeatures,
 )
 
@@ -40,6 +41,7 @@ MODELS: tuple[type[BaseModel], ...] = (
     RunSummary,
     DoctorCheck,
     LlmTestResult,
+    StatusReport,
     Alert,
     Incident,
     AuditEntry,

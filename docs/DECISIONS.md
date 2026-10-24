@@ -75,3 +75,13 @@ Decision: `explain/faithfulness.py` (not `nlp/`), because `nlp -> explain` in di
 
 ## D-018 Notifier transport and LLM runtimes use stdlib urllib
 Decision: no HTTP dependency. A `Transport` callable (url, body, headers) -> (status, body) is injected; the default uses `urllib.request` with a timeout, and tests use fakes. LLM adapters: `ollama` (native `/api/chat`, `format` = JSON schema) and `openai` (any OpenAI-compatible server, including llama.cpp `llama-server`, via `/v1/chat/completions` with `response_format`). Any model name can be configured.
+
+## D-019 Detection hardening pass (after an adversarial matrix, 2026-10-24)
+Context: `tests/test_detection_matrix.py` (attack variants, benign look-alikes, duplicated packets, 12-seed benign soak) exposed real flaws in the first detectors.
+Fixed: SYN retransmissions counted as new attempts; a server RST after an accepted connection turned it into a failure (hid brute force); servers' UDP replies counted as connections (false beacons); beacons on refused ports; brute-force logins also reported as beacons; shared services (mail polling, CDN hashed names) flagged; 600-byte beacon limit was far below a TLS handshake; byte counts shrank with snaplen (now from the IP length); unbounded state under floods (caps + `state_capped`); `.co.uk`-style names grouped together.
+Added knobs: `trusted_ips`, `beacon_allow_destinations`, `dns_ignore_domains`, `beacon_popular_hosts`, `dns_popular_hosts`, `beacon_min_completed_ratio`.
+Not fixed (inherent, documented): one device on a fixed schedule to an unshared server looks like a beacon; one device resolving many long hashed CDN names looks like a tunnel; UDP/ICMP scans unseen; evaluation waits for the next packet.
+Decision: detection is NOT "flawless", so per the user's condition no new detectors were added in this pass.
+
+## D-020 Flows are not stored by default
+Decision: `[storage] store_flows = false`. Detection runs in memory; storing every packet cost disk and privacy for no current consumer. Retention (`flow_retention_days`, `alert_retention_days`) is applied hourly during `watch` only, because pruning by capture time would delete replayed historic captures.

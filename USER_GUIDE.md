@@ -67,6 +67,9 @@ Two ways to run the command, used interchangeably below:
 
 For live capture you need root, so use the venv path: `sudo .venv/bin/sentinel watch ...`.
 
+First run in a new folder: `sentinel init` creates `config.toml` and a private `secrets.env`
+(it never overwrites files that already exist).
+
 ---
 
 ## Five-minute tour (no network needed)
@@ -114,11 +117,16 @@ For live capture you need root, so use the venv path: `sudo .venv/bin/sentinel w
 5. **Inspect what was stored.**
 
    ```bash
+   uv run sentinel status
    uv run sentinel incidents
    uv run sentinel incident inc-aabbccddee30-110
    ```
 
-6. Delete `sentinel.db` any time to start fresh.
+6. **Tidy up** as you would with a real alert: `uv run sentinel ack inc-aabbccddee30` (a unique
+   prefix is enough), then `dismiss` or `resolve` when done. Dismissed and resolved incidents drop
+   out of `sentinel incidents` unless you add `--all`.
+
+7. Delete `sentinel.db` any time to start fresh.
 
 ---
 
@@ -133,8 +141,8 @@ visible over 5 minutes or an hour.
 |---|---|---|---|
 | **Port scan** | T1046 | A device touches many different ports (10 s: 20, 5 min: 15, 1 h: 60) *or* many hosts (20 / 15 / 50) and at least 60% of its connection attempts fail. | how many ports/hosts, over which window, % failed, main target |
 | **Brute force** | T1110 | 8 / 20 / 60 connections to one login service (SSH 22, Telnet 23, FTP 21, SMB 445, RDP 3389, VNC 5900) in 10 s / 5 min / 1 h, and at least 30% completed (each guess is a real connection). | which service, how many attempts, target |
-| **Beaconing** | T1071.001 | 10+ connections to one destination, intervals vary by less than 15%, small payloads (under 600 bytes on average), and the pattern is still going (within 3 intervals). DNS (53) and NTP (123) are ignored. | how often, how many times, destination |
-| **DNS tunnel** | T1071.004 | 10+ DNS lookups in the window **and** at least two of: random-looking names (entropy 3.5), long names (40+ characters), 20+ distinct subdomains of one domain, 30%+ TXT/NULL queries. | number of lookups, average name length |
+| **Beaconing** | T1071.001 | 10+ *accepted* connections to one destination, intervals vary by less than 15%, modest sessions (under 20 KB on average), and the pattern is still going (within 3 intervals). Ignored: DNS/NTP, login services (brute force covers those), servers that 3+ devices talk to (shared services such as mail), and destinations you allow-list. | how often, how many times, destination |
+| **DNS tunnel** | T1071.004 | 10+ DNS lookups in the window **and** at least two of: random-looking names (entropy 3.5), long names (40+ characters), 20+ distinct subdomains of one domain, 30%+ TXT/NULL queries. Ignored: a busiest domain that 3+ devices look up (a real service) or that you list in `dns_ignore_domains`. | number of lookups, average name length |
 
 Things worth knowing:
 
@@ -146,6 +154,13 @@ Things worth knowing:
   `T1046 > T1110` (scan, then password guessing). A plausible order raises the score.
 - **Severity labels** in the CLI come from the incident score: `CRITICAL` ≥ 0.85, `HIGH` ≥ 0.70,
   `MEDIUM` ≥ 0.50, otherwise `LOW`.
+- **Built-in guards against false alarms.** TCP retransmissions count as one attempt; a server
+  resetting a connection it already accepted does not turn that login into a failure; UDP replies
+  are not mistaken for new connections; counts use the real packet size even when the capture was
+  cut short; a flood cannot grow memory without limit (`state_capped` in the run summary says it
+  happened).
+- **Tell it what is normal.** `trusted_ips` (for example your own vulnerability scanner),
+  `beacon_allow_destinations` and `dns_ignore_domains` silence known-good sources.
 - **Time is the capture's time.** A pcap from last month is analysed as of last month; timestamps in
   output are shown in your local time zone.
 - Thresholds live in `config.toml` under `[detection]`; see the
@@ -156,13 +171,14 @@ Things worth knowing:
 ## Command reference
 
 ```
-sentinel [--config FILE] [--json] [--version] <command> ...
+sentinel [--config FILE] [--json] [--color auto|always|never] [--version] <command> ...
 ```
 
 | Global option | Meaning |
 |---|---|
 | `--config FILE` | Settings file. Default: `config.toml` in the current directory if it exists, otherwise built-in defaults. |
-| `--json` | Print JSON lines instead of text (see [Scripting](#scripting-with---json)). |
+| `--json` | Print JSON lines instead of text (see [Scripting](#scripting-with---json)). Never coloured. |
+| `--color` | Colour severity labels. `auto` (default) colours only on a terminal and respects `NO_COLOR`. |
 | `--version` | Print the version. |
 
 Run `sentinel` with no command to see the help and examples.
@@ -170,24 +186,68 @@ Run `sentinel` with no command to see the help and examples.
 **Exit codes:** `0` success; `1` an operational problem (bad config, unreadable capture, delivery
 failed, failed health check); `2` command-line usage error.
 
-### `replay` — analyse a capture file
+**Durations** (`--since`, `--for`) look like `90`, `30s`, `15m`, `2h`, `1d`.
+**Incident ids** may be shortened to any unique prefix, so `inc-aabbccddee30` is enough when only
+one incident starts that way; an ambiguous prefix lists the matches.
+
+### Everyday commands at a glance
+
+| You want to… | Run |
+|---|---|
+| set up a new folder | `sentinel init` |
+| see where things stand | `sentinel status` |
+| analyse a capture | `sentinel replay capture.pcap` (several files are fine) |
+| get one line per incident | `sentinel replay capture.pcap -b` |
+| watch the packets too | add `-t` (and `-H 192.168.2.30`, `-p 22`, `--proto dns` to narrow) |
+| be told about it | add `-n` |
+| see what needs attention | `sentinel incidents --since 24h --min-score 0.7` |
+| look closer | `sentinel incident inc-aabb` |
+| tidy up | `sentinel ack inc-aabb` · `sentinel dismiss …` · `sentinel resolve …` |
+| capture for ten minutes | `sudo .venv/bin/sentinel watch --for 10m` |
+| fix a broken setup | `sentinel doctor --fix` |
+
+### `init` — set up a folder
 
 ```
-sentinel replay PCAP [--show-traffic | --no-traffic] [--host IP] [--port N] [--proto P] [--notify]
+sentinel init [--dir DIR]
 ```
 
-Runs a `.pcap` or `.pcapng` through the whole pipeline: parse, detect, group, explain, store, and
-(optionally) notify. Only Ethernet captures are supported. Replaying a file twice does not duplicate alerts (packet
-rows are stored again, and with `--notify` messages are sent again).
+Creates `config.toml` (all defaults, commented) and `secrets.env` (empty template, mode 600) if
+they do not exist, and says what to do next. Existing files are left alone.
+
+### `status` — where things stand
+
+```
+sentinel status
+```
+
+```
+database   sentinel.db (212 KB), 4 alerts, 0 flows stored
+incidents  2 total: 1 explained, 1 notified; newest at 05:35:10.000
+notify     on (slack, telegram); missing credentials: telegram
+llm        on (llama3.2)
+```
+
+### `replay` — analyse capture files
+
+```
+sentinel replay PCAP [PCAP ...] [-t | -T] [-H IP] [-p N] [--proto P] [-n] [-b]
+```
+
+Runs `.pcap` / `.pcapng` files through the whole pipeline: parse, detect, group, explain, store, and
+(optionally) notify. Only Ethernet captures are supported. With several files each is analysed
+separately under a `== file ==` heading. Replaying a file twice does not duplicate alerts (with
+`-n`, messages are sent again).
 
 | Option | Meaning |
 |---|---|
-| `--show-traffic` | Print one line per packet event as it is processed. |
-| `--no-traffic` | Force the traffic view off, even if `[cli] show_traffic = true`. |
-| `--host IP`, `--port N`, `--proto P` | Narrow the **traffic view** (not detection). `P` is one of `tcp udp icmp dns arp dhcp mdns`. |
-| `--notify` | Send notifications for new incidents. Needs `[notify] enabled = true` and at least one channel; otherwise a warning explains why nothing was sent. |
+| `-t`, `--show-traffic` | Print one line per packet event as it is processed. |
+| `-T`, `--no-traffic` | Force the traffic view off, even if `[cli] show_traffic = true`. |
+| `-H`, `--host IP` · `-p`, `--port N` · `--proto P` | Narrow the **traffic view** (not detection). `P` is one of `tcp udp icmp dns arp dhcp mdns`. |
+| `-n`, `--notify` | Send notifications for new incidents. Needs `[notify] enabled = true` and at least one channel; otherwise a warning explains why nothing was sent. |
+| `-b`, `--brief` | One line per incident instead of the full block: `[HIGH 0.91] inc-… headline (T1046 > T1110) slack=sent`. |
 
-Finishes with a summary line:
+Each run ends with a summary:
 `frames=… flows=… alerts=… incidents=… parse_errors=… payload_errors=… late_dropped=…`.
 `parse_errors` counts malformed packets that were skipped; `payload_errors` counts packets whose
 DNS/DHCP content was unreadable (the packet itself still counts as traffic).
@@ -195,25 +255,29 @@ DNS/DHCP content was unreadable (the packet itself still counts as traffic).
 ### `watch` — capture live traffic
 
 ```
-sudo .venv/bin/sentinel watch [--iface IFACE] [same options as replay]
+sudo .venv/bin/sentinel watch [--iface IFACE] [--for TIME] [same options as replay]
 ```
 
 Runs `tcpdump` on the interface (default `[capture] interface`, normally `bridge100`) and feeds the
-same pipeline until you press Ctrl-C. Read [Live capture](#live-capture-on-the-gateway-mac) first.
+same pipeline until you press Ctrl-C, or until `--for TIME` has passed (checked as packets arrive).
+Read [Live capture](#live-capture-on-the-gateway-mac) first.
 
 ### `incidents` — list stored incidents
 
 ```
-sentinel incidents [--limit N]
+sentinel incidents [-n N] [--since TIME] [--min-score 0-1] [-a]
 ```
 
 ```
-inc-aabbccddee20-280  explained  score=0.90  T1071.001 > T1071.004  Unusual DNS requests that may hide data
-inc-aabbccddee30-110  explained  score=1.00  T1046 > T1110  Device is probing many network ports
+inc-aabbccddee20-280  explained      score=0.90  T1071.001 > T1071.004  Unusual DNS requests that may hide data
+inc-aabbccddee30-110  acknowledged  score=1.00  T1046 > T1110  Device is probing many network ports
 ```
 
-Newest first, default 20. `status` is normally `explained`, or `notified` once at least one
-message was sent (`open` and `correlated` are short-lived states while an incident is forming).
+Newest first, default 20. By default dismissed and resolved incidents are hidden; `-a` shows them.
+`--since 24h` is relative to *now*, so it suits live monitoring (an old replayed capture will not
+match). Status is `explained`, or `notified` once a message was sent, then whatever you set with
+`ack`, `dismiss` or `resolve` (`open` and `correlated` are short-lived states while an incident
+forms).
 
 ### `incident ID` — one incident in detail
 
@@ -233,6 +297,18 @@ inc-aabbccddee30-110  [CRITICAL 1.00]  status=explained
 ```
 
 Every number in an explanation can be found in this evidence.
+
+### `ack`, `dismiss`, `resolve` — keep the list honest
+
+```
+sentinel ack ID [ID ...]        # I have seen it, still working on it
+sentinel dismiss ID [ID ...]    # false alarm
+sentinel resolve ID [ID ...]    # dealt with
+```
+
+Sets the status, hides dismissed/resolved incidents from `incidents`, and records who did what in
+the audit log. Dismissing is not a detector exception; to silence a source for good use
+`trusted_ips` or the allow-lists in `config.toml`.
 
 ### `notify test CHANNEL`
 
@@ -262,9 +338,15 @@ values).
 
 ### `doctor`
 
+```
+sentinel doctor [--fix]
+```
+
 Checks the secrets file (permissions and syntax), which channels have credentials, whether the
-capture interface exists, and, if the LLM is enabled, that the server answers and lists your model.
-Credentials are optional, so "not set" is reported as OK. Exit `1` if any hard check fails.
+capture interface exists (a warning only: just `watch` needs it) and, if the LLM is enabled, that
+the server answers and lists your model. Credentials are optional, so "not set" is reported as OK.
+Exit `1` if a hard check fails. `doctor` still works when `secrets.env` has the wrong permissions
+(other commands refuse to run then); `--fix` runs `chmod 600` for you.
 
 ---
 
@@ -506,6 +588,11 @@ gateway_ips = []                # reserved for upcoming gateway-aware detectors
 [cli]
 show_traffic = false
 
+[storage]
+store_flows = false             # keep one database row per packet event (large); detection does not need it
+flow_retention_days = 1         # live capture prunes stored flows older than this ...
+alert_retention_days = 30       # ... and alerts/incidents older than this, once an hour
+
 [capture]
 interface = "bridge100"
 snaplen = 384                   # 96-65535 bytes per packet
@@ -543,7 +630,10 @@ brute_min_completed_ratio = 0.3
 beacon_min_events = 10
 beacon_max_interval_cv = 0.15   # jitter allowed: std-dev / mean of the gaps
 beacon_min_interval_seconds = 1.0
-beacon_max_mean_bytes = 600.0
+beacon_max_mean_bytes = 20000.0 # average bytes per session (both directions); excludes bulk transfers
+beacon_min_completed_ratio = 0.5 # share of connection attempts that must be accepted
+beacon_popular_hosts = 3        # a server this many devices talk to is a shared service
+beacon_allow_destinations = []  # known-good servers, IPs or CIDRs
 beacon_active_intervals = 3.0   # a beacon silent for this many intervals is considered over
 beacon_ignore_ports = [53, 123]
 dns_min_queries = 10
@@ -551,12 +641,17 @@ dns_min_entropy = 3.5
 dns_min_mean_length = 40.0
 dns_min_unique_subdomains = 20
 dns_min_txt_null_share = 0.3
+dns_popular_hosts = 3           # a domain this many devices look up is a real service
+dns_ignore_domains = []         # registrable domains to ignore, e.g. ["example.net"]
+trusted_ips = []                # sources never alerted on (IPs or CIDRs), e.g. your own scanner
 ```
 
 Tuning tips:
 
-- Too many alerts from a legitimate device (a backup server, a vulnerability scanner you run)?
-  Raise the matching thresholds, or add its port to `beacon_ignore_ports`.
+- A legitimate device alerting? Put its address in `trusted_ips` (silences everything from it), a
+  known-good server in `beacon_allow_destinations`, or a domain in `dns_ignore_domains`; or raise the
+  matching thresholds. A single device that polls one private service on a fixed schedule (a
+  cron job over HTTPS, for example) does look like a beacon: allow-list that server.
 - To check what the long windows add, run the same capture with `windows = [10]` and compare.
   A slow scan will vanish from the results, which is exactly why the longer windows exist. If you
   remove a window you must keep the three threshold tables consistent with it.
@@ -602,11 +697,11 @@ JSON Schemas for every payload are in `schemas/` (`IncidentReport.json`, `RunSum
   shown in your terminal, and never passed to a language model or a chat message. The only text
   that reaches the model or chat services is a record built from validated addresses, fixed
   technique names and numbers.
-- **What is stored** in `sentinel.db`: one row per packet event (addresses, ports, sizes, TCP
-  flags, DNS query names), alerts, incidents, an audit log and notification outcomes. No packet
-  contents. The database can contain sensitive browsing metadata (DNS names): protect the file,
-  and tell the people on your network that you monitor it. Only monitor networks you own or
-  administer.
+- **What is stored** in `sentinel.db`: alerts, incidents, an audit log (including who acked or
+  dismissed what) and notification outcomes. With `[storage] store_flows = true` also one row per
+  packet event (addresses, ports, sizes, TCP flags, DNS query names). Never packet contents.
+  Stored flows can contain sensitive browsing metadata (DNS names): protect the file, and tell the
+  people on your network that you monitor it. Only monitor networks you own or administer.
 
 ---
 
@@ -626,7 +721,7 @@ JSON Schemas for every payload are in `schemas/` (`IncidentReport.json`, `RunSum
 | `skipped (circuit open …)` | Three failures in a row; the channel is paused 5 minutes. Fix the cause and test again. |
 | `llm test` says `cannot reach the LLM server` | Server not running or wrong `base_url`/`runtime`. |
 | `source: template (fallback: …)` | The model's reply was rejected; see the reason in parentheses. |
-| `doctor`: `interface bridge100: not found` | Internet Sharing is off or uses another name. Run `ifconfig` and set `[capture] interface`. |
+| `doctor`: `interface bridge100 … not found` | Only a warning (replay does not need it). For `watch`, Internet Sharing is off or uses another name: run `ifconfig` and set `[capture] interface`. |
 | `sqlite3.OperationalError: attempt to write a readonly database` | A previous `sudo watch` created a root-owned `sentinel.db`. `sudo chown $USER sentinel.db*`, or use a separate database path for live runs. |
 | Slow scan not detected | Make sure `windows` still includes 300 and 3600, and that the probes are failing (closed ports). |
 | A legitimate device keeps alerting | Raise the relevant thresholds in `[detection]`. |
@@ -646,10 +741,15 @@ Be aware of these before relying on Sentinel:
 - **Beaconing** is judged by timing regularity only. A legitimate sync tool with a fixed schedule
   can look like malware; the message wording says "may be".
 - **UDP port scans** are not detected (success or failure is not visible without replies).
-- **DNS over TCP** is not parsed; the "parent domain" is simply the last two labels, which is wrong for
-  names such as `example.co.uk`.
-- **The database grows** with every packet event and is not pruned automatically. Delete
-  `sentinel.db` to reset.
+- **DNS over TCP** is not parsed; "registrable domain" uses a short built-in list of two-level
+  suffixes (`co.uk`, `com.au`, …), not the full Public Suffix List.
+- **Judgement calls remain.** One device polling an unshared server on a fixed schedule, or one
+  device resolving 20+ long hashed names under a CDN domain within five minutes, is flagged because
+  it is indistinguishable from the real thing without your input; use the allow-lists.
+- **Detection runs when the next packet arrives**, so after an attack on a completely silent link
+  the alert waits for the next frame (on a LAN, ARP/mDNS chatter makes that seconds).
+- **Retention:** packet rows are not stored by default (`store_flows`); alerts and incidents are
+  pruned automatically only during `watch`. Delete `sentinel.db` to reset after replays.
 - **Never tested against real hardware or real services:** live capture, Slack/Discord/Telegram
   delivery, Ollama and llama.cpp. If something differs from this guide, it is a bug worth
   reporting; the checklist is in `docs/HUMAN_VERIFICATION.md`.

@@ -1,0 +1,80 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "alerts": {
+      "title": "Alerts",
+      "type": "integer"
+    },
+    "channels_with_credentials": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Channels With Credentials",
+      "type": "array"
+    },
+    "database": {
+      "title": "Database",
+      "type": "string"
+    },
+    "database_bytes": {
+      "title": "Database Bytes",
+      "type": "integer"
+    },
+    "flows_stored": {
+      "title": "Flows Stored",
+      "type": "integer"
+    },
+    "incidents_by_status": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Incidents By Status",
+      "type": "object"
+    },
+    "llm_enabled": {
+      "title": "Llm Enabled",
+      "type": "boolean"
+    },
+    "llm_model": {
+      "title": "Llm Model",
+      "type": "string"
+    },
+    "newest_incident_ts": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Newest Incident Ts"
+    },
+    "notify_channels": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Notify Channels",
+      "type": "array"
+    },
+    "notify_enabled": {
+      "title": "Notify Enabled",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "database",
+    "database_bytes",
+    "alerts",
+    "flows_stored",
+    "incidents_by_status",
+    "newest_incident_ts",
+    "notify_enabled",
+    "notify_channels",
+    "channels_with_credentials",
+    "llm_enabled",
+    "llm_model"
+  ],
+  "title": "StatusReport",
+  "type": "object"
+}

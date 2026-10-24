@@ -160,9 +160,50 @@ class Storage:
         )
         return [self._alert(r) for r in rows]
 
-    def recent_incidents(self, limit: int) -> list[Incident]:
-        rows = self.conn.execute("SELECT id FROM incident ORDER BY end_ts DESC LIMIT ?", (limit,))
+    def recent_incidents(
+        self,
+        limit: int,
+        *,
+        since: float | None = None,
+        min_score: float = 0.0,
+        include_closed: bool = False,
+    ) -> list[Incident]:
+        closed = "" if include_closed else " AND status NOT IN ('dismissed', 'resolved')"
+        rows = self.conn.execute(
+            f"SELECT id FROM incident WHERE end_ts >= ? AND score >= ?{closed}"  # noqa: S608
+            " ORDER BY end_ts DESC LIMIT ?",
+            (since if since is not None else -1.0, min_score, limit),
+        )
         return [i for r in rows if (i := self.get_incident(r["id"])) is not None]
+
+    def match_incident_ids(self, prefix: str) -> list[str]:
+        """Ids equal to, or starting with, `prefix` (exact match wins)."""
+        escaped = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        rows = self.conn.execute(
+            "SELECT id FROM incident WHERE id = ? OR id LIKE ? ESCAPE '\\' ORDER BY end_ts DESC",
+            (prefix, escaped + "%"),
+        )
+        found = [r["id"] for r in rows]
+        return [prefix] if prefix in found else found
+
+    def set_incident_status(self, incident_id: str, status: str, actor: str) -> None:
+        with self._tx():
+            done = self.conn.execute(
+                "UPDATE incident SET status = ? WHERE id = ?", (status, incident_id)
+            )
+            if done.rowcount != 1:
+                raise KeyError(incident_id)
+            self.audit(actor, "incident_status", incident_id, {"status": status})
+
+    def count_rows(self, table: str) -> int:
+        allowed = {"alert", "flow", "incident"}
+        if table not in allowed:
+            raise ValueError(table)
+        return int(self.conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])  # noqa: S608
+
+    def incident_status_counts(self) -> dict[str, int]:
+        rows = self.conn.execute("SELECT status, COUNT(*) AS n FROM incident GROUP BY status")
+        return {r["status"]: r["n"] for r in rows}
 
     def log_delivery(self, d: Delivery, incident_id: str) -> None:
         error = None if d.status == "sent" else d.detail

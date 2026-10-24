@@ -7,6 +7,7 @@ import socket
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from importlib import resources
 from pathlib import Path
 
 from sentinel.config.secrets import Secrets, SecretsError, load_secrets
@@ -22,6 +23,7 @@ from sentinel.contracts.models import (
     IncidentReport,
     LlmTestResult,
     RunSummary,
+    StatusReport,
 )
 from sentinel.explain.explainer import Explainer
 from sentinel.explain.llm import LlmClient, LlmError, build_client
@@ -119,7 +121,7 @@ class SentinelService:
 
     def watch(
         self, interface: str, *, on_event: OnEvent | None = None, on_report: OnReport | None = None,
-        notify: bool = False,
+        notify: bool = False, duration_seconds: float | None = None,
     ) -> RunSummary:  # fmt: skip
         """Capture live with tcpdump (needs root) until interrupted or the capture ends."""
         cap = self._settings.capture
@@ -127,8 +129,11 @@ class SentinelService:
         try:
             with _errors():
                 last_prune = 0.0
+                deadline = None if duration_seconds is None else time.monotonic() + duration_seconds
                 for ts, frame in capture_live(tcpdump_argv(interface, cap.snaplen, cap.bpf)):
                     pipeline.ingest(ts, frame)
+                    if deadline is not None and time.monotonic() >= deadline:
+                        break
                     if ts - last_prune > _PRUNE_EVERY_SECONDS:
                         pipeline.prune(time.time())
                         last_prune = ts
@@ -136,16 +141,66 @@ class SentinelService:
             pass
         return pipeline.finish()
 
-    def incidents(self, limit: int = 20) -> list[Incident]:
-        return self.storage.recent_incidents(limit)
+    def incidents(
+        self,
+        limit: int = 20,
+        *,
+        since_seconds: float | None = None,
+        min_score: float = 0.0,
+        include_closed: bool = False,
+    ) -> list[Incident]:
+        """Newest first. `since_seconds` is relative to now; closed = dismissed or resolved."""
+        since = None if since_seconds is None else time.time() - since_seconds
+        return self.storage.recent_incidents(
+            limit, since=since, min_score=min_score, include_closed=include_closed
+        )
 
-    def incident(self, incident_id: str) -> IncidentDetail:
+    def resolve_incident_id(self, reference: str) -> str:
+        """Accept a full id or any unambiguous prefix of one."""
+        matches = self.storage.match_incident_ids(reference)
+        if not matches:
+            raise ServiceError(
+                f"no incident matching {reference!r}; see `sentinel incidents --all`"
+            )
+        if len(matches) > 1:
+            shown = ", ".join(matches[:5])
+            raise ServiceError(f"{reference!r} is ambiguous ({len(matches)} matches): {shown}")
+        return matches[0]
+
+    def incident(self, reference: str) -> IncidentDetail:
+        incident_id = self.resolve_incident_id(reference)
         incident = self.storage.get_incident(incident_id)
-        if incident is None:
-            raise ServiceError(f"no incident with id {incident_id!r}; see `sentinel incidents`")
+        assert incident is not None  # noqa: S101 - id came from the database
         return IncidentDetail(
             incident=incident, alerts=self.storage.alerts_of_incident(incident_id)
         )
+
+    def set_incident_status(self, reference: str, status: str) -> Incident:
+        """Acknowledge, dismiss or resolve an incident; recorded in the audit log."""
+        incident_id = self.resolve_incident_id(reference)
+        self.storage.set_incident_status(incident_id, status, actor="cli")
+        updated = self.storage.get_incident(incident_id)
+        assert updated is not None  # noqa: S101 - just updated
+        return updated
+
+    def status(self) -> StatusReport:
+        s = self._settings
+        counts = self.storage.incident_status_counts()
+        newest = self.storage.recent_incidents(1, include_closed=True)
+        creds = {
+            "slack": self._secrets.slack_webhook_url,
+            "discord": self._secrets.discord_webhook_url,
+            "telegram": self._secrets.telegram_bot_token and self._secrets.telegram_chat_id,
+        }
+        size = self._database.stat().st_size if self._database.exists() else 0
+        return StatusReport(
+            database=str(self._database), database_bytes=size,
+            alerts=self.storage.count_rows("alert"), flows_stored=self.storage.count_rows("flow"),
+            incidents_by_status=counts, newest_incident_ts=newest[0].end_ts if newest else None,
+            notify_enabled=s.notify.enabled, notify_channels=list(s.notify.channels),
+            channels_with_credentials=[c for c, v in creds.items() if v],
+            llm_enabled=s.llm.enabled, llm_model=s.llm.model,
+        )  # fmt: skip
 
     def notify_test(self, channel: Channel) -> Delivery:
         incident, alerts = _sample_incident()
@@ -165,8 +220,11 @@ class SentinelService:
             models=models, explanation=explanation, fallback_reason=explainer.last_fallback_reason
         )
 
-    def doctor(self, secrets_file: Path) -> list[DoctorCheck]:
+    def doctor(self, secrets_file: Path, *, fix: bool = False) -> list[DoctorCheck]:
         checks: list[DoctorCheck] = []
+        if fix and secrets_file.exists() and secrets_file.stat().st_mode & 0o077:
+            secrets_file.chmod(0o600)
+            checks.append(DoctorCheck(name="fixed", ok=True, detail=f"chmod 600 {secrets_file}"))
         try:
             load_secrets(secrets_file, {})
             checks.append(DoctorCheck(name="secrets file", ok=True, detail=str(secrets_file)))
@@ -187,8 +245,12 @@ class SentinelService:
         checks.append(
             DoctorCheck(
                 name=f"interface {interface}",
-                ok=interface in names,
-                detail="found" if interface in names else f"not found; available: {sorted(names)}",
+                ok=True,  # only `watch` needs it; replaying captures works without it
+                detail=(
+                    "found"
+                    if interface in names
+                    else f"not found (needed only for `watch`); available: {sorted(names)}"
+                ),
             )
         )
         if self._settings.llm.enabled:
@@ -201,3 +263,17 @@ class SentinelService:
                 ok, detail = False, str(exc)
             checks.append(DoctorCheck(name="llm server", ok=ok, detail=detail))
         return checks
+
+
+def init_workspace(directory: Path) -> list[tuple[Path, bool]]:
+    """Create config.toml and a private secrets.env if missing. Returns (path, created)."""
+    templates = resources.files("sentinel.config") / "templates"
+    results: list[tuple[Path, bool]] = []
+    for name, mode in (("config.toml", 0o644), ("secrets.env", 0o600)):
+        target = directory / name
+        created = not target.exists()
+        if created:
+            target.write_text((templates / name).read_text())
+            target.chmod(mode)
+        results.append((target, created))
+    return results
