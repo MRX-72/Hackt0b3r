@@ -81,6 +81,8 @@ def format_summary(s: RunSummary) -> str:
         f"parse_errors={s.parse_errors} payload_errors={s.payload_errors} "
         f"late_dropped={s.late_dropped}"
     )
+    if s.state_capped:
+        text += f" state_capped={s.state_capped}"
     if s.llm_used or s.llm_rejected or s.llm_errors:
         text += f" llm_used={s.llm_used} llm_rejected={s.llm_rejected} llm_errors={s.llm_errors}"
     return text

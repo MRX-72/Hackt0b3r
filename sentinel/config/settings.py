@@ -1,5 +1,6 @@
 """Validated settings loaded from config.toml. Holds no secrets (see secrets.py)."""
 
+import ipaddress
 import tomllib
 from pathlib import Path
 from typing import Literal
@@ -36,16 +37,34 @@ class DetectionSettings(_Section):
     beacon_min_events: int = 10
     beacon_max_interval_cv: float = 0.15
     beacon_min_interval_seconds: float = 1.0
-    beacon_max_mean_bytes: float = 600.0
+    # A TLS check-in is already ~5 KB of handshake; this only excludes bulk transfers.
+    beacon_max_mean_bytes: float = 20_000.0
     # A beacon that missed this many expected check-ins is over; stop alerting on it.
     beacon_active_intervals: float = 3.0
     beacon_ignore_ports: list[int] = [53, 123]  # DNS and NTP are periodic by design
+    # Mail clients, chat apps and update checkers beacon too. A destination that this many
+    # different hosts connect to is a shared service, not one machine's C2.
+    beacon_popular_hosts: int = 3
+    # Beaconing means repeated *accepted* sessions; a retry loop against a dead port is not it.
+    beacon_min_completed_ratio: float = 0.5
+    beacon_allow_destinations: list[str] = []  # known-good servers (IPs or CIDRs)
+    # Sources that are never alerted on (IPs or CIDRs), e.g. your own vulnerability scanner.
+    trusted_ips: list[str] = []
+    dns_popular_hosts: int = 3  # same idea for a domain looked up by this many hosts
+    dns_ignore_domains: list[str] = []  # parent domains such as "example.net"
     # DNS tunnelling needs two independent signals among the four below.
     dns_min_queries: int = 10
     dns_min_entropy: float = 3.5  # Shannon bits/char of the subdomain part
     dns_min_mean_length: float = 40.0
     dns_min_unique_subdomains: int = 20  # under one parent domain
     dns_min_txt_null_share: float = 0.3
+
+    @field_validator("trusted_ips", "beacon_allow_destinations")
+    @classmethod
+    def _valid_networks(cls, v: list[str]) -> list[str]:
+        for item in v:
+            ipaddress.ip_network(item, strict=False)  # raises ValueError with a clear message
+        return v
 
     @field_validator("windows")
     @classmethod
@@ -101,10 +120,18 @@ class CaptureSettings(_Section):
     bpf: str = ""
 
 
+class StorageSettings(_Section):
+    # Detection works in memory; stored flows only serve later forensics and cost disk space.
+    store_flows: bool = False
+    flow_retention_days: int = Field(1, ge=1)
+    alert_retention_days: int = Field(30, ge=1)
+
+
 class Settings(_Section):
     database: Path = Path("sentinel.db")
     secrets_file: Path = Path("secrets.env")
     gateway_ips: list[str] = []
+    storage: StorageSettings = Field(default_factory=StorageSettings)
     capture: CaptureSettings = Field(default_factory=CaptureSettings)
     detection: DetectionSettings = Field(default_factory=DetectionSettings)
     notify: NotifySettings = Field(default_factory=NotifySettings)

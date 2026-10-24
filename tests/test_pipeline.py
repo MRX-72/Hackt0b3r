@@ -66,6 +66,7 @@ def service(tmp_path: Path, world: FakeWorld, *, llm: bool = False) -> SentinelS
     settings = Settings.model_validate(
         {
             "notify": {"enabled": True, "channels": ["slack"]},
+            "storage": {"store_flows": True},
             "llm": {"enabled": llm, "model": "test-model"},
         }
     )
@@ -137,7 +138,7 @@ def test_llm_text_is_used_when_faithful_and_hostile_data_never_reaches_it(tmp_pa
     _, reports, _ = run(tmp_path, world, llm=True)
     assert world.llm and all(r.explanation.source == "llm" for r in reports)
     bodies = b" ".join((r.body or b"") for r in [*world.llm, *world.slack])
-    assert b"example.com" not in bodies and b"t.example" not in bodies
+    assert b"example.com" not in bodies and b"badzone" not in bodies
     for req in world.llm:
         prompt = json.loads(req.body or b"")["messages"][1]["content"]
         assert set(json.loads(prompt)) == {
@@ -158,3 +159,19 @@ def test_bad_llm_output_falls_back_to_templates_and_is_counted(
     assert reports and all(r.explanation.source == "template" for r in reports)
     assert summary.llm_used == 0 and summary.llm_rejected >= 1
     svc.close()
+
+
+def test_flows_are_not_stored_by_default_and_retention_prunes_old_data(tmp_path: Path) -> None:
+    svc = SentinelService(Settings(), SECRETS, FakeWorld(), database=tmp_path / "s.db")
+    _OPEN.append(svc)
+    pipeline = svc._pipeline(None, None, notify=False)
+    for ts, frame in sc.port_scan(1000.0, range(1, 201)):
+        pipeline.ingest(ts, frame)
+    summary = pipeline.finish()
+    assert (
+        summary.flows > 0
+        and svc.storage.conn.execute("SELECT COUNT(*) FROM flow").fetchone()[0] == 0
+    )
+    assert len(svc.storage.alerts_since(0)) == 1
+    pruned = pipeline.prune(now=1000.0 + 31 * 86400)
+    assert pruned["alerts"] == 1 and svc.storage.alerts_since(0) == []

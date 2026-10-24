@@ -1,8 +1,10 @@
 """Rule detectors: port scan, brute force, beaconing, DNS tunnelling. Evidence is numeric only."""
 
+import ipaddress
+
 from sentinel.config.settings import DetectionSettings
 from sentinel.contracts.models import Alert, WindowFeatures
-from sentinel.features.windows import HostContext
+from sentinel.features.windows import HostContext, split_name
 
 
 def _alert(  # noqa: PLR0913 - one call shape for every detector keeps them uniform
@@ -88,36 +90,39 @@ class Beaconing:
 
     def __init__(self, s: DetectionSettings) -> None:
         self._s = s
+        self._allowed = [ipaddress.ip_network(n, strict=False) for n in s.beacon_allow_destinations]
+
+    def _is_known_good(self, ip: str) -> bool:
+        return any(ipaddress.ip_address(ip) in net for net in self._allowed)
 
     def on_window(self, ctx: HostContext) -> list[Alert]:
         s = self._s
-        out = []
         for t in ctx.destinations:
             if (
-                t.dst_port not in s.beacon_ignore_ports and t.count >= s.beacon_min_events
-                and t.mean_interval_seconds >= s.beacon_min_interval_seconds
-                and t.interval_cv <= s.beacon_max_interval_cv
-                and t.mean_bytes <= s.beacon_max_mean_bytes
-                and t.seconds_since_last <= s.beacon_active_intervals * t.mean_interval_seconds
-            ):  # fmt: skip
-                evidence = {
-                    "dst_port": float(t.dst_port), "count": float(t.count),
-                    "mean_interval_seconds": t.mean_interval_seconds,
-                    "interval_cv": t.interval_cv, "mean_bytes": t.mean_bytes,
-                }  # fmt: skip
-                regularity = 1 - t.interval_cv / s.beacon_max_interval_cv
-                confidence = 0.5 + 0.5 * min(1.0, t.count / (3 * s.beacon_min_events))
-                out.append(
-                    _alert(
-                        ctx,
-                        self.name,
-                        "T1071.001",
-                        (0.6 + 0.3 * regularity, confidence),
-                        evidence,
-                        target_ip=t.dst_ip,
-                    )
-                )
-        return out[:1]  # one alert per host per tick
+                t.dst_port in s.beacon_ignore_ports
+                or t.dst_port in s.auth_ports  # logins are covered by the brute-force detector
+                or t.count < s.beacon_min_events
+                or t.mean_interval_seconds < s.beacon_min_interval_seconds
+                or t.interval_cv > s.beacon_max_interval_cv
+                or t.mean_bytes > s.beacon_max_mean_bytes
+                or t.seconds_since_last > s.beacon_active_intervals * t.mean_interval_seconds
+                or t.completed_ratio < s.beacon_min_completed_ratio
+                or t.popularity >= s.beacon_popular_hosts
+                or self._is_known_good(t.dst_ip)
+            ):
+                continue
+            evidence = {
+                "dst_port": float(t.dst_port),
+                "count": float(t.count),
+                "mean_interval_seconds": t.mean_interval_seconds,
+                "interval_cv": t.interval_cv,
+                "mean_bytes": t.mean_bytes,
+            }
+            regularity = 1 - t.interval_cv / s.beacon_max_interval_cv
+            confidence = 0.5 + 0.5 * min(1.0, t.count / (3 * s.beacon_min_events))
+            scores = (0.6 + 0.3 * regularity, confidence)
+            return [_alert(ctx, self.name, "T1071.001", scores, evidence, target_ip=t.dst_ip)]
+        return []
 
 
 class DnsTunnel:
@@ -125,6 +130,7 @@ class DnsTunnel:
 
     def __init__(self, s: DetectionSettings) -> None:
         self._s = s
+        self._ignored = {split_name(d)[1] or d for d in s.dns_ignore_domains}
 
     def _signals(self, f: WindowFeatures) -> int:
         s = self._s
@@ -137,11 +143,16 @@ class DnsTunnel:
             )
         )
 
+    def _is_shared(self, ctx: HostContext, window: int) -> bool:
+        """True if the busiest domain is ignored by config or queried by several hosts."""
+        parent, hosts = ctx.dns_top.get(window, ("", 0))
+        return parent in self._ignored or hosts >= self._s.dns_popular_hosts
+
     def on_window(self, ctx: HostContext) -> list[Alert]:
         candidates = [
             (self._signals(f), f)
-            for f in ctx.features.values()
-            if f.dns_queries >= self._s.dns_min_queries
+            for window, f in ctx.features.items()
+            if f.dns_queries >= self._s.dns_min_queries and not self._is_shared(ctx, window)
         ]
         signals, f = max(candidates, key=lambda c: c[0], default=(0, None))
         if f is None or signals < 2:  # noqa: PLR2004 - two independent signals required

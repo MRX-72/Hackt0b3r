@@ -4,6 +4,7 @@ Returns contract models only; formatting and printing belong to the clients.
 """
 
 import socket
+import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -32,6 +33,7 @@ from sentinel.pipeline.run import Pipeline
 from sentinel.sensor.replay import CaptureError, capture_live, read_pcap, tcpdump_argv
 from sentinel.storage.db import Storage
 
+_PRUNE_EVERY_SECONDS = 3600.0  # live capture applies the retention settings this often
 OnEvent = Callable[[Event], None]
 OnReport = Callable[[IncidentReport], None]
 
@@ -124,8 +126,12 @@ class SentinelService:
         pipeline = self._pipeline(on_event, on_report, notify)
         try:
             with _errors():
+                last_prune = 0.0
                 for ts, frame in capture_live(tcpdump_argv(interface, cap.snaplen, cap.bpf)):
                     pipeline.ingest(ts, frame)
+                    if ts - last_prune > _PRUNE_EVERY_SECONDS:
+                        pipeline.prune(time.time())
+                        last_prune = ts
         except KeyboardInterrupt:
             pass
         return pipeline.finish()

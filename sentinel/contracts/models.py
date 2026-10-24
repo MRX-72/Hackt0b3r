@@ -154,6 +154,8 @@ class DestinationTiming(_Frozen):
     interval_cv: float
     mean_bytes: float
     seconds_since_last: float
+    completed_ratio: float  # share of the connection starts that were accepted
+    popularity: int  # how many hosts connect to this destination
 
 
 ActionId = Literal[
@@ -223,6 +225,7 @@ class RunSummary(_Frozen):
     parse_errors: int
     payload_errors: int
     late_dropped: int
+    state_capped: int  # times a flood hit a memory bound (counts stay far above thresholds)
     llm_used: int
     llm_rejected: int
     llm_errors: int

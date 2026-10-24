@@ -27,6 +27,7 @@ class Pipeline:
         on_report: Callable[[IncidentReport], None] | None = None,
     ) -> None:
         self._storage, self._explainer, self._notifier = storage, explainer, notifier
+        self._store = settings.storage
         self._on_event, self._on_report = on_event, on_report
         self._parser = FrameParser()
         self._engine = DetectionEngine(settings.detection)
@@ -43,9 +44,10 @@ class Pipeline:
                 self._on_event(event)
             if isinstance(event, Flow):
                 self._flows += 1
-                self._pending_flows.append(event)
-                if len(self._pending_flows) >= _FLOW_BATCH:
-                    self._flush_flows()
+                if self._store.store_flows:
+                    self._pending_flows.append(event)
+                    if len(self._pending_flows) >= _FLOW_BATCH:
+                        self._flush_flows()
             for alert in self._engine.process(event, ts):
                 self._handle(alert)
 
@@ -59,8 +61,17 @@ class Pipeline:
             incidents=self._incidents, parse_errors=self._parser.parse_errors,
             payload_errors=self._parser.payload_errors,
             late_dropped=self._engine.windows.late_dropped,
+            state_capped=self._engine.windows.state_capped,
             llm_used=stats.llm_used, llm_rejected=stats.llm_rejected, llm_errors=stats.llm_errors,
         )  # fmt: skip
+
+    def prune(self, now: float) -> dict[str, int]:
+        """Apply retention relative to `now` (wall-clock time in live mode)."""
+        day = 86400.0
+        return self._storage.prune(
+            flows_before=now - self._store.flow_retention_days * day,
+            alerts_before=now - self._store.alert_retention_days * day,
+        )
 
     def _flush_flows(self) -> None:
         if self._pending_flows:

@@ -190,3 +190,12 @@ def test_hostile_dns_name_flows_into_storage(tmp_path: Path) -> None:
     db.insert_flows([flow])
     assert db.flows_for_host(MAC1, 0, 10) == [flow]
     db.close()
+
+
+def test_byte_counts_use_the_wire_length_not_the_snaplen_truncated_length() -> None:
+    full = f.eth(f.ipv4(6, f.tcp(1, 2, f.PSH | f.ACK, bytes(1400))))
+    truncated = full[:96]
+    assert only_flow(truncated).bytes == len(full)
+    zero_len = bytearray(full)
+    zero_len[16:18] = b"\x00\x00"  # TSO/checksum-offload captures report IP length 0
+    assert only_flow(bytes(zero_len)).bytes == len(full)

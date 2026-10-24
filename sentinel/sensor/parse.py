@@ -54,6 +54,8 @@ _DHCP_TYPES: dict[int, DhcpMsgType] = {
 }
 _FRAGMENT_PROTOS: dict[int, Proto] = {dpkt.ip.IP_PROTO_TCP: "tcp", dpkt.ip.IP_PROTO_UDP: "udp"}
 _DHCP_PORTS = {67, 68}
+_ETHERNET_HEADER = 14
+_IPV6_HEADER = 40
 _DNS_PORT = 53
 _MDNS_PORT = 5353
 # A multi-record mDNS response can name many hosts; a few suffice to label the sender.
@@ -79,6 +81,16 @@ def _l4_protocol(ip: dpkt.ip.IP | dpkt.ip6.IP6) -> tuple[int, bool]:
     chain = ip.all_extension_headers
     later = any(isinstance(h, dpkt.ip6.IP6FragmentHeader) and h.frag_off > 0 for h in chain)
     return (chain[-1].nxt if chain else ip.nxt), later
+
+
+def _wire_length(ip: dpkt.ip.IP | dpkt.ip6.IP6, captured: int) -> int:
+    """Frame size on the wire, from the IP header, so a short snaplen does not shrink byte counts.
+
+    Falls back to the captured size when the header says 0 (segmentation offload) or is smaller
+    than what was captured.
+    """
+    declared = ip.len if isinstance(ip, dpkt.ip.IP) else ip.plen + _IPV6_HEADER
+    return max(captured, _ETHERNET_HEADER + declared) if declared else captured
 
 
 def _text(raw: bytes) -> str:
@@ -149,7 +161,7 @@ class FrameParser:
         flow = Flow(
             ts=ts, src_ip=_ip(ip.src), dst_ip=_ip(ip.dst), src_mac=_mac(eth.src),
             dst_mac=_mac(eth.dst), proto=name, src_port=src_port, dst_port=dst_port,
-            bytes=length, packets=1, tcp_flags=flags,
+            bytes=_wire_length(ip, length), packets=1, tcp_flags=flags,
         )  # fmt: skip
         events: list[Event] = [flow]
         if name == "udp" and isinstance(l4, dpkt.udp.UDP):

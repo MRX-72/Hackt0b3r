@@ -101,5 +101,86 @@ def dns_tunnel(start: float, count: int, per_second: float = 2.0, seed: int = 3)
     out: list[Packet] = []
     for i in range(count):
         label = "".join(rnd.choice(alphabet) for _ in range(52))
-        out += dns(start + i / per_second, VICTIM, f"{label}.t.example.com", 16)
+        out += dns(start + i / per_second, VICTIM, f"{label}.t.badzone.net", 16)
+    return out
+
+
+def _extra_host(n: int) -> Host:
+    return (bytes.fromhex(f"aabbccddee{n:02x}"), f"192.168.2.{n}")
+
+
+H41, H42, H43 = _extra_host(0x41), _extra_host(0x42), _extra_host(0x43)
+MAIL = (bytes.fromhex("aabbccddee70"), "192.168.2.70")
+
+
+def syn_retransmits(
+    start: float, attempts: int, port: int = 22, spacing: float = 20.0
+) -> list[Packet]:
+    """A client retrying a dead server: one SYN per attempt plus retransmits at +1, +3, +7 s."""
+    out: list[Packet] = []
+    for i in range(attempts):
+        t = start + i * spacing
+        for offset in (0, 1, 3, 7):
+            out.append((t + offset, f.tcp_frame(USER, VICTIM, 45000 + i, port, f.SYN)))
+    return out
+
+
+def brute_force_server_resets(start: float, attempts: int, interval: float = 1.0) -> list[Packet]:
+    """Every failed login ends with the server resetting the connection."""
+    out: list[Packet] = []
+    for i in range(attempts):
+        t = start + i * interval
+        out += handshake(t, ATTACKER, VICTIM, 41000 + i, 22, data=120)[:-1]
+        out.append((t + 0.05, f.tcp_frame(VICTIM, ATTACKER, 22, 41000 + i, f.RST | f.ACK)))
+    return out
+
+
+def horizontal_sweep(
+    start: float, hosts: int = 40, port: int = 445, per_second: float = 20
+) -> list[Packet]:
+    out: list[Packet] = []
+    for i in range(hosts):
+        target: Host = (bytes.fromhex(f"aabbccddee{0x80 + i:02x}"), f"192.168.2.{100 + i}")
+        out += handshake(start + i / per_second, ATTACKER, target, 43000 + i, port, open_=False)
+    return out
+
+
+def periodic_polling(
+    start: float,
+    count: int,
+    interval: float,
+    clients: list[Host],
+    server: Host = MAIL,
+    port: int = 993,
+) -> list[Packet]:
+    """Mail/chat apps checking a server on a schedule; clients are staggered by a few seconds."""
+    out: list[Packet] = []
+    for c, client in enumerate(clients):
+        for i in range(count):
+            out += handshake(
+                start + c * 3 + i * interval, client, server, 46000 + i, port, data=200
+            )
+    return out
+
+
+def udp_polling(start: float, count: int, interval: float, port: int = 9000) -> list[Packet]:
+    """A client polls a UDP service; the server replies from the service port."""
+    out: list[Packet] = []
+    for i in range(count):
+        t = start + i * interval
+        out.append((t, f.udp_frame(USER, MAIL, 50000, port, bytes(40))))  # one long-lived socket
+        out.append((t + 0.02, f.udp_frame(MAIL, USER, port, 50000, bytes(40))))
+    return out
+
+
+def hashed_cdn_dns(
+    start: float, count: int, clients: list[Host], seconds: float = 300.0, seed: int = 4
+) -> list[Packet]:
+    """Long hex-hash host names under one CDN domain, looked up by each client."""
+    rnd = random.Random(seed)
+    out: list[Packet] = []
+    for client in clients:
+        for i in range(count):
+            label = "".join(rnd.choice("0123456789abcdef") for _ in range(32))
+            out += dns(start + i * seconds / count, client, f"{label}.cdn-assets.example.net")
     return out

@@ -1,8 +1,10 @@
 import pytest
 
 from sentinel.config.settings import DetectionSettings
-from sentinel.features.windows import HostContext, WindowEngine
+from sentinel.features import windows as w
+from sentinel.features.windows import HostContext, WindowEngine, split_name
 from sentinel.sensor.parse import FrameParser
+from tests import frames
 from tests import scenarios as sc
 
 SETTINGS = DetectionSettings()
@@ -91,3 +93,38 @@ def test_old_state_is_evicted_and_late_events_are_counted() -> None:
     for event in parser.parse(old[1], old[0]):
         engine.observe(event)
     assert engine.late_dropped == 1
+
+
+def test_syn_retransmissions_are_one_attempt() -> None:
+    engine, now = run(sc.syn_retransmits(0, 15))
+    ctx = host(engine, now, sc.MAC["user"])
+    assert ctx.services[3600][(sc.VICTIM[1], 22)] == (15, 0)
+    assert ctx.features[3600].attempts == 15
+
+
+def test_a_late_reset_does_not_undo_a_completed_connection() -> None:
+    engine, now = run(sc.brute_force_server_resets(0, 20))
+    assert host(engine, now, sc.MAC["attacker"]).services[300][(sc.VICTIM[1], 22)] == (20, 20)
+
+
+def test_a_syn_flood_cannot_grow_state_without_bound_and_still_looks_like_a_scan() -> None:
+    packets = [
+        (
+            100.0 + i / 20000,
+            frames.tcp_frame(sc.ATTACKER, sc.VICTIM, 1024 + i % 60000, 1 + i % 9000, frames.SYN),
+        )
+        for i in range(30_000)
+    ]
+    engine, now = run(packets)
+    ctx = host(engine, now, sc.MAC["attacker"])
+    assert ctx.features[10].attempts == 30_000 and ctx.features[10].failed_ratio == 1.0
+    assert engine.state_capped > 0
+    buckets = engine._hosts[sc.MAC["attacker"]].buckets
+    assert all(len(b.attempts) <= w._MAX_ATTEMPTS_PER_BUCKET for b in buckets.values())
+
+
+def test_two_level_suffixes_group_by_the_registrable_domain() -> None:
+    assert split_name("www.bbc.co.uk") == ("www", "bbc.co.uk")
+    assert split_name("a.b.example.com") == ("a.b", "example.com")
+    assert split_name("example.com") == ("", "example.com")
+    assert split_name("bbc.co.uk") == ("", "bbc.co.uk")

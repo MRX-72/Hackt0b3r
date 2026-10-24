@@ -2,6 +2,10 @@
   "additionalProperties": false,
   "description": "Connection-start regularity toward one destination, for beacon detection.",
   "properties": {
+    "completed_ratio": {
+      "title": "Completed Ratio",
+      "type": "number"
+    },
     "count": {
       "title": "Count",
       "type": "integer"
@@ -28,6 +32,10 @@
       "title": "Mean Interval Seconds",
       "type": "number"
     },
+    "popularity": {
+      "title": "Popularity",
+      "type": "integer"
+    },
     "seconds_since_last": {
       "title": "Seconds Since Last",
       "type": "number"
@@ -40,7 +48,9 @@
     "mean_interval_seconds",
     "interval_cv",
     "mean_bytes",
-    "seconds_since_last"
+    "seconds_since_last",
+    "completed_ratio",
+    "popularity"
   ],
   "title": "DestinationTiming",
   "type": "object"

@@ -1,5 +1,7 @@
 """Drives window state and detectors in event time, with per-host cooldown."""
 
+import ipaddress
+
 from sentinel.config.settings import BUCKET_SECONDS, DetectionSettings
 from sentinel.contracts.models import Alert, Event
 from sentinel.detect.interface import Detector
@@ -16,6 +18,7 @@ class DetectionEngine:
             PortScan(settings), BruteForce(settings), Beaconing(settings), DnsTunnel(settings),
         ]  # fmt: skip
         self._cooldown = settings.cooldown_seconds
+        self._trusted = [ipaddress.ip_network(n, strict=False) for n in settings.trusted_ips]
         self._active: set[tuple[str, str]] = set()  # conditions currently firing
         self._last_alert: dict[tuple[str, str], float] = {}
         self._next_tick: float | None = None
@@ -42,6 +45,9 @@ class DetectionEngine:
         recurrence within the cooldown of the last alert is suppressed as flapping."""
         raised: list[Alert] = []
         for ctx in self.windows.snapshot(now):
+            ip = ipaddress.ip_address(ctx.host_ip)
+            if any(ip in net for net in self._trusted):
+                continue
             for detector in self._detectors:
                 key = (detector.name, ctx.host_mac)
                 alerts = detector.on_window(ctx)

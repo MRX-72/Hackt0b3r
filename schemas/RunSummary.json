@@ -40,6 +40,10 @@
     "payload_errors": {
       "title": "Payload Errors",
       "type": "integer"
+    },
+    "state_capped": {
+      "title": "State Capped",
+      "type": "integer"
     }
   },
   "required": [
@@ -50,6 +54,7 @@
     "parse_errors",
     "payload_errors",
     "late_dropped",
+    "state_capped",
     "llm_used",
     "llm_rejected",
     "llm_errors"
