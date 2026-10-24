@@ -1,0 +1,21 @@
+{
+  "additionalProperties": false,
+  "description": "Which history entries to delete (by id). Validated: it comes straight from the web page.",
+  "properties": {
+    "ids": {
+      "items": {
+        "exclusiveMinimum": 0,
+        "type": "integer"
+      },
+      "maxItems": 500,
+      "minItems": 1,
+      "title": "Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "ids"
+  ],
+  "title": "HistoryDelete",
+  "type": "object"
+}

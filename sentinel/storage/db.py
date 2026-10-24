@@ -327,6 +327,20 @@ class Storage:
         row = self.conn.execute("SELECT * FROM anomaly_log WHERE id = ?", (anomaly_id,)).fetchone()
         return None if row is None else self._anomaly(row)
 
+    def delete_anomalies(self, ids: Iterable[int], actor: str = "ui") -> int:
+        """Delete the chosen history entries; returns how many existed. The deletion is audited."""
+        chosen = sorted(set(ids))
+        if not chosen:
+            return 0
+        marks = ",".join("?" * len(chosen))
+        with self._tx():
+            deleted = self.conn.execute(
+                f"DELETE FROM anomaly_log WHERE id IN ({marks})",  # noqa: S608 - only "?" marks
+                chosen,
+            ).rowcount
+            self.audit(actor, "history_delete", f"{deleted} entries", {"ids": chosen})
+        return deleted
+
     def anomaly_label_counts(self) -> dict[str, int]:
         rows = self.conn.execute("SELECT label, COUNT(*) AS n FROM anomaly_log GROUP BY label")
         return {r["label"]: r["n"] for r in rows}

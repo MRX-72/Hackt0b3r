@@ -86,6 +86,9 @@ Decision: detection is NOT "flawless", so per the user's condition no new detect
 ## D-020 Flows are not stored by default
 Decision: `[storage] store_flows = false`. Detection runs in memory; storing every packet cost disk and privacy for no current consumer. Retention (`flow_retention_days`, `alert_retention_days`) is applied hourly during `watch` only, because pruning by capture time would delete replayed historic captures.
 
+## D-025 Deleting history entries (user request, 2026-10-25)
+Supersedes the "DELETE blocked" part of D-023. Migration 004 drops the delete trigger on `anomaly_log` (the update trigger stays). The only delete path is `Storage.delete_anomalies(ids)`, which removes the chosen ids and writes one `audit_log` row listing them; the web console exposes it as `POST /api/history/delete` (validated `HistoryDelete`, 1..500 positive ids, 16 KB body cap) behind the same cookie and Host checks plus a required `X-Sentinel: 1` header (blocks cross-site requests). The UI needs two clicks to delete. Deleting a history entry does not touch the incident or alert tables.
+
 ## D-024 Packaging and persistent data (user request, 2026-10-25)
 Decision: all user data lives in one per-user folder, `$SENTINEL_HOME` or `~/.sentinel` (under `sudo`, the invoking user's, via `SUDO_USER`), instead of the working directory: `sentinel.db`, `config.toml`, `secrets.env`. Config is found via `--config`, `$SENTINEL_CONFIG`, `./config.toml`, `<home>/config.toml`; relative paths inside a config mean "next to that file". The folder is created 0700; under root the DB files and folder are chowned to `SUDO_UID/GID` so a later non-root `ui`/`history` can open them (unit-tested, not yet run under real sudo).
 Why: the old default `sentinel.db` in the cwd meant history vanished depending on where the command was run and root runs left root-owned files.

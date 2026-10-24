@@ -14,14 +14,22 @@ from tests import scenarios as sc
 from tests.test_ui import record
 
 
-def test_the_log_is_append_only(tmp_path: Path) -> None:
+def test_entries_cannot_be_edited_but_can_be_deleted_by_id_with_an_audit_trail(
+    tmp_path: Path,
+) -> None:
     store = Storage(tmp_path / "a.db")
-    first = store.log_anomaly(record())
-    assert first == 1 and store.anomaly(1) == record().model_copy(update={"id": 1})
+    ids = [store.log_anomaly(record(ts=float(i), incident_id=f"inc-{i}")) for i in range(4)]
+    assert ids == [1, 2, 3, 4] and store.anomaly(1) == record(
+        ts=0.0, incident_id="inc-0"
+    ).model_copy(update={"id": 1})
     with pytest.raises(sqlite3.IntegrityError):
         store.conn.execute("UPDATE anomaly_log SET headline = 'x'")
-    with pytest.raises(sqlite3.IntegrityError):
-        store.conn.execute("DELETE FROM anomaly_log")
+    assert store.delete_anomalies([2, 3, 99]) == 2  # 99 never existed
+    assert [r.id for r in store.anomalies(HistoryQuery())[1]] == [4, 1]
+    assert store.delete_anomalies([]) == 0
+    entry = store.audit_entries()[-1]
+    assert (entry.actor, entry.action, entry.target) == ("ui", "history_delete", "2 entries")
+    assert entry.detail["ids"] == [2, 3, 99]
     store.close()
 
 

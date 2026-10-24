@@ -3,7 +3,7 @@
 import ipaddress
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, PositiveInt
 
 MAC_PATTERN = r"^([0-9a-f]{2}:){5}[0-9a-f]{2}$"
 Mac = Annotated[str, Field(pattern=MAC_PATTERN)]
@@ -267,6 +267,12 @@ class HistoryQuery(_Frozen):
     until: float | None = None
     limit: int = Field(default=100, ge=1, le=500)
     offset: int = Field(default=0, ge=0)
+
+
+class HistoryDelete(_Frozen):
+    """Which history entries to delete (by id). Validated: it comes straight from the web page."""
+
+    ids: list[PositiveInt] = Field(min_length=1, max_length=500)
 
 
 class IncidentDetail(_Frozen):

@@ -278,6 +278,59 @@ def test_the_live_stream_sends_hello_then_alerts(server: tuple[UiServer, Hub]) -
     sock.close()
 
 
+def post(
+    ui: UiServer, body: bytes | str, *, cookie: bool = True, marker: bool = True,
+    host: str | None = None, path: str = "/api/history/delete",
+) -> http.client.HTTPResponse:  # fmt: skip
+    conn = http.client.HTTPConnection("127.0.0.1", ui.port, timeout=5)
+    headers = {"Host": host or f"127.0.0.1:{ui.port}", "Content-Type": "application/json"}
+    if cookie:
+        headers["Cookie"] = f"{COOKIE}=tok"
+    if marker:
+        headers["X-Sentinel"] = "1"
+    conn.request("POST", path, body=body, headers=headers)
+    return conn.getresponse()
+
+
+def test_selected_entries_can_be_deleted_and_the_counts_follow(
+    server: tuple[UiServer, Hub],
+) -> None:
+    ui, _ = server
+    res = post(ui, json.dumps({"ids": [1, 4, 77]}))
+    assert res.status == 200 and json.loads(res.read()) == {"deleted": 2}
+    data = json.loads(get(ui, "/api/history").read())
+    assert data["total"] == 2 and data["counts"] == {"HIGH": 1, "LOW": 1}
+    assert get(ui, "/api/history/1").status == 404
+
+
+@pytest.mark.security
+def test_deleting_needs_the_cookie_a_local_host_and_the_same_origin_header(
+    server: tuple[UiServer, Hub],
+) -> None:
+    ui, _ = server
+    body = json.dumps({"ids": [1]})
+    assert post(ui, body, cookie=False).status == 403
+    assert post(ui, body, host="evil.test").status == 403
+    assert post(ui, body, marker=False).status == 403  # a cross-site form cannot add this header
+    assert post(ui, body, path="/api/history").status == 403
+    assert json.loads(get(ui, "/api/history").read())["total"] == 4  # nothing was deleted
+
+
+@pytest.mark.security
+@pytest.mark.parametrize(
+    "body",
+    ["", "not json", "[]", '{"ids": []}', '{"ids": [0]}', '{"ids": [-1]}', '{"ids": ["1; DROP"]}',
+     '{"ids": [1.5]}', '{"ids": [1], "extra": 1}', json.dumps({"ids": list(range(1, 502))}),
+     " " * 20_000],
+)  # fmt: skip
+def test_malformed_delete_requests_are_rejected_without_deleting(
+    server: tuple[UiServer, Hub], body: str
+) -> None:
+    ui, _ = server
+    assert post(ui, body).status == 400
+    assert json.loads(get(ui, "/api/history").read())["total"] == 4
+
+
 # ---------------------------------------------------------------------------- static assets
 @pytest.mark.security
 def test_the_page_never_builds_html_from_strings() -> None:

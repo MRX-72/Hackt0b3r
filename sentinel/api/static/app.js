@@ -262,6 +262,7 @@
   const history = (() => {
     const f = { label: "", range: "", source: "", text: "", offset: 0, limit: 100 };
     let rows = [], total = 0, selected = null, timer = null;
+    const picked = new Set();
     const tbody = $("#hist tbody");
 
     function params(withPaging) {
@@ -278,8 +279,13 @@
       tbody.replaceChildren();
       rows.forEach((r) => {
         const tr = h("tr", r.id === selected ? "sel" : "");
+        const box = h("input"), pick = h("td");
+        box.type = "checkbox"; box.checked = picked.has(r.id);
+        box.addEventListener("click", (e) => e.stopPropagation());
+        box.addEventListener("change", () => { box.checked ? picked.add(r.id) : picked.delete(r.id); syncPicked(); });
+        pick.appendChild(box);
         const sev = h("td"); sev.appendChild(h("span", "sev " + r.label, r.label)); 
-        tr.append(h("td", "", stamp(r.ts)), sev, h("td", "", r.detector), h("td", "", r.technique),
+        tr.append(pick, h("td", "", stamp(r.ts)), sev, h("td", "", r.detector), h("td", "", r.technique),
           h("td", "", r.host_ip), h("td", "", r.target_ip || ""), h("td", "", r.headline), h("td", "dim", r.source.toUpperCase()));
         tr.addEventListener("click", () => select(r.id));
         tbody.appendChild(tr);
@@ -290,6 +296,37 @@
       $("#h-range").textContent = `${from}-${f.offset + rows.length} OF ${num(total)}`;
       $("#prev").disabled = f.offset === 0; $("#next").disabled = f.offset + rows.length >= total;
     }
+
+    // Two clicks to delete: the first arms the button, the second (within 4 s) does it.
+    function twoStep(btn, idle, action) {
+      let timer = null;
+      const disarm = () => { clearTimeout(timer); btn.classList.remove("armed"); btn.textContent = idle(); };
+      btn.addEventListener("click", () => {
+        if (btn.classList.contains("armed")) { disarm(); action(); return; }
+        btn.classList.add("armed"); btn.textContent = "CONFIRM DELETE?";
+        timer = setTimeout(disarm, 4000);
+      });
+      return disarm;
+    }
+    async function removeIds(ids) {
+      const res = await fetch("/api/history/delete", {
+        method: "POST", headers: { "Content-Type": "application/json", "X-Sentinel": "1" }, body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) return;
+      ids.forEach((id) => picked.delete(id));
+      if (ids.includes(selected)) { selected = null; select(null); }
+      syncPicked(); await reload();
+    }
+    const delBtn = $("#del"), delLabel = () => `DELETE SELECTED (${picked.size})`;
+    const resetDel = twoStep(delBtn, delLabel, () => removeIds([...picked]));
+    function syncPicked() {
+      delBtn.hidden = picked.size === 0; resetDel();
+      $("#pick-all").checked = rows.length > 0 && rows.every((r) => picked.has(r.id));
+    }
+    $("#pick-all").addEventListener("change", (e) => {
+      rows.forEach((r) => (e.target.checked ? picked.add(r.id) : picked.delete(r.id)));
+      renderRows(); syncPicked();
+    });
 
     function setCounts(counts) {
       let all = 0;
@@ -303,6 +340,8 @@
         if (!res.ok) return;
         const data = await res.json();
         rows = data.rows; total = data.total; setCounts(data.counts);
+        for (const id of [...picked]) if (!rows.some((r) => r.id === id)) picked.delete(id);
+        syncPicked();
         $("#export").href = "/api/history.csv?" + params(false);
         renderRows();
       } catch (_) { /* server restarting: the next reload will catch up */ }
@@ -329,6 +368,9 @@
       ev.appendChild(h("div", "k", "EVIDENCE"));
       Object.entries(r.evidence).sort().forEach(([k, v]) => { table.append(h("span", "", k), h("span", "", Number.isInteger(v) ? num(v) : v.toFixed(2))); });
       ev.appendChild(table); d.appendChild(ev);
+      const act = h("div", "d-actions"), del = h("button", "ghost danger", "DELETE THIS ENTRY");
+      twoStep(del, () => "DELETE THIS ENTRY", () => removeIds([r.id]));
+      act.appendChild(del); d.appendChild(act);
     }
 
     function setLabelUi(v) {

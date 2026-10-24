@@ -83,7 +83,7 @@
       </div>
       <div class="body scroll" id="h-scroll">
         <table id="hist">
-          <thead><tr><th>TIME</th><th>SEVERITY</th><th>DETECTOR</th><th>TECHNIQUE</th><th>DEVICE</th><th>TARGET</th><th>SUMMARY</th><th>SRC</th></tr></thead>
+          <thead><tr><th><input type="checkbox" id="pick-all" title="select this page"></th><th>TIME</th><th>SEVERITY</th><th>DETECTOR</th><th>TECHNIQUE</th><th>DEVICE</th><th>TARGET</th><th>SUMMARY</th><th>SRC</th></tr></thead>
           <tbody></tbody>
         </table>
         <div id="h-empty" class="empty" hidden>NO ANOMALIES LOGGED</div>
@@ -92,6 +92,7 @@
         <span id="h-range">0</span>
         <span class="spacer"></span>
         <span id="h-db" class="dim"></span>
+        <button class="ghost danger" id="del" hidden>DELETE SELECTED</button>
         <button class="ghost" id="prev">PREV</button>
         <button class="ghost" id="next">NEXT</button>
       </div>

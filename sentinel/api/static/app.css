@@ -92,8 +92,11 @@ select, input[type=text] { background: var(--bg); border: 1px solid var(--line2)
 select:focus, input:focus { border-color: var(--dim); }
 #f-text { flex: 1; min-width: 120px; }
 #hist { font-size: 12.5px; }
-#hist th:nth-child(1) { width: 150px; } #hist th:nth-child(2) { width: 92px; } #hist th:nth-child(3) { width: 104px; }
-#hist th:nth-child(4) { width: 84px; } #hist th:nth-child(5), #hist th:nth-child(6) { width: 128px; } #hist th:nth-child(8) { width: 60px; }
+#hist th:nth-child(1) { width: 34px; } #hist th:nth-child(2) { width: 170px; } #hist th:nth-child(3) { width: 108px; } #hist th:nth-child(4) { width: 104px; }
+#hist th:nth-child(5) { width: 96px; } #hist th:nth-child(6), #hist th:nth-child(7) { width: 124px; } #hist th:nth-child(9) { width: 76px; }
+#hist input[type=checkbox] { accent-color: var(--low); cursor: pointer; vertical-align: middle; }
+.danger:hover, .danger.armed { color: #fff; background: var(--crit); border-color: var(--crit); }
+.d-actions { padding: 12px 14px; border-top: 1px solid var(--line); }
 #hist tbody tr { cursor: pointer; }
 #hist tbody tr.sel { background: var(--raise); box-shadow: inset 2px 0 0 var(--bright); }
 .pager { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-top: 1px solid var(--line); flex: none; font-size: 12px; color: var(--dim); }

@@ -29,10 +29,11 @@ from pydantic import ValidationError
 
 from sentinel.api.hub import Hub
 from sentinel.api.service import SentinelService, ServiceError
-from sentinel.contracts.models import AnomalyRecord, HistoryQuery
+from sentinel.contracts.models import AnomalyRecord, HistoryDelete, HistoryQuery
 from sentinel.storage.db import Storage
 
 COOKIE = "sentinel"
+MAX_BODY = 16_384  # a delete request is at most 500 small integers
 KEEPALIVE_SECONDS = 15.0
 CSP = (
     "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
@@ -151,6 +152,27 @@ class UiServer:
                 if url.path.startswith("/api/history/"):
                     return self._history_item(url.path.rsplit("/", 1)[1])
                 self._send(HTTPStatus.NOT_FOUND, "text/plain; charset=utf-8", b"not found\n")
+
+            def do_POST(self) -> None:
+                if self.headers.get("Host", "") not in allowed or not self._cookie_ok():
+                    return self._deny()
+                # A custom header cannot be sent cross-site without a CORS preflight, which we
+                # never answer: this plus the SameSite=Strict cookie stops other pages deleting.
+                if self.headers.get("X-Sentinel") != "1" or self.path != "/api/history/delete":
+                    return self._deny()
+                try:
+                    length = int(self.headers.get("Content-Length", ""))
+                    if not 0 < length <= MAX_BODY:
+                        raise ValueError("body size")
+                    request = HistoryDelete.model_validate_json(self.rfile.read(length))
+                except (ValueError, ValidationError):
+                    return self._json({"error": "bad request"}, HTTPStatus.BAD_REQUEST)
+                store = Storage(outer._database)
+                try:
+                    deleted = store.delete_anomalies(request.ids)
+                finally:
+                    store.close()
+                self._json({"deleted": deleted})
 
             def _static(self, name: str) -> None:
                 body = (resources.files("sentinel.api") / "static" / name).read_bytes()

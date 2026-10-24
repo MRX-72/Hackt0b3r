@@ -380,7 +380,9 @@ first load), only on 127.0.0.1, and nothing is loaded from the internet.
   has just raised an alert are shown in red for a minute. The top bar counts packets per second,
   events, and CRIT / HIGH / MED alerts.
 - **HISTORY:** every anomaly Sentinel has ever reported, kept permanently in the database (the
-  `anomaly_log` table is append-only and is never pruned), so it is all still there after a restart.
+  `anomaly_log` table is never pruned and entries cannot be edited), so it is all still there after
+  a restart. To remove entries, tick them (or open one) and use **DELETE SELECTED** / **DELETE THIS
+  ENTRY**; it asks for a second click to confirm, and each deletion is recorded in the audit log.
   Filter by severity, time range or source (live / replay), search headline, address, technique or
   incident id, page through results, click a row for the full explanation and the numbers behind
   it, and `EXPORT CSV`. Keys: `1` live, `2` history, `/` search, `p` pause.

@@ -80,7 +80,7 @@ sudo "$(which sentinel)" ui --iface bridge100           # or the web console
 
 - **Web console** (`sentinel ui`): LIVE tab with a packet monitor, packets per second, a network
   topology and an alert stack; HISTORY tab with every anomaly ever detected (filter, search, detail,
-  CSV export). It only listens on `127.0.0.1` and needs the one-time link it prints.
+  CSV export, delete chosen entries). It only listens on `127.0.0.1` and needs the one-time link it prints.
 - **Terminal**: `watch -d` (live dashboard with criticals pinned), `watch -t` (show traffic),
   `replay FILE.pcap`. Every flag is in [USER_GUIDE.md](USER_GUIDE.md).
 
@@ -91,7 +91,7 @@ you run the command from:
 
 | File | What |
 |---|---|
-| `sentinel.db` | the permanent history: every detection (append-only, never pruned), incidents, audit log |
+| `sentinel.db` | the permanent history: every detection (kept until you delete entries; never pruned automatically), incidents, audit log |
 | `config.toml` | settings (detection thresholds, interface, notifications, LLM) |
 | `secrets.env` | webhook URLs and tokens, mode 600, never printed or logged |
 
