@@ -498,6 +498,7 @@ def run_ui(  # noqa: PLR0913 - one keyword per command-line option
     """Serve the console until Ctrl-C, capturing live or replaying files if asked."""
     pcaps = pcaps or []
     if iface and not pcaps:
+        service.capture_command(iface)  # a refused interface or filter fails before the lock
         service.acquire_capture()  # fail now, not silently inside the capture thread
     capture = (
         f"replay {', '.join(p.name for p in pcaps)}"

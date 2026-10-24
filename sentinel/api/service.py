@@ -108,6 +108,14 @@ class SentinelService:
             self._storage = Storage(self._database)
         return self._storage
 
+    def capture_command(self, interface: str) -> list[str]:
+        """The tcpdump command for `interface`; ServiceError if it or the filter is refused."""
+        cap = self._settings.capture
+        try:
+            return tcpdump_argv(interface, cap.snaplen, cap.bpf)
+        except CaptureError as exc:
+            raise ServiceError(str(exc)) from exc
+
     def acquire_capture(self) -> None:
         """Only one live capture may feed a database: two would log every alert twice.
 
@@ -189,15 +197,11 @@ class SentinelService:
         Capture runs in a thread; the main loop also ticks the detectors once a second so an
         attack on a quiet link is reported without waiting for the next packet.
         """
+        argv = self.capture_command(interface)  # reject bad input before any side effect
         self.acquire_capture()
-        cap = self._settings.capture
         pipeline = self._pipeline(on_event, on_report, notify)
         stop = halt if halt is not None else threading.Event()
         incoming: queue.Queue[tuple[float, bytes] | CaptureError | None] = queue.Queue()
-        try:
-            argv = tcpdump_argv(interface, cap.snaplen, cap.bpf)
-        except CaptureError as exc:
-            raise ServiceError(str(exc)) from exc
 
         def pump() -> None:
             try:

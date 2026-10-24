@@ -6,7 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from sentinel.api.service import SentinelService
+from sentinel.api.service import SentinelService, ServiceError
+from sentinel.api.ui import run_ui
 from sentinel.config.secrets import Secrets
 from sentinel.config.settings import Settings
 from sentinel.contracts.models import Event, Flow, IncidentReport
@@ -221,3 +222,15 @@ def test_every_alert_gets_its_own_report_even_inside_one_incident(tmp_path: Path
         "Repeated login attempts against a service",
     ]
     assert len({r.explanation.headline for r in reports}) == 3
+
+
+@pytest.mark.security
+def test_a_refused_interface_fails_before_the_lock_or_the_database_exist(tmp_path: Path) -> None:
+    db = tmp_path / "never.db"
+    service = SentinelService(Settings(), SECRETS, database=db)
+    with pytest.raises(ServiceError, match="interface"):
+        service.watch("-w")
+    with pytest.raises(ServiceError, match="interface"):
+        run_ui(service, port=0, iface="-w", open_browser=False)
+    assert not db.exists() and not (tmp_path / "never.db.lock").exists()
+    service.close()
