@@ -168,6 +168,12 @@ class UiServer:
             def _deny(self) -> None:
                 self._send(HTTPStatus.FORBIDDEN, "text/plain; charset=utf-8", b"forbidden\n")
 
+            def _origin_ok(self) -> bool:
+                """A browser names the page that made a request; refuse any but this console.
+                (Non-browser clients send no Origin header.)"""
+                origin = self.headers.get("Origin")
+                return origin is None or origin in {f"http://{h}" for h in allowed}
+
             def _cookie_ok(self) -> bool:
                 jar: SimpleCookie = SimpleCookie(self.headers.get("Cookie", ""))
                 morsel = jar.get(COOKIE)
@@ -175,8 +181,8 @@ class UiServer:
 
             # ---- routing ----
             def do_GET(self) -> None:  # noqa: PLR0911 - one early return per refusal or route
-                if self.headers.get("Host", "") not in allowed:  # DNS-rebinding guard
-                    return self._deny()
+                if self.headers.get("Host", "") not in allowed or not self._origin_ok():
+                    return self._deny()  # DNS-rebinding and cross-site guard
                 url = urlsplit(self.path)
                 params = parse_qs(url.query)
                 if url.path == "/" and "t" in params:  # first visit: trade the token for a cookie
@@ -209,7 +215,11 @@ class UiServer:
                 self._send(HTTPStatus.NOT_FOUND, "text/plain; charset=utf-8", b"not found\n")
 
             def do_POST(self) -> None:
-                if self.headers.get("Host", "") not in allowed or not self._cookie_ok():
+                if (
+                    self.headers.get("Host", "") not in allowed
+                    or not self._origin_ok()
+                    or not self._cookie_ok()
+                ):
                     return self._deny()
                 # A custom header cannot be sent cross-site without a CORS preflight, which we
                 # never answer: this plus the SameSite=Strict cookie stops other pages acting.

@@ -167,13 +167,15 @@ class Console:
         self.ui, self.hub, self.doctor_calls, self.tests = ui, hub, doctor_calls, tests
 
     def request(self, method: str, path: str, body: object = None, *, cookie: bool = True,
-                marker: bool = True) -> tuple[int, Any]:  # fmt: skip
+                marker: bool = True, origin: str | None = None) -> tuple[int, Any]:  # fmt: skip
         conn = http.client.HTTPConnection("127.0.0.1", self.ui.port, timeout=5)
         headers = {"Host": f"127.0.0.1:{self.ui.port}", "Content-Type": "application/json"}
         if cookie:
             headers["Cookie"] = f"{COOKIE}=tok"
         if marker and method == "POST":
             headers["X-Sentinel"] = "1"
+        if origin is not None:
+            headers["Origin"] = origin
         raw = body if isinstance(body, (str, bytes)) else json.dumps(body)
         conn.request(method, path, body=raw if method == "POST" else None, headers=headers)
         res = conn.getresponse()
@@ -386,3 +388,22 @@ def test_console_info_has_no_secrets(tmp_path: Path) -> None:
     assert "TOPSECRET" not in json.dumps(info) and info["notify"]["armed"] is False
     assert info["detectors"]["isolation_forest"] is True and info["version"]
     service.close()
+
+
+@pytest.mark.security
+def test_requests_from_other_web_pages_are_refused_even_with_every_credential(
+    console: Console,
+) -> None:
+    port = console.ui.port
+    ours = [f"http://127.0.0.1:{port}", f"http://localhost:{port}"]
+    assert console.request("GET", "/api/devices", origin="https://evil.example")[0] == 403
+    assert console.request("GET", "/api/devices", origin="null")[0] == 403
+    assert console.request("GET", "/api/devices", origin=f"http://127.0.0.1:{port + 1}")[0] == 403
+    body = {"mac": MAC1, "name": "pwned"}
+    assert (
+        console.request("POST", "/api/devices/name", body, origin="https://evil.example")[0] == 403
+    )
+    assert console.request("GET", f"/api/devices/{MAC1}")[1]["device"]["name"] is None
+    for origin in (*ours, None):  # the console itself, and non-browser clients with no Origin
+        assert console.request("GET", "/api/devices", origin=origin)[0] == 200
+    assert console.request("POST", "/api/devices/name", body, origin=ours[0])[0] == 200
