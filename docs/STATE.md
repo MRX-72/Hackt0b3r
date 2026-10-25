@@ -26,7 +26,7 @@ LIVE, HISTORY, NOTIFICATIONS, DEVICES, HEALTH (D-027). Device inventory and the 
 DNS character n-gram signal and Isolation Forest behaviour detector (D-026, docs/ABLATION.md), on by default, switchable.
 
 ## Not built yet
-Rogue DHCP/ARP/canary detectors, per-device peer baselines, autoencoder, event bus with drop accounting, enforcement validator/pf renderer, ravend daemon, model registry, HTTP API server, device inventory, modes, rule engine, embeddings, `ask`, eval/purple-team, background service (launchd).
+Rogue DHCP/ARP/canary detectors, per-device peer baselines, autoencoder, event bus with drop accounting, enforcement validator/pf renderer, ravend daemon, model registry, HTTP API server, advanced device grouping (multi-MAC / mDNS), modes, rule engine, embeddings, `ask`, eval/purple-team, background service (launchd).
 
 ## Process deviations (honest list)
 - Component briefs exist only for storage, parser and features; later components were specified in DECISIONS and tests instead.
