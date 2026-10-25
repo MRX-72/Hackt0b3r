@@ -413,8 +413,20 @@ first load), only on 127.0.0.1, and nothing is loaded from the internet.
   server), refreshed at most every ten seconds.
 - **Theme:** the **DARK / LIGHT** switch in the top bar (dark is the default). It is remembered
   in your browser only; nothing about it is sent to or stored by Raven.
-- Keys: `1` live, `2` history, `3` notifications, `4` devices, `5` health, `/` search or filter,
-  `p` pause the packet table.
+### Keyboard shortcuts
+
+| Context | Key | Action |
+|---|---|---|
+| Web Console | `1` | Switch to LIVE tab |
+| Web Console | `2` | Switch to HISTORY tab |
+| Web Console | `3` | Switch to NOTIFICATIONS tab |
+| Web Console | `4` | Switch to DEVICES tab |
+| Web Console | `5` | Switch to HEALTH tab |
+| Web Console | `/` | Focus search or filter input |
+| Web Console | `p` | Pause / resume packet table feed |
+| Terminal Dashboard (`-d`) | `q` | Quit live dashboard |
+| Terminal Dashboard (`-d`) | `c` | Clear pinned critical alerts |
+
 - The history lives in `~/.raven/raven.db` (`database` in `config.toml`; a relative path
   there means next to the config file), so it is the same whichever folder you run from.
 - The same history is available in the terminal: `raven history --label critical --since 7d`.
