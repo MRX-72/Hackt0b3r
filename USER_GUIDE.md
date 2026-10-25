@@ -186,8 +186,13 @@ raven [--config FILE] [--json] [--color auto|always|never] [--version] <command>
 
 Run `raven` with no command to see the help and examples.
 
-**Exit codes:** `0` success; `1` an operational problem (bad config, unreadable capture, delivery
-failed, failed health check); `2` command-line usage error.
+### Exit codes
+
+| Exit code | Meaning | Common causes |
+|---|---|---|
+| `0` | Success | Command completed successfully with no errors |
+| `1` | Operational failure | Invalid configuration, inaccessible interface, unreadable capture file, notification failure, or doctor check failure |
+| `2` | Usage / syntax error | Invalid CLI arguments, unknown flags, or missing required options |
 
 **Durations** (`--since`, `--for`) look like `90`, `30s`, `15m`, `2h`, `1d`.
 **Incident ids** may be shortened to any unique prefix, so `inc-aabbccddee30` is enough when only
