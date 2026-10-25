@@ -346,7 +346,8 @@ The statistical detectors are tuned under `[detection.ml]` (`ngram_dns`, `isolat
 | `command not found: raven` | `uv tool update-shell`, then open a new terminal (or use `uv run raven`) |
 | `configuration error: ... chmod 600` | `chmod 600 ~/.raven/secrets.env` or `raven doctor --fix` |
 | `another Raven is already capturing ...` | stop the other one: `pkill -f raven` |
-| capture permission denied / no packets | use `sudo "$(which raven)" ...`; check the interface with `ifconfig`; run `raven doctor` |
+| capture permission denied / no packets | use `sudo "$(which raven)" ...`; check the interface with `ifconfig`; run `raven doctor`; or add your user to `access_bpf` |
+| web console port already in use | specify a different port with `raven ui --port 8788` |
 | history empty after a restart | you ran from a different `RAVEN_HOME`/config; `raven status` shows which database is used |
 | `source: template (fallback: cannot reach the LLM server ...)` | Ollama is not running: start it with `ollama serve` (or open the Ollama app) and run `raven llm test` again |
 | `fallback: LLM server returned HTTP 404` or `model not listed` | the `model` in `[llm]` must match `ollama list` exactly, tag included (for example `gemma4:e2b`) |
