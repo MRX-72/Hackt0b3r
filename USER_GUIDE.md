@@ -55,7 +55,7 @@ on Slack, Discord or Telegram. This guide covers everything you can do with the 
 Requirements: macOS, [uv](https://docs.astral.sh/uv/), Python 3.13 (uv fetches it if needed).
 
 ```bash
-git clone <your repo> raven && cd raven
+git clone https://github.com/MRX-72/Hackt0b3r.git raven && cd raven
 uv tool install .                                 # installs `raven` on your PATH (~/.local/bin)
 raven --version                                # raven 0.1.0
 raven init                                     # creates ~/.raven/config.toml and secrets.env
