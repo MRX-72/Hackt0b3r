@@ -806,6 +806,21 @@ Tuning tips:
   A slow scan will vanish from the results, which is exactly why the longer windows exist. If you
   remove a window you must keep the three threshold tables consistent with it.
 
+### Environment variables
+
+Raven recognizes the following environment variables (defined in your shell or `~/.raven/secrets.env`):
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `RAVEN_HOME` | Directory for database, default config, and secrets | `~/.raven` |
+| `RAVEN_CONFIG` | Path to configuration file | `~/.raven/config.toml` (or `./config.toml`) |
+| `NO_COLOR` | Disables colored terminal output when set | unset (auto-detected) |
+| `SLACK_WEBHOOK_URL` | Incoming webhook URL for Slack notifications | unset |
+| `DISCORD_WEBHOOK_URL` | Webhook URL for Discord notifications | unset |
+| `TELEGRAM_BOT_TOKEN` | Bot token from BotFather for Telegram notifications | unset |
+| `TELEGRAM_CHAT_ID` | Numeric destination chat or channel ID for Telegram | unset |
+| `LLM_API_KEY` | Optional bearer token for authenticated LLM endpoints | unset |
+
 ---
 
 ## Scripting with `--json`
