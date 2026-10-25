@@ -2,7 +2,7 @@
 Last updated: 2026-10-25
 
 ## Stage
-Stage 1, reordered by the user (D-014): detection engine, notifiers, LLM summaries and a CLI first. Gate 1 not formally run.
+Stage 1, reordered by the user (D-014): detection engine, notifiers, LLM summaries and a CLI first. Gate 1 not yet formally run.
 
 ## Scope
 CLI plus a local web console (`raven ui`, D-023) as a second client of the service facade. Installable with `uv tool install .`; data in `~/.raven` (D-024).
