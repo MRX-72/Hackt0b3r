@@ -281,4 +281,4 @@ DNS-free traffic.
 | Nothing detected, summary shows `frames=` near 0 | The capture started after the attack. Start terminal 1 first and wait about 3 seconds. |
 | Brute force not detected on a port other than 2222 | The port is not in `auth_ports` in `examples/demo-10s.toml`. |
 | `attempt to write a readonly database` afterwards | A `sudo` run left `demo.db` owned by root: `sudo chown $USER demo.db*`. |
-| Results differ from the table | Compare with `uv run python tools/localhost_check.py`; it uses exactly the config shown above. Timing columns vary; the PASS/FAIL columns should not.. |
+| Results differ from the table | Compare with `uv run python tools/localhost_check.py`; it uses exactly the config shown above. Timing columns vary; the PASS/FAIL columns should not. |
