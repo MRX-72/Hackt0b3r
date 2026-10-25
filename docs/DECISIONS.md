@@ -1,5 +1,5 @@
 # DECISIONS
-Format: context, decision, reason.
+Format: context, decision, rationale.
 
 ## D-001 Python 3.13
 Context: default python3 is 3.15.0 and onnxruntime has no cp315 wheel (FACTS). Spec asks 3.11+.
