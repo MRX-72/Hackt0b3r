@@ -1,4 +1,5 @@
-# Demo: four attacks against your own machine, caught by the 10-second window
+# Demo
+: four attacks against your own machine, caught by the 10-second window
 
 This reproduces a live test of Raven on **your own loopback interface** (`127.0.0.1`). It runs the
 four attacks Raven knows (port scan, brute force, beaconing, DNS tunnelling) plus a control
