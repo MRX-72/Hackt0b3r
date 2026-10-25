@@ -1,5 +1,5 @@
 # FACTS
-Labels: VERIFIED (ran it / read source, cite) · ASSUMED · UNKNOWN. Update rows as facts are confirmed.
+Labels: VERIFIED (ran it or read source, with citation) · ASSUMED · UNKNOWN. Update rows as facts are confirmed.
 
 | claim | source | date | label | who |
 |---|---|---|---|---|
