@@ -1,6 +1,6 @@
 # Ablation: do the two statistical detectors earn their place?
 
-Rule (CLAUDE.md): a model ships enabled only if an ablation shows it adds something without
+Project rule: a model ships enabled only if an ablation shows it adds something without
 hurting normal traffic. Both checks below are automated in `tests/test_ml.py` and
 `tests/test_detection_matrix.py`; the numbers were measured on 2026-10-25 on **synthetic** traffic
 (seeded generators in `tests/scenarios.py`). They show the mechanism works, not a field accuracy.

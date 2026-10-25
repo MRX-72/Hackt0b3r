@@ -3,7 +3,7 @@
 
 Extends Part 3 (Base Specification) and Part 4 (V2 Addendum). Where they conflict on anything about models, **this part wins**.
 
-**Instructions for Claude Code:** Build the model layer behind a registry (section 3). Every model must be swappable by config, individually disable-able, and must earn its place through the ablation in section 9. Items marked **verify** (name, size, license, availability) must be checked on the real machine or official source before use. Do not download models at demo time; pre-fetch and pin checksums.
+**Build notes:** Build the model layer behind a registry (section 3). Every model must be swappable by config, individually disable-able, and must earn its place through the ablation in section 9. Items marked **verify** (name, size, license, availability) must be checked on the real machine or official source before use. Do not download models at demo time; pre-fetch and pin checksums.
 
 ---
 

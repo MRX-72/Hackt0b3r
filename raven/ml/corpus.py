@@ -33,6 +33,6 @@ youtube zone akamai amazonaws apple icloud microsoft office365 windowsupdate gst
 doubleclick googleusercontent cloudfront fastly netflix spotify twitter linkedin instagram
 whatsapp snapchat tiktok reddit wikipedia mozilla firefox ubuntu debian fedora python nodejs
 docker kubernetes slack zoom skype teams dropbox box paypal stripe shopify wordpress medium github
-gitlab bitbucket digitalocean heroku vercel netlify cloudflare openai anthropic ntp time pool mdns
+gitlab bitbucket digitalocean heroku vercel netlify cloudflare ntp time pool mdns
 local lan
 """.split()  # noqa: SIM905 - a wrapped text block reads better than a list

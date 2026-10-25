@@ -12,7 +12,6 @@ secrets.env
 raven.db*
 demo.db*
 docs/pitch/node_modules/
-.claude/
 .hypothesis/
 .venv*/
 dist/

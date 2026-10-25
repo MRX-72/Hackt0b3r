@@ -37,7 +37,7 @@ def test_random_names_are_far_more_surprising_than_ordinary_ones() -> None:
     ordinary = ["weatherstation", "mycompany", "printserver", "newsletter", "fileshare", "www"]
     assert min(DEFAULT.surprisal(n) for n in random_names) > 4.8
     assert sum(DEFAULT.surprisal(n) for n in ordinary) / len(ordinary) < 4.0
-    assert DEFAULT.surprisal("") == DEFAULT.surprisal("....") or DEFAULT.surprisal("") == 0.0
+    assert DEFAULT.surprisal("") == pytest.approx(DEFAULT.surprisal("...."))  # empty labels
 
 
 def test_surprisal_ignores_case_and_scores_each_label() -> None:

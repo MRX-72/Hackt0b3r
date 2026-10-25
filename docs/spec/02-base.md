@@ -3,7 +3,7 @@
 
 A local, zero-config, explainable network anomaly detector for colleges, small offices and small teams with no security staff. Built for a 10-hour hackathon on three MacBooks. Nothing leaves the lab.
 
-**Instructions for Claude Code:** Build this in the phase order in section 14. Get each phase working end to end before starting the next. Prefer simple, deterministic code over cleverness. Where this spec says "verify", test it on the real machine before building on it. Keep a `NOTES.md` of anything that deviated from this spec.
+**Build notes:** Build this in the phase order in section 14. Get each phase working end to end before starting the next. Prefer simple, deterministic code over cleverness. Where this spec says "verify", test it on the real machine before building on it. Keep a `NOTES.md` of anything that deviated from this spec.
 
 ---
 
