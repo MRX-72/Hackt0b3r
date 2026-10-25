@@ -3,7 +3,7 @@
 Raven watches the network traffic of a small office, lab or college network and tells you, in
 plain English, when something looks wrong: **port scans, brute-force logins, beaconing (malware
 checking in), DNS tunnelling and unusual traffic volume**. Every detection is kept in a permanent
-history you can browse in a local web console or the terminal, and can be pushed to **Slack,
+history you can browse in a local web UI or the terminal, and can be pushed to **Slack,
 Discord or Telegram**.
 
 It runs on one Mac that sits in front of your devices (a gateway). No cloud, no account, no
