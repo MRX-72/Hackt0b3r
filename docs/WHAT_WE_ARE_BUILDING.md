@@ -17,7 +17,7 @@ Passively captures traffic crossing the gateway, builds flows and multi-timescal
 
 ## Architecture (diagrams in `docs/diagrams/`)
 - Context and trust boundary: `01-system-context.mmd`. Lab layout: `02-network-topology.mmd`.
-- Two processes: `ravend` (root: capture, ring buffer, approved pf changes) and `raven-api` (unprivileged: everything else), joined by a 0600 Unix socket: `03-process-architecture.mmd`.
+- Process model: target is two processes (`ravend` for root capture/ring buffer and `raven-api` for unprivileged analytics/UI, joined by a 0600 Unix socket: `03-process-architecture.mmd`). Currently in Stage 1, the CLI and local web console (`raven ui`) share a unified service facade (`raven.api`) backed by a direct `tcpdump` capture pipe.
 - Data path packets → flows → windows → detectors → ensemble → incidents → sanitizer → explanation: `04-data-flow-cascade.mmd`, example in `07-detection-sequence.mmd`, incident states in `08-incident-lifecycle.mmd`.
 - Import direction between modules, enforced by a test: `05-module-dependencies.mmd`.
 - Storage: `06-data-model.mmd`. Enforcement guards: `09-enforcement-approval.mmd`. Notifications: `10-notification-flow.mmd`. Models: `11-model-registry.mmd`. Order of work: `12-build-order.mmd`.
