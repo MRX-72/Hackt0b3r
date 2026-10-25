@@ -1,5 +1,5 @@
 # HUMAN VERIFICATION
-Run these on the gateway Mac (Mac C) unless noted. Report the printed PASS/FAIL line and any output. None of these are verified yet.
+Run these on the gateway Mac (Mac C) unless noted. Report the printed PASS/FAIL line and any output. Items are pending verification except where marked VERIFIED.
 
 | id | assumption | command | report back |
 |---|---|---|---|
@@ -17,3 +17,9 @@ Run these on the gateway Mac (Mac C) unless noted. Report the printed PASS/FAIL 
 | H-10 | Each notifier delivers a test message (put keys in `secrets.env` first) | `raven notify test slack`, `... discord`, `... telegram` | message arrives? error text |
 | H-11 | LLM summary works with your model | start `ollama serve` (or `llama-server -m <gguf>`), set `[llm]` in `config.toml`, run `raven llm test` | output, latency |
 | H-12 | The two statistical detectors (n-gram DNS signal, Isolation Forest) do not raise false alarms on your real network | run `raven watch -d` for a normal working day with `[detection.ml]` on; then `raven history --text RVN001` and review every `behavior` / DNS entry | count of alerts you judge false; if more than a few a day, raise `if_threshold` or set `isolation_forest = false` |
+
+## Reporting Guidelines
+
+1. When an assumption is tested, record the exact command output, timestamp, and environment details.
+2. If confirmed, change the status label to `VERIFIED` with date and maintainer citation.
+3. Update corresponding entries in [FACTS.md](FACTS.md) and note progress in [STATE.md](STATE.md).

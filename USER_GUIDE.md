@@ -55,7 +55,7 @@ on Slack, Discord or Telegram. This guide covers everything you can do with the 
 Requirements: macOS, [uv](https://docs.astral.sh/uv/), Python 3.13 (uv fetches it if needed).
 
 ```bash
-git clone <your repo> raven && cd raven
+git clone https://github.com/MRX-72/Hackt0b3r.git raven && cd raven
 uv tool install .                                 # installs `raven` on your PATH (~/.local/bin)
 raven --version                                # raven 0.1.0
 raven init                                     # creates ~/.raven/config.toml and secrets.env
@@ -186,8 +186,13 @@ raven [--config FILE] [--json] [--color auto|always|never] [--version] <command>
 
 Run `raven` with no command to see the help and examples.
 
-**Exit codes:** `0` success; `1` an operational problem (bad config, unreadable capture, delivery
-failed, failed health check); `2` command-line usage error.
+### Exit codes
+
+| Exit code | Meaning | Common causes |
+|---|---|---|
+| `0` | Success | Command completed successfully with no errors |
+| `1` | Operational failure | Invalid configuration, inaccessible interface, unreadable capture file, notification failure, or doctor check failure |
+| `2` | Usage / syntax error | Invalid CLI arguments, unknown flags, or missing required options |
 
 **Durations** (`--since`, `--for`) look like `90`, `30s`, `15m`, `2h`, `1d`.
 **Incident ids** may be shortened to any unique prefix, so `inc-aabbccddee30` is enough when only
@@ -413,8 +418,20 @@ first load), only on 127.0.0.1, and nothing is loaded from the internet.
   server), refreshed at most every ten seconds.
 - **Theme:** the **DARK / LIGHT** switch in the top bar (dark is the default). It is remembered
   in your browser only; nothing about it is sent to or stored by Raven.
-- Keys: `1` live, `2` history, `3` notifications, `4` devices, `5` health, `/` search or filter,
-  `p` pause the packet table.
+### Keyboard shortcuts
+
+| Context | Key | Action |
+|---|---|---|
+| Web Console | `1` | Switch to LIVE tab |
+| Web Console | `2` | Switch to HISTORY tab |
+| Web Console | `3` | Switch to NOTIFICATIONS tab |
+| Web Console | `4` | Switch to DEVICES tab |
+| Web Console | `5` | Switch to HEALTH tab |
+| Web Console | `/` | Focus search or filter input |
+| Web Console | `p` | Pause / resume packet table feed |
+| Terminal Dashboard (`-d`) | `q` | Quit live dashboard |
+| Terminal Dashboard (`-d`) | `c` | Clear pinned critical alerts |
+
 - The history lives in `~/.raven/raven.db` (`database` in `config.toml`; a relative path
   there means next to the config file), so it is the same whichever folder you run from.
 - The same history is available in the terminal: `raven history --label critical --since 7d`.
@@ -805,6 +822,21 @@ Tuning tips:
 - To check what the long windows add, run the same capture with `windows = [10]` and compare.
   A slow scan will vanish from the results, which is exactly why the longer windows exist. If you
   remove a window you must keep the three threshold tables consistent with it.
+
+### Environment variables
+
+Raven recognizes the following environment variables (defined in your shell or `~/.raven/secrets.env`):
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `RAVEN_HOME` | Directory for database, default config, and secrets | `~/.raven` |
+| `RAVEN_CONFIG` | Path to configuration file | `~/.raven/config.toml` (or `./config.toml`) |
+| `NO_COLOR` | Disables colored terminal output when set | unset (auto-detected) |
+| `SLACK_WEBHOOK_URL` | Incoming webhook URL for Slack notifications | unset |
+| `DISCORD_WEBHOOK_URL` | Webhook URL for Discord notifications | unset |
+| `TELEGRAM_BOT_TOKEN` | Bot token from BotFather for Telegram notifications | unset |
+| `TELEGRAM_CHAT_ID` | Numeric destination chat or channel ID for Telegram | unset |
+| `LLM_API_KEY` | Optional bearer token for authenticated LLM endpoints | unset |
 
 ---
 
