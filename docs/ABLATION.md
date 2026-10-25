@@ -40,3 +40,17 @@ cases, and 1 hour of ordinary browsing for the forest alone. All raise nothing w
 - Its false-alarm rate on real networks is UNKNOWN. Both models are switchable
   (`[detection.ml]` `ngram_dns`, `isolation_forest`); see H-12 in `docs/HUMAN_VERIFICATION.md`.
 - Pure Python, no numeric library: fine for tens of devices, not for thousands.
+
+## Configuration reference
+
+Both statistical detectors can be configured in `~/.raven/config.toml` under `[detection.ml]`:
+
+```toml
+[detection.ml]
+ngram_dns = true            # character n-gram surprisal signal for DNS tunnels
+isolation_forest = true     # Isolation Forest volume outlier detector
+if_threshold = 0.6          # anomaly score threshold (0.0 to 1.0)
+if_min_samples = 200        # warm-up window count before forest activates (~35 min)
+```
+
+See [README.md](../README.md#configuration-and-data) and [DECISIONS.md](DECISIONS.md) for architectural context and design rationale.
